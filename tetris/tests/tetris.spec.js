@@ -61,6 +61,120 @@ async function getControlsState(page) {
   return page.evaluate(() => window.__tetrisTest.getControlsState());
 }
 
+async function getPortraitLayout(page) {
+  return page.evaluate(() => {
+    const readBox = (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return {
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height,
+        right: box.right,
+        bottom: box.bottom
+      };
+    };
+
+    return {
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight
+      },
+      scrollHeight: document.scrollingElement.scrollHeight,
+      board: readBox('#game'),
+      controls: readBox('.touch-controls'),
+      playfield: readBox('.playfield'),
+      status: readBox('.status-wrap'),
+      moveZone: readBox('.move-zone'),
+      actionZone: readBox('.action-zone'),
+      toggle: readBox('#handedness-toggle'),
+      left: readBox('[data-action="left"]'),
+      right: readBox('[data-action="right"]'),
+      softDrop: readBox('[data-action="soft-drop"]'),
+      rotate: readBox('[data-action="rotate"]'),
+      hardDrop: readBox('[data-action="hard-drop"]')
+    };
+  });
+}
+
+function expectInside(inner, outer) {
+  expect(inner.x).toBeGreaterThanOrEqual(outer.x - 1);
+  expect(inner.y).toBeGreaterThanOrEqual(outer.y - 1);
+  expect(inner.right).toBeLessThanOrEqual(outer.right + 1);
+  expect(inner.bottom).toBeLessThanOrEqual(outer.bottom + 1);
+}
+
+function expectVisibleInViewport(box, viewport) {
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.bottom).toBeLessThanOrEqual(viewport.height + 1);
+}
+
+function centerX(box) {
+  return box.x + box.width / 2;
+}
+
+function centerY(box) {
+  return box.y + box.height / 2;
+}
+
+function expectRightHandedErgonomics(layout) {
+  const {
+    viewport,
+    scrollHeight,
+    board,
+    controls,
+    playfield,
+    status,
+    moveZone,
+    actionZone,
+    toggle,
+    left,
+    right,
+    softDrop,
+    rotate,
+    hardDrop
+  } = layout;
+
+  for (const box of [board, controls, playfield, status, moveZone, actionZone, toggle, left, right, softDrop, rotate, hardDrop]) {
+    expect(box).not.toBeNull();
+    expectVisibleInViewport(box, viewport);
+  }
+
+  expect(scrollHeight).toBeLessThanOrEqual(viewport.height + 1);
+  expect(board.height).toBeGreaterThan(status.height * 5);
+  expect(playfield.height).toBeGreaterThan(controls.height * 2.5);
+  expect(controls.y).toBeGreaterThanOrEqual(board.bottom - 1);
+  expect(controls.height).toBeLessThanOrEqual(viewport.height * 0.26);
+  expect(Math.abs(centerX(toggle) - centerX(controls))).toBeLessThan(4);
+  expect(moveZone.x).toBeLessThan(actionZone.x);
+  expect(moveZone.right).toBeLessThanOrEqual(actionZone.x + 4);
+  expect(Math.abs(moveZone.width - actionZone.width)).toBeLessThan(2);
+  expect(Math.abs(moveZone.height - actionZone.height)).toBeLessThan(2);
+  expect(Math.abs(moveZone.y - actionZone.y)).toBeLessThan(2);
+  expect(Math.abs(moveZone.bottom - actionZone.bottom)).toBeLessThan(2);
+  expect(toggle.bottom).toBeLessThanOrEqual(moveZone.y + 4);
+  expectInside(left, moveZone);
+  expectInside(right, moveZone);
+  expectInside(softDrop, moveZone);
+  expectInside(rotate, actionZone);
+  expectInside(hardDrop, actionZone);
+  expect(Math.abs(left.width - right.width)).toBeLessThan(2);
+  expect(Math.abs(left.width - softDrop.width)).toBeLessThan(2);
+  expect(Math.abs(left.height - right.height)).toBeLessThan(2);
+  expect(Math.abs(left.height - softDrop.height)).toBeLessThan(2);
+  expect(Math.abs(centerY(left) - centerY(right))).toBeLessThan(2);
+  expect(softDrop.y).toBeGreaterThan(left.y);
+  expect(centerX(softDrop)).toBeGreaterThan(centerX(left));
+  expect(centerX(softDrop)).toBeLessThan(centerX(right));
+  expect(rotate.height).toBeGreaterThan(hardDrop.height);
+  expect(Math.abs(rotate.width - rotate.height)).toBeLessThan(2);
+  expect(Math.abs(hardDrop.width - hardDrop.height)).toBeLessThan(2);
+  expect(centerX(rotate)).toBeGreaterThan(centerX(hardDrop));
+  expect(centerY(hardDrop)).toBeGreaterThanOrEqual(centerY(rotate));
+}
+
 test('renders and exposes ready test API', async ({ page }) => {
   await openGame(page);
   await expect.poll(async () => {
@@ -228,6 +342,54 @@ test('milestone status persists briefly then falls back to next target message',
   await expect(page.locator('#status')).toHaveText('Marathon pace: 10 lines to level 6');
 });
 
+test('higher levels taper speed instead of jumping to minimum too early', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  state.lines = 89;
+  state.level = 9;
+  state.gravityFrames = 18;
+  const board = state.board.map((row) => row.slice());
+  for (let x = 0; x < 10; x += 1) board[19][x] = 1;
+  board[19][3] = 0;
+  board[19][4] = 0;
+  board[19][5] = 0;
+  board[19][6] = 0;
+  state.board = board;
+  state.current = { type: 'I', index: 1, x: 4, y: 17, rotation: 0 };
+  await setState(page, state);
+
+  await page.keyboard.press('Space');
+  await advanceFrames(page, 18);
+  const after = await getState(page);
+  expect(after.level).toBe(10);
+  expect(after.gravityFrames).toBe(16);
+  await expect(page.locator('#status')).toHaveText('Milestone reached: level 10');
+});
+
+test('minimum speed is delayed until level fifteen', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  state.lines = 139;
+  state.level = 14;
+  state.gravityFrames = 8;
+  const board = state.board.map((row) => row.slice());
+  for (let x = 0; x < 10; x += 1) board[19][x] = 1;
+  board[19][3] = 0;
+  board[19][4] = 0;
+  board[19][5] = 0;
+  board[19][6] = 0;
+  state.board = board;
+  state.current = { type: 'I', index: 1, x: 4, y: 17, rotation: 0 };
+  await setState(page, state);
+
+  await page.keyboard.press('Space');
+  await advanceFrames(page, 18);
+  const after = await getState(page);
+  expect(after.level).toBe(15);
+  expect(after.gravityFrames).toBe(6);
+  await expect(page.locator('#status')).toHaveText('Milestone reached: level 15');
+});
+
 test('game over on spawn collision then restart recovers', async ({ page }) => {
   await openGame(page);
   const state = await getState(page);
@@ -293,13 +455,7 @@ test.describe('mobile touch controls', () => {
   test('keeps touch controls below the board in portrait layout', async ({ page }) => {
     await openGame(page);
 
-    const boardBox = await page.locator('#game').boundingBox();
-    const controlsBox = await page.locator('.touch-controls').boundingBox();
-    const playfieldBox = await page.locator('.playfield').boundingBox();
-    const statusBox = await page.locator('.status-wrap').boundingBox();
-    const moveZoneBox = await page.locator('.move-zone').boundingBox();
-    const actionZoneBox = await page.locator('.action-zone').boundingBox();
-    const toggleBox = await page.locator('#handedness-toggle').boundingBox();
+    const layout = await getPortraitLayout(page);
     const restartStyles = await page.locator('#restart').evaluate((element) => {
       const style = window.getComputedStyle(element);
       return {
@@ -308,21 +464,17 @@ test.describe('mobile touch controls', () => {
       };
     });
 
-    expect(boardBox).not.toBeNull();
-    expect(controlsBox).not.toBeNull();
-    expect(playfieldBox).not.toBeNull();
-    expect(statusBox).not.toBeNull();
-    expect(moveZoneBox).not.toBeNull();
-    expect(actionZoneBox).not.toBeNull();
-    expect(toggleBox).not.toBeNull();
-    expect(boardBox.height).toBeGreaterThan(statusBox.height * 5);
-    expect(playfieldBox.height).toBeGreaterThan(controlsBox.height);
-    expect(controlsBox.y).toBeGreaterThanOrEqual(boardBox.y + boardBox.height);
-    expect(moveZoneBox.x + moveZoneBox.width).toBeLessThanOrEqual(actionZoneBox.x + 4);
-    expect(Math.abs(moveZoneBox.y - actionZoneBox.y)).toBeLessThan(24);
-    expect(toggleBox.y + toggleBox.height).toBeLessThanOrEqual(moveZoneBox.y + 4);
+    expectRightHandedErgonomics(layout);
     expect(restartStyles.borderTopColor).not.toBe('rgb(51, 65, 85)');
     expect(restartStyles.backgroundImage).toContain('gradient');
+  });
+
+  test('keeps the handheld deck in view on shorter portrait screens', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await openGame(page);
+
+    const layout = await getPortraitLayout(page);
+    expectRightHandedErgonomics(layout);
   });
 
   test('handedness toggle swaps zones and persists after reload', async ({ page }) => {
@@ -366,26 +518,12 @@ test.describe('mobile touch controls', () => {
   test('captures portrait layout screenshot for control validation', async ({ page }) => {
     await openGame(page);
 
-    const moveZoneBox = await page.locator('.move-zone').boundingBox();
-    const actionZoneBox = await page.locator('.action-zone').boundingBox();
-    const rotateBox = await page.getByRole('button', { name: 'Rotate' }).boundingBox();
-    const softDropBox = await page.getByRole('button', { name: 'Soft Drop' }).boundingBox();
-    const hardDropBox = await page.getByRole('button', { name: 'Hard Drop' }).boundingBox();
-
-    expect(moveZoneBox).not.toBeNull();
-    expect(actionZoneBox).not.toBeNull();
-    expect(rotateBox).not.toBeNull();
-    expect(softDropBox).not.toBeNull();
-    expect(hardDropBox).not.toBeNull();
-    expect(moveZoneBox.x + moveZoneBox.width).toBeLessThanOrEqual(actionZoneBox.x + 4);
-    expect(rotateBox.width).toBeGreaterThan(softDropBox.width * 1.9);
-    expect(rotateBox.y).toBeLessThan(softDropBox.y);
-    expect(hardDropBox.height).toBeLessThan(softDropBox.height);
-    expect(hardDropBox.y).toBeGreaterThanOrEqual(softDropBox.y);
+    const layout = await getPortraitLayout(page);
+    expectRightHandedErgonomics(layout);
 
     await page.screenshot({
       path: 'test-results/tetris-controls-portrait-validation.png',
-      fullPage: true
+      fullPage: false
     });
   });
 });
