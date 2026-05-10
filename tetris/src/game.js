@@ -4,6 +4,7 @@
   const CELL_SIZE = 30;
   const BASE_GRAVITY_FRAMES = 48;
   const MIN_GRAVITY_FRAMES = 6;
+  const GRAVITY_FRAMES_BY_LEVEL = [48, 44, 40, 34, 30, 27, 24, 21, 18, 16, 14, 12, 10, 8, 6];
   const LOCK_DELAY_FRAMES = 30;
   const CLEAR_SCORES = [0, 100, 300, 500, 800];
   const DROP_REPEAT_FRAMES = 2;
@@ -169,12 +170,15 @@
     }
   }
 
+  function gravityFramesForLevel(level) {
+    const normalizedLevel = Math.max(1, level);
+    const index = Math.min(GRAVITY_FRAMES_BY_LEVEL.length - 1, normalizedLevel - 1);
+    return Math.max(MIN_GRAVITY_FRAMES, GRAVITY_FRAMES_BY_LEVEL[index]);
+  }
+
   function updateLevelAndSpeed() {
     state.level = 1 + Math.floor(state.lines / 10);
-    state.gravityFrames = Math.max(
-      MIN_GRAVITY_FRAMES,
-      BASE_GRAVITY_FRAMES - (state.level - 1) * 4 - Math.floor((state.level - 1) / 3) * 2
-    );
+    state.gravityFrames = gravityFramesForLevel(state.level);
   }
 
   function setStatusMessage(message, tone = 'normal', durationFrames = STATUS_MESSAGE_FRAMES) {
