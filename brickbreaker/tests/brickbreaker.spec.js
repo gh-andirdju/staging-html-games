@@ -60,8 +60,29 @@ async function restart(page) {
 }
 
 async function prepareVisualLayout(page) {
+  const state = await getState(page);
+  await setState(page, {
+    ...state,
+    level: 1,
+    bricks: null,
+    score: 0,
+    lives: 3,
+    status: 'Playing',
+    levelClears: 0,
+    pickups: [],
+    lasers: [],
+    activeEffects: {},
+    paddleWidth: 112,
+    laserCooldown: 0
+  });
   await mutateState(page, 'centerPaddle');
   await page.locator('canvas').first().scrollIntoViewIfNeeded();
+}
+
+async function setState(page, nextState) {
+  await page.evaluate((payload) => {
+    window.__brickbreakerTest.setState(payload);
+  }, nextState);
 }
 
 async function mutateState(page, mutatorName, options = {}) {
