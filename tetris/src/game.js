@@ -35,7 +35,7 @@
   const statusWrapEl = statusEl.closest('.status-wrap');
   const touchControlsEl = document.querySelector('.touch-controls');
   const handednessToggleEl = document.getElementById('handedness-toggle');
-  const touchButtons = Array.from(document.querySelectorAll('.touch-controls button'));
+  const touchButtons = Array.from(document.querySelectorAll('.touch-controls [data-action]'));
   const HANDEDNESS_STORAGE_KEY = 'tetris-handedness';
 
   function createBoard() {
