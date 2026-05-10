@@ -1,0 +1,881 @@
+import { expect, test } from '@playwright/test';
+
+test.beforeEach(async ({ page }) => {
+  const runtimeErrors = [];
+
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      runtimeErrors.push(message.text());
+    }
+  });
+
+  page.on('pageerror', (error) => {
+    runtimeErrors.push(error.message);
+  });
+
+  page.__runtimeErrors = runtimeErrors;
+});
+
+test.afterEach(async ({ page }) => {
+  expect(page.__runtimeErrors).toEqual([]);
+});
+
+async function openGame(page) {
+  await page.goto('/');
+  await page.waitForFunction(() => {
+    const api = window.__brickbreakerTest;
+    return (
+      api &&
+      api.isReady === true &&
+      (typeof api.getState === 'function' || typeof api.readState === 'function') &&
+      typeof api.setState === 'function' &&
+      typeof api.advanceFrames === 'function' &&
+      typeof api.restart === 'function' &&
+      typeof api.setAutoStep === 'function'
+    );
+  });
+
+  await page.evaluate(() => window.__brickbreakerTest.setAutoStep(false));
+  await expect(page.locator('canvas').first()).toBeVisible();
+}
+
+async function getState(page) {
+  return page.evaluate(() => {
+    const api = window.__brickbreakerTest;
+    const readState = api.getState ?? api.readState;
+    return readState.call(api);
+  });
+}
+
+async function advanceFrames(page, frames = 1) {
+  await page.evaluate(async (frameCount) => {
+    await window.__brickbreakerTest.advanceFrames(frameCount);
+  }, frames);
+}
+
+async function restart(page) {
+  await page.evaluate(async () => {
+    await window.__brickbreakerTest.restart();
+  });
+}
+
+async function mutateState(page, mutatorName, options = {}) {
+  await page.evaluate(
+    ({ name, options: mutationOptions }) => {
+      const api = window.__brickbreakerTest;
+      const readState = api.getState ?? api.readState;
+      const clone = structuredClone(readState.call(api));
+      const helpers = {
+        getBall(state) {
+          const ball = state.ball ?? state.balls?.[0];
+          if (!ball) throw new Error('Expected test state to expose ball or balls[0].');
+          return ball;
+        },
+        getPaddle(state) {
+          const paddle = state.paddle ?? state.player ?? state.bat ?? (typeof state.paddleX === 'number' ? state : undefined);
+          if (!paddle) throw new Error('Expected test state to expose paddle, player, or bat.');
+          return paddle;
+        },
+        getBricks(state) {
+          const bricks = state.bricks ?? state.level?.bricks;
+          if (!Array.isArray(bricks)) throw new Error('Expected test state to expose bricks or level.bricks.');
+          return bricks;
+        },
+        getSize(state) {
+          const canvas = document.querySelector('canvas');
+          return {
+            width: state.width ?? state.canvasWidth ?? state.bounds?.width ?? canvas?.width ?? 800,
+            height: state.height ?? state.canvasHeight ?? state.bounds?.height ?? canvas?.height ?? 600
+          };
+        },
+        isBrickAlive(brick) {
+          return brick && brick.destroyed !== true && brick.active !== false && brick.visible !== false && brick.hit !== true;
+        },
+        setBrickDestroyed(brick) {
+          if ('destroyed' in brick) brick.destroyed = true;
+          else if ('active' in brick) brick.active = false;
+          else if ('visible' in brick) brick.visible = false;
+          else brick.destroyed = true;
+
+          if ('hit' in brick) brick.hit = true;
+          if ('health' in brick) brick.health = 0;
+        }
+      };
+
+      const mutators = {
+        centerPaddle(state) {
+          const paddle = helpers.getPaddle(state);
+          const { width } = helpers.getSize(state);
+          const paddleWidth = paddle.width ?? paddle.w ?? 112;
+          if (typeof state.paddleX === 'number' && paddle === state) {
+            state.paddleX = width / 2 - paddleWidth / 2;
+          } else {
+            paddle.x = width / 2 - paddleWidth / 2;
+          }
+          paddle.dx = 0;
+          paddle.velocityX = 0;
+        },
+        movingBall(state) {
+          const ball = helpers.getBall(state);
+          const { width, height } = helpers.getSize(state);
+          Object.assign(ball, {
+            x: width / 2,
+            y: height / 2,
+            dx: mutationOptions.dx ?? 3,
+            dy: mutationOptions.dy ?? -3,
+            vx: mutationOptions.dx ?? 3,
+            vy: mutationOptions.dy ?? -3,
+            velocityX: mutationOptions.dx ?? 3,
+            velocityY: mutationOptions.dy ?? -3
+          });
+        },
+        rightWallCollision(state) {
+          const ball = helpers.getBall(state);
+          const { width, height } = helpers.getSize(state);
+          const radius = ball.radius ?? ball.r ?? ball.size ?? 8;
+          Object.assign(ball, {
+            x: width - radius - 1,
+            y: height / 2,
+            dx: Math.abs(ball.dx ?? ball.velocityX ?? 4),
+            vx: Math.abs(ball.vx ?? ball.dx ?? ball.velocityX ?? 4),
+            velocityX: Math.abs(ball.velocityX ?? ball.dx ?? 4),
+            dy: 0,
+            vy: 0,
+            velocityY: 0
+          });
+        },
+        brickCollision(state) {
+          const ball = helpers.getBall(state);
+          const bricks = helpers.getBricks(state);
+          const brick = bricks.find(helpers.isBrickAlive);
+          if (!brick) throw new Error('Expected at least one live brick for collision testing.');
+          const width = brick.width ?? brick.w ?? 50;
+          const height = brick.height ?? brick.h ?? 20;
+          Object.assign(ball, {
+            x: brick.x + width / 2,
+            y: brick.y + height / 2,
+            dx: 0,
+            vx: 0,
+            velocityX: 0,
+            dy: -4,
+            vy: -4,
+            velocityY: -4
+          });
+        },
+        missedBall(state) {
+          const ball = helpers.getBall(state);
+          const { width, height } = helpers.getSize(state);
+          state.lives = mutationOptions.lives ?? state.lives ?? 2;
+          Object.assign(ball, {
+            x: width / 2,
+            y: height + (ball.radius ?? ball.r ?? 10) + 4,
+            dx: 0,
+            vx: 0,
+            velocityX: 0,
+            dy: 4,
+            vy: 4,
+            velocityY: 4
+          });
+        },
+        oneBrickRemaining(state) {
+          const ball = helpers.getBall(state);
+          const bricks = helpers.getBricks(state);
+          const liveBricks = bricks.filter(helpers.isBrickAlive);
+          if (liveBricks.length === 0) throw new Error('Expected at least one live brick for win testing.');
+
+          for (const brick of bricks) {
+            if (brick !== liveBricks[0]) helpers.setBrickDestroyed(brick);
+          }
+
+          const lastBrick = liveBricks[0];
+          const width = lastBrick.width ?? lastBrick.w ?? 50;
+          const height = lastBrick.height ?? lastBrick.h ?? 20;
+          Object.assign(ball, {
+            x: lastBrick.x + width / 2,
+            y: lastBrick.y + height / 2,
+            dx: 0,
+            vx: 0,
+            velocityX: 0,
+            dy: -4,
+            vy: -4,
+            velocityY: -4
+          });
+        },
+        forcedGameOver(state) {
+          state.lives = 1;
+          state.gameOver = false;
+          state.status = state.status === 'Game Over' || state.status === 'gameOver' ? 'Playing' : state.status;
+          mutators.missedBall(state);
+        },
+        powerUpBrickCollision(state) {
+          const ball = helpers.getBall(state);
+          const bricks = helpers.getBricks(state);
+          const brick = bricks.find(helpers.isBrickAlive);
+          if (!brick) throw new Error('Expected at least one live brick for power-up collision testing.');
+
+          const type = mutationOptions.type ?? 'wide';
+          const width = brick.width ?? brick.w ?? 50;
+          const height = brick.height ?? brick.h ?? 20;
+
+          brick.active = true;
+          brick.destroyed = false;
+          brick.visible = true;
+          brick.hit = false;
+          brick.health = Math.max(1, brick.health ?? 1);
+          brick.powerUp = type;
+          brick.powerup = type;
+          brick.powerUpType = type;
+          brick.powerupType = type;
+          brick.bonus = type;
+          brick.drop = type;
+
+          Object.assign(ball, {
+            x: brick.x + width / 2,
+            y: brick.y + height / 2,
+            dx: 0,
+            vx: 0,
+            velocityX: 0,
+            dy: -4,
+            vy: -4,
+            velocityY: -4
+          });
+        },
+        catchPowerUp(state) {
+          const type = mutationOptions.type ?? 'wide';
+          const paddle = helpers.getPaddle(state);
+          const { width, height } = helpers.getSize(state);
+          const paddleWidth = paddle.width ?? paddle.w ?? 112;
+          const paddleHeight = paddle.height ?? paddle.h ?? 14;
+          const paddleY = paddle.y ?? height - 36;
+          const paddleX = width / 2 - paddleWidth / 2;
+
+          if (typeof state.paddleX === 'number' && paddle === state) {
+            state.paddleX = paddleX;
+          } else {
+            paddle.x = paddleX;
+          }
+
+          const pickup = {
+            id: `test-${type}`,
+            type,
+            powerUp: type,
+            powerup: type,
+            powerUpType: type,
+            powerupType: type,
+            x: paddleX + paddleWidth / 2,
+            y: paddleY + paddleHeight / 2,
+            width: 18,
+            height: 18,
+            radius: 9,
+            dy: 180,
+            vy: 180,
+            velocityY: 180,
+            speed: 180,
+            active: true
+          };
+
+          const pickupKeys = ['pickups', 'powerUps', 'powerups', 'fallingPowerUps', 'drops'];
+          const existingKey = pickupKeys.find((key) => Array.isArray(state[key]));
+          state[existingKey ?? 'pickups'] = [pickup];
+        },
+        laserReady(state) {
+          mutators.catchPowerUp(state);
+          const bricks = helpers.getBricks(state);
+          const { width } = helpers.getSize(state);
+          const target = bricks.find(helpers.isBrickAlive) ?? bricks[0];
+          if (!target) throw new Error('Expected at least one brick for laser testing.');
+          const targetWidth = target.width ?? target.w ?? 50;
+
+          target.x = width / 2 - targetWidth / 2;
+          target.y = mutationOptions.targetY ?? 92;
+          target.active = true;
+          target.destroyed = false;
+          target.visible = true;
+          target.hit = false;
+          target.health = Math.max(1, target.health ?? 1);
+        },
+        paddleBounce(state) {
+          const ball = helpers.getBall(state);
+          const paddle = helpers.getPaddle(state);
+          const { width, height } = helpers.getSize(state);
+          const hit = mutationOptions.hit ?? 'center';
+          const hitRatioByType = {
+            left: -0.75,
+            center: 0,
+            right: 0.75
+          };
+          const hitRatio = hitRatioByType[hit];
+
+          if (typeof hitRatio !== 'number') {
+            throw new Error(`Unknown paddleBounce hit target: ${hit}`);
+          }
+
+          if (mutationOptions.wide) {
+            state.activeEffects = state.activeEffects && typeof state.activeEffects === 'object' ? state.activeEffects : {};
+            state.activeEffects.wide = Math.max(state.activeEffects.wide ?? 0, 60);
+            state.paddleWidth = mutationOptions.paddleWidth ?? 164;
+          }
+
+          const paddleWidth = state.paddleWidth ?? paddle.width ?? paddle.w ?? 112;
+          const paddleHeight = paddle.height ?? paddle.h ?? 14;
+          const paddleY = paddle.y ?? height - 36;
+          const paddleX = width / 2 - paddleWidth / 2;
+          const radius = ball.radius ?? ball.r ?? ball.size ?? 8;
+          const targetX = paddleX + paddleWidth / 2 + (paddleWidth / 2) * hitRatio;
+
+          if (typeof state.paddleX === 'number' && paddle === state) {
+            state.paddleX = paddleX;
+          } else {
+            paddle.x = paddleX;
+          }
+
+          Object.assign(ball, {
+            x: targetX,
+            y: paddleY - radius - Math.max(1, paddleHeight * 0.1),
+            dx: mutationOptions.dx ?? 0,
+            vx: mutationOptions.dx ?? 0,
+            velocityX: mutationOptions.dx ?? 0,
+            dy: Math.abs(mutationOptions.dy ?? 260),
+            vy: Math.abs(mutationOptions.dy ?? 260),
+            velocityY: Math.abs(mutationOptions.dy ?? 260)
+          });
+        }
+      };
+
+      if (!mutators[name]) throw new Error(`Unknown state mutator: ${name}`);
+      mutators[name](clone);
+      api.setState(clone);
+    },
+    { name: mutatorName, options }
+  );
+}
+
+function ballPosition(state) {
+  const ball = state.ball ?? state.balls?.[0];
+  return { x: ball?.x, y: ball?.y };
+}
+
+function ballHorizontalVelocity(state) {
+  const ball = state.ball ?? state.balls?.[0] ?? {};
+  return ball.dx ?? ball.velocityX ?? ball.vx;
+}
+
+function balls(state) {
+  if (Array.isArray(state.balls)) return state.balls;
+  return state.ball ? [state.ball] : [];
+}
+
+function ballSpeed(state) {
+  const ball = balls(state)[0] ?? {};
+  const xVelocity = ball.dx ?? ball.velocityX ?? ball.vx ?? 0;
+  const yVelocity = ball.dy ?? ball.velocityY ?? ball.vy ?? 0;
+  return Math.hypot(xVelocity, yVelocity);
+}
+
+function paddleX(state) {
+  const paddle = state.paddle ?? state.player ?? state.bat;
+  return paddle?.x ?? state.paddleX;
+}
+
+function paddleWidth(state) {
+  const paddle = state.paddle ?? state.player ?? state.bat;
+  return paddle?.width ?? paddle?.w ?? state.paddleWidth;
+}
+
+function liveBrickCount(state) {
+  const bricks = state.bricks ?? state.level?.bricks ?? [];
+  return bricks.filter(
+    (brick) =>
+      brick.destroyed !== true &&
+      brick.active !== false &&
+      brick.visible !== false &&
+      brick.hit !== true &&
+      brick.health !== 0
+  ).length;
+}
+
+function lives(state) {
+  return state.lives ?? state.lifeCount ?? state.playerLives;
+}
+
+function isGameOver(state) {
+  return state.gameOver === true || state.status === 'Game Over' || state.status === 'gameOver' || state.phase === 'gameOver';
+}
+
+function isWon(state) {
+  return state.won === true || state.win === true || state.gameWon === true || state.status === 'You Win' || state.status === 'won' || state.phase === 'won';
+}
+
+function levelNumber(state) {
+  const raw =
+    state.levelNumber ??
+    state.levelIndex ??
+    state.currentLevel ??
+    state.stage ??
+    (typeof state.level === 'number' ? state.level : state.level?.number ?? state.level?.index);
+
+  return typeof raw === 'number' ? raw : 1;
+}
+
+function powerUpType(entity) {
+  return entity?.powerUpType ?? entity?.powerupType ?? entity?.powerUp ?? entity?.powerup ?? entity?.bonus ?? entity?.drop ?? entity?.type;
+}
+
+function powerUpBricks(state) {
+  const bricks = state.bricks ?? state.level?.bricks ?? [];
+  return bricks.filter((brick) => powerUpType(brick));
+}
+
+function pickups(state) {
+  return ['pickups', 'fallingPowerUps', 'drops', 'powerUps', 'powerups']
+    .flatMap((key) => (Array.isArray(state[key]) ? state[key] : []))
+    .filter((pickup) => pickup && pickup.active !== false && pickup.collected !== true && pickup.caught !== true);
+}
+
+function activePowerUpTypes(state) {
+  const containers = [
+    state.activeEffects,
+    state.activePowerUps,
+    state.activePowerups,
+    state.effects,
+    state.powerUpEffects,
+    state.powerupsActive
+  ];
+  const types = new Set();
+
+  for (const container of containers) {
+    if (!container) continue;
+    if (Array.isArray(container)) {
+      for (const item of container) {
+        const type = typeof item === 'string' ? item : powerUpType(item);
+        if (type) types.add(type);
+      }
+    } else if (typeof container === 'object') {
+      for (const [key, value] of Object.entries(container)) {
+        if (value) types.add(key);
+      }
+    }
+  }
+
+  return types;
+}
+
+function activeEffectTimers(state) {
+  const containers = [
+    state.activeEffects,
+    state.activePowerUps,
+    state.activePowerups,
+    state.effects,
+    state.powerUpEffects,
+    state.powerupsActive
+  ];
+  const timers = {};
+
+  for (const container of containers) {
+    if (!container || typeof container !== 'object' || Array.isArray(container)) continue;
+    for (const [key, value] of Object.entries(container)) {
+      if (typeof value === 'number' && value > 0) timers[key] = value;
+    }
+  }
+
+  return timers;
+}
+
+async function readHudText(page) {
+  return page.locator('.hud').first().textContent().then((text) => (text ?? '').toLowerCase());
+}
+
+async function moveFirstPickupOverPaddle(page) {
+  await page.evaluate(() => {
+    const api = window.__brickbreakerTest;
+    const readState = api.getState ?? api.readState;
+    const clone = structuredClone(readState.call(api));
+    const paddle = clone.paddle ?? clone.player ?? clone.bat ?? {};
+    const paddleWidth = paddle.width ?? paddle.w ?? clone.paddleWidth ?? 112;
+    const paddleHeight = paddle.height ?? paddle.h ?? 14;
+    const paddleX = paddle.x ?? clone.paddleX ?? 0;
+    const paddleY = paddle.y ?? clone.height - 36;
+    const pickupKeys = ['pickups', 'fallingPowerUps', 'drops', 'powerUps', 'powerups'];
+
+    for (const key of pickupKeys) {
+      if (!Array.isArray(clone[key]) || clone[key].length === 0) continue;
+      const pickup = clone[key].find((candidate) => candidate && candidate.active !== false) ?? clone[key][0];
+      pickup.x = paddleX + paddleWidth / 2;
+      pickup.y = paddleY + paddleHeight / 2;
+      pickup.dy = Math.abs(pickup.dy ?? pickup.vy ?? pickup.velocityY ?? pickup.speed ?? 180);
+      pickup.vy = pickup.dy;
+      pickup.velocityY = pickup.dy;
+      pickup.active = true;
+      break;
+    }
+
+    api.setState(clone);
+  });
+}
+
+async function runPaddleBounceScenario(page, options) {
+  await mutateState(page, 'paddleBounce', options);
+  const before = await getState(page);
+  await advanceFrames(page, 2);
+  const after = await getState(page);
+  return { before, after };
+}
+
+test('renders the game and exposes the test control contract', async ({ page }) => {
+  await openGame(page);
+
+  await expect
+    .poll(async () => {
+      await page.evaluate(() => window.__brickbreakerTest.advanceFrames(0));
+
+      return page.locator('canvas').evaluate((canvas) => {
+        const context = canvas.getContext('2d');
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        let count = 0;
+
+        for (let index = 0; index < pixels.length; index += 4) {
+          if (pixels[index] !== 0 || pixels[index + 1] !== 0 || pixels[index + 2] !== 0 || pixels[index + 3] !== 0) {
+            count += 1;
+          }
+        }
+
+        return count;
+      });
+    })
+    .toBeGreaterThan(1000);
+
+  const state = await getState(page);
+  expect(ballPosition(state).x).toEqual(expect.any(Number));
+  expect(ballPosition(state).y).toEqual(expect.any(Number));
+  expect(paddleX(state)).toEqual(expect.any(Number));
+  expect(liveBrickCount(state)).toBeGreaterThan(0);
+});
+
+test('moves the paddle with keyboard controls', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'centerPaddle');
+  const startX = paddleX(await getState(page));
+
+  await page.keyboard.down('ArrowRight');
+  await advanceFrames(page, 8);
+  await page.keyboard.up('ArrowRight');
+  const rightX = paddleX(await getState(page));
+  expect(rightX).toBeGreaterThan(startX);
+
+  await page.keyboard.down('ArrowLeft');
+  await advanceFrames(page, 16);
+  await page.keyboard.up('ArrowLeft');
+  expect(paddleX(await getState(page))).toBeLessThan(rightX);
+});
+
+test('moves the paddle with desktop pointer control', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'centerPaddle');
+
+  const canvas = page.locator('canvas').first();
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.8);
+  const movedRight = paddleX(await getState(page));
+
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.8);
+  expect(paddleX(await getState(page))).toBeLessThan(movedRight);
+});
+
+test('advances ball movement across frames', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'movingBall');
+  const start = ballPosition(await getState(page));
+
+  await advanceFrames(page, 12);
+
+  expect(ballPosition(await getState(page))).not.toEqual(start);
+});
+
+test('bounces the ball on wall collision', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'rightWallCollision');
+  expect(ballHorizontalVelocity(await getState(page))).toBeGreaterThan(0);
+
+  await advanceFrames(page, 4);
+
+  expect(ballHorizontalVelocity(await getState(page))).toBeLessThan(0);
+});
+
+test('uses deterministic paddle bounce direction for left/right/center hits, including wide paddle', async ({ page }) => {
+  await openGame(page);
+
+  const left = await runPaddleBounceScenario(page, { hit: 'left' });
+  expect(ballHorizontalVelocity(left.after)).toBeLessThan(0);
+
+  const right = await runPaddleBounceScenario(page, { hit: 'right' });
+  expect(ballHorizontalVelocity(right.after)).toBeGreaterThan(0);
+
+  const center = await runPaddleBounceScenario(page, { hit: 'center' });
+  expect(Math.abs(ballHorizontalVelocity(center.after))).toBeLessThan(10);
+
+  const wideRight = await runPaddleBounceScenario(page, { hit: 'right', wide: true });
+  expect(paddleWidth(wideRight.after)).toBeGreaterThan(paddleWidth(right.after));
+  expect(ballHorizontalVelocity(wideRight.after)).toBeGreaterThan(0);
+  expect(Math.abs(ballHorizontalVelocity(wideRight.after))).toBeGreaterThan(40);
+});
+
+test('removes a brick or updates score on brick collision', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'brickCollision');
+  const before = await getState(page);
+
+  await advanceFrames(page, 6);
+  const after = await getState(page);
+
+  expect(liveBrickCount(after) < liveBrickCount(before) || (after.score ?? 0) > (before.score ?? 0)).toBe(true);
+});
+
+test('loses a life when the ball falls below the paddle', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'missedBall', { lives: 2 });
+  const beforeLives = lives(await getState(page));
+
+  await advanceFrames(page, 8);
+
+  expect(lives(await getState(page))).toBeLessThan(beforeLives);
+});
+
+test('enters game over when the final life is lost', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'forcedGameOver');
+
+  await advanceFrames(page, 8);
+
+  expect(isGameOver(await getState(page))).toBe(true);
+});
+
+test('increments level and regenerates bricks when the final brick is cleared while score/lives persist', async ({ page }) => {
+  await openGame(page);
+  const before = await getState(page);
+  const beforeLevel = levelNumber(before);
+  const beforeLives = lives(before);
+  const beforeScore = before.score ?? 0;
+  await mutateState(page, 'oneBrickRemaining');
+
+  await advanceFrames(page, 8);
+  const after = await getState(page);
+
+  expect(levelNumber(after)).toBeGreaterThan(beforeLevel);
+  expect(liveBrickCount(after)).toBeGreaterThan(0);
+  expect((after.score ?? 0)).toBeGreaterThan(beforeScore);
+  expect(lives(after)).toBe(beforeLives);
+  expect(isWon(after)).toBe(false);
+});
+
+test('restart resets terminal state and restores playable state', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'forcedGameOver');
+  await advanceFrames(page, 8);
+  expect(isGameOver(await getState(page))).toBe(true);
+
+  await page.getByRole('button', { name: 'Restart' }).click();
+  const state = await getState(page);
+
+  expect(isGameOver(state)).toBe(false);
+  expect(lives(state)).toBeGreaterThan(0);
+  expect(liveBrickCount(state)).toBeGreaterThan(0);
+});
+
+test('multiple brick clears continue progression without terminal win', async ({ page }) => {
+  await openGame(page);
+  const start = await getState(page);
+  const startLevel = levelNumber(start);
+  const startLives = lives(start);
+  const clears = 3;
+
+  for (let clear = 0; clear < clears; clear += 1) {
+    await mutateState(page, 'oneBrickRemaining');
+    await advanceFrames(page, 8);
+    const state = await getState(page);
+    expect(liveBrickCount(state)).toBeGreaterThan(0);
+    expect(isWon(state)).toBe(false);
+    expect(isGameOver(state)).toBe(false);
+  }
+
+  const finalState = await getState(page);
+  expect(levelNumber(finalState)).toBeGreaterThanOrEqual(startLevel + clears);
+  expect(lives(finalState)).toBe(startLives);
+});
+
+test('lays out arcade power-up bricks deterministically across restarts', async ({ page }) => {
+  await openGame(page);
+
+  const firstLayout = powerUpBricks(await getState(page)).map((brick) => ({
+    x: brick.x,
+    y: brick.y,
+    type: powerUpType(brick)
+  }));
+
+  await restart(page);
+  const secondLayout = powerUpBricks(await getState(page)).map((brick) => ({
+    x: brick.x,
+    y: brick.y,
+    type: powerUpType(brick)
+  }));
+
+  expect(firstLayout.length).toBeGreaterThan(0);
+  expect(secondLayout).toEqual(firstLayout);
+});
+
+test('spawns falling pickup from a power-up brick and catches it with the paddle', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'powerUpBrickCollision', { type: 'wide' });
+
+  await advanceFrames(page, 2);
+  const spawned = pickups(await getState(page));
+  expect(spawned.length).toBeGreaterThan(0);
+  expect(spawned.some((pickup) => powerUpType(pickup) === 'wide')).toBe(true);
+
+  const startY = spawned[0].y;
+  await advanceFrames(page, 10);
+  expect(pickups(await getState(page))[0].y).toBeGreaterThan(startY);
+
+  await moveFirstPickupOverPaddle(page);
+  const beforeCatch = await getState(page);
+  await advanceFrames(page, 4);
+  const afterCatch = await getState(page);
+
+  expect(pickups(afterCatch).length).toBeLessThan(pickups(beforeCatch).length);
+  expect(paddleWidth(afterCatch)).toBeGreaterThan(paddleWidth(beforeCatch));
+});
+
+test('wide paddle pickup expands the paddle', async ({ page }) => {
+  await openGame(page);
+  const before = await getState(page);
+
+  await mutateState(page, 'catchPowerUp', { type: 'wide' });
+  await advanceFrames(page, 4);
+
+  expect(paddleWidth(await getState(page))).toBeGreaterThan(paddleWidth(before));
+});
+
+test('slow ball pickup reduces ball speed', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'movingBall', { dx: 210, dy: -260 });
+  const beforeStart = ballPosition(await getState(page));
+  await advanceFrames(page, 10);
+  const beforeEnd = ballPosition(await getState(page));
+  const beforeDistance = Math.hypot(beforeEnd.x - beforeStart.x, beforeEnd.y - beforeStart.y);
+
+  await mutateState(page, 'catchPowerUp', { type: 'slow' });
+  await advanceFrames(page, 4);
+  expect(activePowerUpTypes(await getState(page)).has('slow')).toBe(true);
+
+  const afterStart = ballPosition(await getState(page));
+  await advanceFrames(page, 10);
+  const afterEnd = ballPosition(await getState(page));
+  const afterDistance = Math.hypot(afterEnd.x - afterStart.x, afterEnd.y - afterStart.y);
+
+  expect(afterDistance).toBeLessThan(beforeDistance);
+});
+
+test('timed effects appear and count down in HUD and state', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'catchPowerUp', { type: 'slow' });
+  await advanceFrames(page, 1);
+
+  const armed = await getState(page);
+  const armedTimers = activeEffectTimers(armed);
+  const armedValue = armedTimers.slow;
+  expect(typeof armedValue).toBe('number');
+  expect(armedValue).toBeGreaterThan(0);
+
+  const armedHud = await readHudText(page);
+  expect(armedHud).toContain('slow');
+
+  await advanceFrames(page, 8);
+  const ticking = await getState(page);
+  const tickingValue = activeEffectTimers(ticking).slow ?? 0;
+  expect(tickingValue).toBeLessThan(armedValue);
+
+  const tickingHud = await readHudText(page);
+  expect(tickingHud).toContain('slow');
+});
+
+test('extra life pickup increases lives', async ({ page }) => {
+  await openGame(page);
+  const beforeLives = lives(await getState(page));
+
+  await mutateState(page, 'catchPowerUp', { type: 'life' });
+  await advanceFrames(page, 4);
+
+  expect(lives(await getState(page))).toBeGreaterThan(beforeLives);
+});
+
+test('multiball pickup adds active balls', async ({ page }) => {
+  await openGame(page);
+  const beforeCount = balls(await getState(page)).length;
+
+  await mutateState(page, 'catchPowerUp', { type: 'multiball' });
+  await advanceFrames(page, 4);
+
+  expect(balls(await getState(page)).length).toBeGreaterThan(beforeCount);
+});
+
+test('laser pickup auto-fires and removes bricks on cooldown cadence', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'laserReady', { type: 'laser' });
+  await advanceFrames(page, 4);
+
+  const armed = await getState(page);
+  expect(activePowerUpTypes(armed).has('laser')).toBe(true);
+  const initialBrickCount = liveBrickCount(armed);
+
+  const fireFrames = [];
+  let previousCooldown = armed.laserCooldown ?? 0;
+
+  for (let frame = 1; frame <= 120; frame += 1) {
+    await advanceFrames(page, 1);
+    const state = await getState(page);
+    const cooldown = state.laserCooldown ?? 0;
+    if (cooldown > previousCooldown) {
+      fireFrames.push(frame);
+    }
+    previousCooldown = cooldown;
+  }
+
+  const finalState = await getState(page);
+  expect(fireFrames.length).toBeGreaterThan(0);
+  expect(finalState.lasers?.length ?? 0).toBeGreaterThan(0);
+  expect(liveBrickCount(finalState)).toBeLessThan(initialBrickCount);
+
+  if (fireFrames.length > 1) {
+    for (let index = 1; index < fireFrames.length; index += 1) {
+      expect(fireFrames[index] - fireFrames[index - 1]).toBeGreaterThanOrEqual(18);
+    }
+  }
+});
+
+test('restart resets to level 1 and clears active power-up state from HUD and state', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'catchPowerUp', { type: 'wide' });
+  await advanceFrames(page, 4);
+  await mutateState(page, 'catchPowerUp', { type: 'slow' });
+  await advanceFrames(page, 4);
+  await mutateState(page, 'catchPowerUp', { type: 'multiball' });
+  await advanceFrames(page, 4);
+
+  const powered = await getState(page);
+  expect(pickups(powered).length > 0 || activePowerUpTypes(powered).size > 0 || balls(powered).length > 1 || paddleWidth(powered) > 112).toBe(true);
+
+  await restart(page);
+  const reset = await getState(page);
+  const resetHud = await readHudText(page);
+
+  expect(pickups(reset)).toEqual([]);
+  expect(activePowerUpTypes(reset).size).toBe(0);
+  expect(Object.keys(activeEffectTimers(reset))).toHaveLength(0);
+  expect(balls(reset).length).toBe(1);
+  expect(paddleWidth(reset)).toBeLessThanOrEqual(paddleWidth(powered));
+  expect(levelNumber(reset)).toBe(1);
+  expect(resetHud).not.toContain('wide');
+  expect(resetHud).not.toContain('slow');
+  expect(resetHud).not.toContain('laser');
+});

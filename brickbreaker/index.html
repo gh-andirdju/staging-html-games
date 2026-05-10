@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Brickbreaker</title>
+    <link rel="stylesheet" href="src/styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="hud" aria-label="Game status">
+        <div>
+          <span class="label">Score</span>
+          <strong id="score">0</strong>
+        </div>
+        <div>
+          <span class="label">Lives</span>
+          <strong id="lives">3</strong>
+        </div>
+        <div>
+          <span class="label">Level</span>
+          <strong id="level">1</strong>
+        </div>
+        <div class="effects-wrap">
+          <span class="label">Effects</span>
+          <strong id="effects">None</strong>
+        </div>
+        <div class="status-wrap">
+          <span class="label">Status</span>
+          <strong id="status">Playing</strong>
+        </div>
+        <button id="restart" type="button">Restart</button>
+      </header>
+
+      <canvas id="game" width="800" height="520" aria-label="Brickbreaker game area"></canvas>
+    </main>
+
+    <script src="src/game.js"></script>
+  </body>
+</html>
