@@ -129,7 +129,7 @@ body {
 
 .touch-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(122px, 0.85fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -139,8 +139,18 @@ body {
   gap: 8px;
 }
 
+.movement-zone {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
 .drag-lane {
-  min-height: 62px;
+  width: 100%;
+  min-height: 68px;
   border: 1px dashed rgba(125, 211, 252, 0.55);
   border-radius: 999px;
   background:
@@ -159,17 +169,26 @@ body {
 }
 
 .action-zone {
+  justify-self: end;
+  width: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  justify-items: end;
   align-content: start;
 }
 
 .action-button {
-  min-height: 62px;
+  min-height: 38px;
+  padding: 7px 12px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 999px;
   background: var(--button-bg);
   color: #fff1f2;
   font: inherit;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.03em;
   cursor: pointer;
@@ -184,17 +203,14 @@ body {
 .control-note {
   margin: 0;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.35;
+  text-align: right;
 }
 
 @media (min-width: 561px) {
   .game-shell {
     width: min(100vw, 760px);
-  }
-
-  .touch-controls {
-    grid-template-columns: minmax(0, 1.9fr) minmax(170px, 0.8fr);
   }
 
   .playfield canvas {

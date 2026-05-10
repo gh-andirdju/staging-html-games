@@ -598,6 +598,23 @@ test('moves the paddle with desktop pointer control', async ({ page }) => {
   expect(paddleX(await getState(page))).toBeLessThan(movedRight);
 });
 
+test('keeps the stacked touch layout on desktop widths', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1024 });
+  await openGame(page);
+
+  const controlsBox = await page.locator('.touch-controls').boundingBox();
+  const laneBox = await page.locator('#paddle-drag-lane').boundingBox();
+  const restartBox = await page.locator('#restart').boundingBox();
+
+  expect(controlsBox).not.toBeNull();
+  expect(laneBox).not.toBeNull();
+  expect(restartBox).not.toBeNull();
+  expect(laneBox.x).toBeLessThanOrEqual(controlsBox.x + 1);
+  expect(laneBox.width).toBeGreaterThanOrEqual(controlsBox.width - 2);
+  expect(restartBox.y).toBeGreaterThanOrEqual(laneBox.y + laneBox.height);
+  expect(restartBox.width).toBeLessThan(laneBox.width * 0.5);
+});
+
 test('advances ball movement across frames', async ({ page }) => {
   await openGame(page);
   await mutateState(page, 'movingBall');
@@ -1013,10 +1030,19 @@ test.describe('mobile touch controls', () => {
 
     const canvasBox = await page.locator('#game').boundingBox();
     const controlsBox = await page.locator('.touch-controls').boundingBox();
+    const laneBox = await page.locator('#paddle-drag-lane').boundingBox();
+    const restartBox = await page.locator('#restart').boundingBox();
 
     expect(canvasBox).not.toBeNull();
     expect(controlsBox).not.toBeNull();
+    expect(laneBox).not.toBeNull();
+    expect(restartBox).not.toBeNull();
     expect(controlsBox.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height);
+    expect(laneBox.x).toBeLessThanOrEqual(controlsBox.x + 1);
+    expect(laneBox.width).toBeGreaterThanOrEqual(controlsBox.width - 2);
+    expect(restartBox.y).toBeGreaterThanOrEqual(laneBox.y + laneBox.height);
+    expect(restartBox.width).toBeLessThan(laneBox.width * 0.5);
+    expect(restartBox.height).toBeLessThan(laneBox.height * 0.75);
   });
 
   test('auto-fires laser without a manual input', async ({ page }) => {
