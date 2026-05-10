@@ -148,6 +148,7 @@ body {
   display: grid;
   align-items: center;
   justify-items: center;
+  overflow: hidden;
 }
 
 #game {
@@ -161,19 +162,29 @@ body {
 }
 
 .touch-controls {
+  --control-cluster-gap: 7px;
+  --thumb-button-size: 58px;
+  --action-primary-size: 68px;
+  --action-secondary-size: 58px;
+  --thumb-zone-height: 140px;
+
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   align-items: end;
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 .controls-header {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 2px;
+  justify-content: center;
+  padding: 0;
+}
+
+.touch-controls .control-label {
+  display: none;
 }
 
 .mode-toggle {
@@ -193,27 +204,31 @@ body {
 .thumb-zone {
   padding: 10px;
   display: grid;
-  gap: 8px;
-  min-height: 170px;
+  min-height: var(--thumb-zone-height);
+  place-items: center;
 }
 
 .move-row,
 .action-grid {
-  display: grid;
-  gap: 7px;
+  width: calc(var(--thumb-button-size) * 3 + var(--control-cluster-gap) * 2);
+  height: calc(var(--thumb-button-size) * 2 + var(--control-cluster-gap));
+  justify-self: center;
+  align-self: center;
 }
 
 .move-row {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) minmax(0, 1fr);
-  grid-template-areas: ". left right";
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, var(--thumb-button-size));
+  grid-template-areas:
+    "left . right"
+    ". soft-drop .";
+  gap: var(--control-cluster-gap);
   align-items: end;
 }
 
 .action-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas:
-    "rotate rotate"
-    "soft-drop hard-drop";
+  position: relative;
 }
 
 .touch-controls button {
@@ -225,43 +240,59 @@ body {
 
 .move-row button,
 .action-grid button {
-  width: 100%;
+  border-radius: 999px;
+  min-height: 0;
+  padding: 0 8px;
 }
 
 .move-row [data-action="left"] {
   grid-area: left;
+  width: var(--thumb-button-size);
+  height: var(--thumb-button-size);
 }
 
 .move-row [data-action="right"] {
   grid-area: right;
+  width: var(--thumb-button-size);
+  height: var(--thumb-button-size);
+}
+
+.move-row [data-action="soft-drop"] {
+  grid-area: soft-drop;
+  width: var(--thumb-button-size);
+  height: var(--thumb-button-size);
 }
 
 .action-grid [data-action="rotate"] {
-  grid-area: rotate;
-  min-height: 72px;
-}
-
-.action-grid [data-action="soft-drop"] {
-  grid-area: soft-drop;
-  min-height: 68px;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: var(--action-primary-size);
+  height: var(--action-primary-size);
+  transform: translateY(-50%);
 }
 
 .action-grid [data-action="hard-drop"] {
-  grid-area: hard-drop;
-  min-height: 56px;
-  align-self: end;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: var(--action-secondary-size);
+  height: var(--action-secondary-size);
   font-size: 15px;
 }
 
 @media (max-width: 520px) {
   body {
     min-height: 100svh;
+    overflow: hidden;
   }
 
   .game-shell {
-    min-height: 100svh;
-    padding: 8px 8px 10px;
-    gap: 7px;
+    height: 100svh;
+    min-height: 0;
+    padding: 6px 8px 8px;
+    gap: 6px;
+    overflow: hidden;
   }
 
   .topbar,
@@ -271,74 +302,89 @@ body {
   }
 
   .topbar {
-    padding: 8px 10px;
+    padding: 6px 10px;
   }
 
   .title {
-    font-size: 20px;
+    font-size: 19px;
+  }
+
+  #restart {
+    padding: 8px 12px;
   }
 
   .playfield {
-    padding: 8px;
-    gap: 7px;
+    padding: 7px;
+    gap: 6px;
   }
 
   .hud {
-    gap: 5px;
+    gap: 4px;
   }
 
   .stat-card,
   .status-wrap {
-    padding: 7px 9px;
+    border-radius: 12px;
+    padding: 5px 8px;
   }
 
   .hud strong {
-    font-size: 17px;
+    font-size: 16px;
   }
 
   #status {
-    font-size: 15px;
+    font-size: 14px;
   }
 
   #game {
-    max-height: calc(100svh - 268px);
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: calc(100svh - 350px);
   }
 
   .touch-controls {
+    --control-cluster-gap: 5px;
+    --thumb-button-size: clamp(42px, 12.5vw, 50px);
+    --action-primary-size: clamp(56px, 16vw, 64px);
+    --action-secondary-size: clamp(48px, 13.5vw, 56px);
+    --thumb-zone-height: 104px;
+
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 7px;
+    gap: 6px 8px;
   }
 
   .controls-header {
-    gap: 8px;
-    padding: 0 1px;
+    align-self: center;
   }
 
   .mode-toggle {
-    min-height: 38px;
-    padding: 8px 12px;
-    font-size: 14px;
+    min-height: 32px;
+    padding: 6px 10px;
+    font-size: 13px;
   }
 
   .thumb-zone {
-    padding: 9px;
-    min-height: 158px;
+    border-radius: 14px;
+    padding: 0;
+    min-height: 0;
+    height: var(--thumb-zone-height);
   }
 
   .touch-controls button {
-    min-height: 58px;
+    font-size: 13px;
+    line-height: 1.05;
+  }
+
+  .move-row {
+    grid-template-rows: repeat(2, var(--thumb-button-size));
   }
 
   .action-grid [data-action="rotate"] {
-    min-height: 66px;
-  }
-
-  .action-grid [data-action="soft-drop"] {
-    min-height: 62px;
+    font-size: 15px;
   }
 
   .action-grid [data-action="hard-drop"] {
-    min-height: 52px;
-    font-size: 14px;
+    font-size: 12px;
   }
 }
