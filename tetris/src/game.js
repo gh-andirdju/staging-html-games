@@ -33,7 +33,10 @@
   const statusEl = document.getElementById('status');
   const restartEl = document.getElementById('restart');
   const statusWrapEl = statusEl.closest('.status-wrap');
+  const touchControlsEl = document.querySelector('.touch-controls');
+  const handednessToggleEl = document.getElementById('handedness-toggle');
   const touchButtons = Array.from(document.querySelectorAll('.touch-controls button'));
+  const HANDEDNESS_STORAGE_KEY = 'tetris-handedness';
 
   function createBoard() {
     return Array.from({ length: BOARD_HEIGHT }, () => Array(BOARD_WIDTH).fill(0));
@@ -62,6 +65,49 @@
     softTick: 0,
     hardTick: 0
   };
+  let controlHandedness = 'right';
+
+  function normalizeHandedness(value) {
+    return value === 'left' ? 'left' : 'right';
+  }
+
+  function readStoredHandedness() {
+    try {
+      return normalizeHandedness(window.localStorage.getItem(HANDEDNESS_STORAGE_KEY));
+    } catch {
+      return 'right';
+    }
+  }
+
+  function writeStoredHandedness(value) {
+    try {
+      window.localStorage.setItem(HANDEDNESS_STORAGE_KEY, value);
+    } catch {
+      // Ignore storage failures so touch controls still work in restricted contexts.
+    }
+  }
+
+  function syncHandednessUi() {
+    if (!touchControlsEl || !handednessToggleEl) return;
+    touchControlsEl.dataset.handedness = controlHandedness;
+    const isLeft = controlHandedness === 'left';
+    handednessToggleEl.textContent = isLeft ? 'Left-handed' : 'Right-handed';
+    handednessToggleEl.setAttribute('aria-pressed', String(isLeft));
+    handednessToggleEl.setAttribute(
+      'aria-label',
+      isLeft ? 'Switch to right-handed controls' : 'Switch to left-handed controls'
+    );
+  }
+
+  function setControlHandedness(value, { persist = true } = {}) {
+    controlHandedness = normalizeHandedness(value);
+    syncHandednessUi();
+    if (persist) writeStoredHandedness(controlHandedness);
+  }
+
+  function toggleControlHandedness() {
+    setControlHandedness(controlHandedness === 'left' ? 'right' : 'left');
+  }
 
   function nextRandom() {
     seededValue = (seededValue * 1664525 + 1013904223) >>> 0;
@@ -564,6 +610,7 @@
   }
 
   restartEl.addEventListener('click', restartGame);
+  handednessToggleEl?.addEventListener('click', toggleControlHandedness);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
 
@@ -578,6 +625,7 @@
     button.addEventListener('pointerleave', () => onTouchButtonUp(action));
   }
 
+  setControlHandedness(readStoredHandedness(), { persist: false });
   restartGame();
   setAutoStep(true);
 
@@ -594,6 +642,12 @@
     },
     setAutoStep: (enabled) => {
       setAutoStep(enabled);
+    },
+    getControlsState: () => ({
+      handedness: controlHandedness
+    }),
+    setHandedness: (value) => {
+      setControlHandedness(value);
     }
   };
 })();

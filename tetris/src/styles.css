@@ -60,7 +60,8 @@ body {
 }
 
 #restart,
-.touch-controls button {
+.touch-controls button,
+.mode-toggle {
   border: 1px solid #38bdf8;
   border-radius: 14px;
   background: linear-gradient(180deg, #38bdf8, #0284c7);
@@ -121,7 +122,8 @@ body {
 }
 
 #restart,
-.touch-controls button {
+.touch-controls button,
+.mode-toggle {
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -134,6 +136,8 @@ body {
 
 #restart:hover,
 #restart:focus-visible,
+.mode-toggle:hover,
+.mode-toggle:focus-visible,
 .touch-controls button:hover,
 .touch-controls button:focus-visible {
   filter: brightness(1.08);
@@ -158,14 +162,39 @@ body {
 
 .touch-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  align-items: end;
+}
+
+.controls-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+}
+
+.mode-toggle {
+  min-height: 40px;
+  padding: 9px 14px;
+  white-space: nowrap;
+}
+
+.touch-controls[data-handedness="left"] .move-zone {
+  order: 2;
+}
+
+.touch-controls[data-handedness="left"] .action-zone {
+  order: 1;
 }
 
 .thumb-zone {
   padding: 10px;
   display: grid;
   gap: 8px;
+  min-height: 170px;
 }
 
 .move-row,
@@ -175,11 +204,16 @@ body {
 }
 
 .move-row {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) minmax(0, 1fr);
+  grid-template-areas: ". left right";
+  align-items: end;
 }
 
 .action-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "rotate rotate"
+    "soft-drop hard-drop";
 }
 
 .touch-controls button {
@@ -187,6 +221,36 @@ body {
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
+}
+
+.move-row button,
+.action-grid button {
+  width: 100%;
+}
+
+.move-row [data-action="left"] {
+  grid-area: left;
+}
+
+.move-row [data-action="right"] {
+  grid-area: right;
+}
+
+.action-grid [data-action="rotate"] {
+  grid-area: rotate;
+  min-height: 72px;
+}
+
+.action-grid [data-action="soft-drop"] {
+  grid-area: soft-drop;
+  min-height: 68px;
+}
+
+.action-grid [data-action="hard-drop"] {
+  grid-area: hard-drop;
+  min-height: 56px;
+  align-self: end;
+  font-size: 15px;
 }
 
 @media (max-width: 520px) {
@@ -241,19 +305,40 @@ body {
   }
 
   .touch-controls {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 7px;
+  }
+
+  .controls-header {
+    gap: 8px;
+    padding: 0 1px;
+  }
+
+  .mode-toggle {
+    min-height: 38px;
+    padding: 8px 12px;
+    font-size: 14px;
   }
 
   .thumb-zone {
     padding: 9px;
-  }
-
-  .action-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-height: 158px;
   }
 
   .touch-controls button {
     min-height: 58px;
+  }
+
+  .action-grid [data-action="rotate"] {
+    min-height: 66px;
+  }
+
+  .action-grid [data-action="soft-drop"] {
+    min-height: 62px;
+  }
+
+  .action-grid [data-action="hard-drop"] {
+    min-height: 52px;
+    font-size: 14px;
   }
 }
