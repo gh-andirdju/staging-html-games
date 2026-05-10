@@ -62,6 +62,7 @@
   var lastTime = 0;
   var autoStep = true;
   var renderTick = 0;
+  var activeTouchId = null;
 
   function powerUpLetter(type) {
     if (type === "wide") return "E";
@@ -773,6 +774,13 @@
     }
   }
 
+  function updatePaddlePositionFromClientX(clientX) {
+    var rect = canvas.getBoundingClientRect();
+    var scale = WIDTH / rect.width;
+    normalizeState();
+    state.paddleX = clamp((clientX - rect.left) * scale - state.paddleWidth / 2, 0, WIDTH - state.paddleWidth);
+  }
+
   window.addEventListener("keydown", function (event) {
     handleKey(event, true);
   });
@@ -782,11 +790,55 @@
   });
 
   canvas.addEventListener("mousemove", function (event) {
-    var rect = canvas.getBoundingClientRect();
-    var scale = WIDTH / rect.width;
-    normalizeState();
-    state.paddleX = clamp((event.clientX - rect.left) * scale - state.paddleWidth / 2, 0, WIDTH - state.paddleWidth);
+    updatePaddlePositionFromClientX(event.clientX);
   });
+
+  canvas.addEventListener("touchstart", function (event) {
+    if (!event.touches.length) {
+      return;
+    }
+
+    var touch = event.changedTouches[0];
+    activeTouchId = touch.identifier;
+    updatePaddlePositionFromClientX(touch.clientX);
+    event.preventDefault();
+  }, { passive: false });
+
+  canvas.addEventListener("touchmove", function (event) {
+    var touch = null;
+
+    for (var i = 0; i < event.changedTouches.length; i += 1) {
+      if (event.changedTouches[i].identifier === activeTouchId) {
+        touch = event.changedTouches[i];
+        break;
+      }
+    }
+
+    if (!touch && event.touches.length) {
+      touch = event.touches[0];
+      activeTouchId = touch.identifier;
+    }
+
+    if (!touch) {
+      return;
+    }
+
+    updatePaddlePositionFromClientX(touch.clientX);
+    event.preventDefault();
+  }, { passive: false });
+
+  canvas.addEventListener("touchend", function (event) {
+    for (var i = 0; i < event.changedTouches.length; i += 1) {
+      if (event.changedTouches[i].identifier === activeTouchId) {
+        activeTouchId = null;
+        break;
+      }
+    }
+
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+  }, { passive: false });
 
   restartButton.addEventListener("click", restart);
 

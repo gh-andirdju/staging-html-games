@@ -879,3 +879,105 @@ test('restart resets to level 1 and clears active power-up state from HUD and st
   expect(resetHud).not.toContain('slow');
   expect(resetHud).not.toContain('laser');
 });
+
+async function dragTouchOnCanvas(page, relativePoints) {
+  await page.evaluate((points) => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) throw new Error('Canvas not found for touch drag test.');
+
+    const rect = canvas.getBoundingClientRect();
+    const makeTouch = (point) =>
+      new Touch({
+        identifier: 1,
+        target: canvas,
+        clientX: rect.left + rect.width * point.x,
+        clientY: rect.top + rect.height * point.y,
+        radiusX: 8,
+        radiusY: 8,
+        rotationAngle: 0,
+        force: 0.5
+      });
+
+    const startTouch = makeTouch(points[0]);
+    canvas.dispatchEvent(
+      new TouchEvent('touchstart', {
+        bubbles: true,
+        cancelable: true,
+        touches: [startTouch],
+        targetTouches: [startTouch],
+        changedTouches: [startTouch]
+      })
+    );
+
+    for (let index = 1; index < points.length; index += 1) {
+      const moveTouch = makeTouch(points[index]);
+      canvas.dispatchEvent(
+        new TouchEvent('touchmove', {
+          bubbles: true,
+          cancelable: true,
+          touches: [moveTouch],
+          targetTouches: [moveTouch],
+          changedTouches: [moveTouch]
+        })
+      );
+    }
+
+    const endTouch = makeTouch(points[points.length - 1]);
+    canvas.dispatchEvent(
+      new TouchEvent('touchend', {
+        bubbles: true,
+        cancelable: true,
+        touches: [],
+        targetTouches: [],
+        changedTouches: [endTouch]
+      })
+    );
+  }, relativePoints);
+}
+
+test.describe('mobile touch controls', () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true
+  });
+
+  test('moves paddle right from a touch drag on the canvas', async ({ page }) => {
+    await openGame(page);
+    await mutateState(page, 'centerPaddle');
+    const startX = paddleX(await getState(page));
+
+    await dragTouchOnCanvas(page, [
+      { x: 0.3, y: 0.82 },
+      { x: 0.45, y: 0.82 },
+      { x: 0.62, y: 0.82 },
+      { x: 0.78, y: 0.82 }
+    ]);
+    await advanceFrames(page, 2);
+
+    expect(paddleX(await getState(page))).toBeGreaterThan(startX);
+  });
+
+  test('moves paddle left after dragging touch from right to left', async ({ page }) => {
+    await openGame(page);
+    await mutateState(page, 'centerPaddle');
+
+    await dragTouchOnCanvas(page, [
+      { x: 0.25, y: 0.82 },
+      { x: 0.5, y: 0.82 },
+      { x: 0.78, y: 0.82 }
+    ]);
+    await advanceFrames(page, 2);
+    const rightX = paddleX(await getState(page));
+
+    await dragTouchOnCanvas(page, [
+      { x: 0.78, y: 0.82 },
+      { x: 0.56, y: 0.82 },
+      { x: 0.34, y: 0.82 },
+      { x: 0.18, y: 0.82 }
+    ]);
+    await advanceFrames(page, 2);
+
+    expect(paddleX(await getState(page))).toBeLessThan(rightX);
+  });
+});
