@@ -59,6 +59,11 @@ async function restart(page) {
   });
 }
 
+async function prepareVisualLayout(page) {
+  await mutateState(page, 'centerPaddle');
+  await page.locator('canvas').first().scrollIntoViewIfNeeded();
+}
+
 async function mutateState(page, mutatorName, options = {}) {
   await page.evaluate(
     ({ name, options: mutationOptions }) => {
@@ -615,6 +620,18 @@ test('keeps the stacked touch layout on desktop widths', async ({ page }) => {
   expect(restartBox.width).toBeLessThan(laneBox.width * 0.5);
 });
 
+test('matches the desktop layout baseline', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1024 });
+  await openGame(page);
+  await prepareVisualLayout(page);
+
+  await expect(page).toHaveScreenshot('brickbreaker-desktop-layout.png', {
+    animations: 'disabled',
+    fullPage: false,
+    maxDiffPixels: 10
+  });
+});
+
 test('advances ball movement across frames', async ({ page }) => {
   await openGame(page);
   await mutateState(page, 'movingBall');
@@ -1043,6 +1060,17 @@ test.describe('mobile touch controls', () => {
     expect(restartBox.y).toBeGreaterThanOrEqual(laneBox.y + laneBox.height);
     expect(restartBox.width).toBeLessThan(laneBox.width * 0.5);
     expect(restartBox.height).toBeLessThan(laneBox.height * 0.75);
+  });
+
+  test('matches the mobile layout baseline', async ({ page }) => {
+    await openGame(page);
+    await prepareVisualLayout(page);
+
+    await expect(page).toHaveScreenshot('brickbreaker-mobile-layout.png', {
+      animations: 'disabled',
+      fullPage: false,
+      maxDiffPixels: 10
+    });
   });
 
   test('auto-fires laser without a manual input', async ({ page }) => {
