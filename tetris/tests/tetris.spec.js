@@ -17,6 +17,8 @@ test.afterEach(async ({ page }) => {
 
 async function openGame(page) {
   await page.goto('./');
+  await page.evaluate(() => window.localStorage.removeItem('tetris-handedness'));
+  await page.reload();
   await page.waitForFunction(() => {
     const api = window.__tetrisTest;
     return (
@@ -26,7 +28,9 @@ async function openGame(page) {
       typeof api.setState === 'function' &&
       typeof api.advanceFrames === 'function' &&
       typeof api.restart === 'function' &&
-      typeof api.setAutoStep === 'function'
+      typeof api.setAutoStep === 'function' &&
+      typeof api.getControlsState === 'function' &&
+      typeof api.setHandedness === 'function'
     );
   });
   await page.evaluate(() => window.__tetrisTest.setAutoStep(false));
@@ -51,6 +55,10 @@ async function advanceFrames(page, frames = 1) {
   await page.evaluate(async (value) => {
     await window.__tetrisTest.advanceFrames(value);
   }, frames);
+}
+
+async function getControlsState(page) {
+  return page.evaluate(() => window.__tetrisTest.getControlsState());
 }
 
 test('renders and exposes ready test API', async ({ page }) => {
@@ -289,6 +297,9 @@ test.describe('mobile touch controls', () => {
     const controlsBox = await page.locator('.touch-controls').boundingBox();
     const playfieldBox = await page.locator('.playfield').boundingBox();
     const statusBox = await page.locator('.status-wrap').boundingBox();
+    const moveZoneBox = await page.locator('.move-zone').boundingBox();
+    const actionZoneBox = await page.locator('.action-zone').boundingBox();
+    const toggleBox = await page.locator('#handedness-toggle').boundingBox();
     const restartStyles = await page.locator('#restart').evaluate((element) => {
       const style = window.getComputedStyle(element);
       return {
@@ -301,10 +312,80 @@ test.describe('mobile touch controls', () => {
     expect(controlsBox).not.toBeNull();
     expect(playfieldBox).not.toBeNull();
     expect(statusBox).not.toBeNull();
+    expect(moveZoneBox).not.toBeNull();
+    expect(actionZoneBox).not.toBeNull();
+    expect(toggleBox).not.toBeNull();
     expect(boardBox.height).toBeGreaterThan(statusBox.height * 5);
     expect(playfieldBox.height).toBeGreaterThan(controlsBox.height);
     expect(controlsBox.y).toBeGreaterThanOrEqual(boardBox.y + boardBox.height);
+    expect(moveZoneBox.x + moveZoneBox.width).toBeLessThanOrEqual(actionZoneBox.x + 4);
+    expect(Math.abs(moveZoneBox.y - actionZoneBox.y)).toBeLessThan(24);
+    expect(toggleBox.y + toggleBox.height).toBeLessThanOrEqual(moveZoneBox.y + 4);
     expect(restartStyles.borderTopColor).not.toBe('rgb(51, 65, 85)');
     expect(restartStyles.backgroundImage).toContain('gradient');
+  });
+
+  test('handedness toggle swaps zones and persists after reload', async ({ page }) => {
+    await openGame(page);
+
+    await expect(page.locator('#handedness-toggle')).toHaveText('Right-handed');
+    await expect.poll(async () => {
+      const state = await getControlsState(page);
+      return state.handedness;
+    }).toBe('right');
+
+    const beforeMoveBox = await page.locator('.move-zone').boundingBox();
+    const beforeActionBox = await page.locator('.action-zone').boundingBox();
+    expect(beforeMoveBox).not.toBeNull();
+    expect(beforeActionBox).not.toBeNull();
+    expect(beforeMoveBox.x).toBeLessThan(beforeActionBox.x);
+
+    await page.locator('#handedness-toggle').tap();
+    await expect(page.locator('#handedness-toggle')).toHaveText('Left-handed');
+    await expect.poll(async () => {
+      const state = await getControlsState(page);
+      return state.handedness;
+    }).toBe('left');
+
+    const afterMoveBox = await page.locator('.move-zone').boundingBox();
+    const afterActionBox = await page.locator('.action-zone').boundingBox();
+    expect(afterMoveBox).not.toBeNull();
+    expect(afterActionBox).not.toBeNull();
+    expect(afterMoveBox.x).toBeGreaterThan(afterActionBox.x);
+
+    await page.reload();
+    await page.waitForFunction(() => window.__tetrisTest?.isReady === true);
+    await page.evaluate(() => window.__tetrisTest.setAutoStep(false));
+    await expect(page.locator('#handedness-toggle')).toHaveText('Left-handed');
+    await expect.poll(async () => {
+      const state = await getControlsState(page);
+      return state.handedness;
+    }).toBe('left');
+  });
+
+  test('captures portrait layout screenshot for control validation', async ({ page }) => {
+    await openGame(page);
+
+    const moveZoneBox = await page.locator('.move-zone').boundingBox();
+    const actionZoneBox = await page.locator('.action-zone').boundingBox();
+    const rotateBox = await page.getByRole('button', { name: 'Rotate' }).boundingBox();
+    const softDropBox = await page.getByRole('button', { name: 'Soft Drop' }).boundingBox();
+    const hardDropBox = await page.getByRole('button', { name: 'Hard Drop' }).boundingBox();
+
+    expect(moveZoneBox).not.toBeNull();
+    expect(actionZoneBox).not.toBeNull();
+    expect(rotateBox).not.toBeNull();
+    expect(softDropBox).not.toBeNull();
+    expect(hardDropBox).not.toBeNull();
+    expect(moveZoneBox.x + moveZoneBox.width).toBeLessThanOrEqual(actionZoneBox.x + 4);
+    expect(rotateBox.width).toBeGreaterThan(softDropBox.width * 1.9);
+    expect(rotateBox.y).toBeLessThan(softDropBox.y);
+    expect(hardDropBox.height).toBeLessThan(softDropBox.height);
+    expect(hardDropBox.y).toBeGreaterThanOrEqual(softDropBox.y);
+
+    await page.screenshot({
+      path: 'test-results/tetris-controls-portrait-validation.png',
+      fullPage: true
+    });
   });
 });
