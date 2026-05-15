@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>2048</title>
+    <link rel="stylesheet" href="src/styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <span class="eyebrow">Slide &amp; Merge</span>
+          <strong class="title">2048</strong>
+        </div>
+        <button id="restart" type="button">New Game</button>
+      </header>
+
+      <section class="playfield" aria-label="Game area">
+        <header class="hud" aria-label="Game status">
+          <div class="stat-card">
+            <span class="label">Score</span>
+            <strong id="score">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="label">Best</span>
+            <strong id="best">0</strong>
+          </div>
+          <div class="status-wrap" aria-live="polite">
+            <span class="label">Status</span>
+            <strong id="status">Playing</strong>
+          </div>
+        </header>
+
+        <div class="board-wrap">
+          <div id="grid" class="grid" role="grid" aria-label="2048 grid"></div>
+        </div>
+      </section>
+    </main>
+    <script src="src/game.js"></script>
+  </body>
+</html>

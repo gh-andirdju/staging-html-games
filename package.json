@@ -7,9 +7,10 @@
     "dev:pages": "BASE_PATH=/html-games/ bun server.js",
     "test:brickbreaker": "cd brickbreaker && bun run test",
     "test:tetris": "cd tetris && bun run test",
+    "test:2048": "cd 2048 && bun run test",
     "test:snake": "cd snake && bun run test",
     "test:asteroids": "cd asteroids && bun run test",
     "test:pinball": "cd pinball && bun run test",
-    "test:all": "cd brickbreaker && bun run test && cd ../tetris && bun run test && cd ../snake && bun run test && cd ../asteroids && bun run test && cd ../pinball && bun run test"
+    "test:all": "cd brickbreaker && bun run test && cd ../tetris && bun run test && cd ../2048 && bun run test && cd ../snake && bun run test && cd ../asteroids && bun run test && cd ../pinball && bun run test"
   }
 }
