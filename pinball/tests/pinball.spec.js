@@ -113,12 +113,14 @@ test('ball launches when plunger is compressed and released', async ({ page }) =
   });
 
   await page.keyboard.up(' ');
-  await advanceFrames(page, 5);
+  await advanceFrames(page, 1);
   const after = await getState(page);
 
   expect(after.status).toBe('playing');
   expect(after.ball.launched).toBe(true);
   expect(after.ball.vy).toBeLessThan(0);
+  expect(after.ball.x).toBeCloseTo(360, 0);
+  expect(after.ball.y).toBeCloseTo(570, 0);
 });
 
 test('bumper collision increments score', async ({ page }) => {
@@ -407,6 +409,54 @@ test('ball speed is capped after flipper boost', async ({ page }) => {
   const after = await getState(page);
   const speed = Math.sqrt(after.ball.vx ** 2 + after.ball.vy ** 2);
   expect(speed).toBeLessThanOrEqual(900);
+});
+
+test('plunger compresses while launch key is held', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({ status: 'ready', plunger: { compressed: 0 } });
+  });
+  await page.keyboard.down(' ');
+  await advanceFrames(page, 10);
+  await page.keyboard.up(' ');
+  const s = await getState(page);
+  expect(s.plunger.compressed).toBeCloseTo(0.30, 1);
+  expect(s.status).toBe('ready');
+});
+
+test('ArrowLeft activates left flipper', async ({ page }) => {
+  await openGame(page);
+  const before = await getState(page);
+  const restAngle = before.leftFlipper.angle;
+  await page.keyboard.down('ArrowLeft');
+  await advanceFrames(page, 6);
+  await page.keyboard.up('ArrowLeft');
+  const after = await getState(page);
+  expect(after.leftFlipper.angle).not.toBeCloseTo(restAngle, 1);
+});
+
+test('ArrowRight activates right flipper', async ({ page }) => {
+  await openGame(page);
+  const before = await getState(page);
+  const restAngle = before.rightFlipper.angle;
+  await page.keyboard.down('ArrowRight');
+  await advanceFrames(page, 6);
+  await page.keyboard.up('ArrowRight');
+  const after = await getState(page);
+  expect(after.rightFlipper.angle).not.toBeCloseTo(restAngle, 1);
+});
+
+test('r key triggers restart', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({ status: 'game_over', balls: 0, score: 5000, level: 5 });
+  });
+  await page.keyboard.press('r');
+  const after = await getState(page);
+  expect(after.status).toBe('ready');
+  expect(after.balls).toBe(3);
+  expect(after.score).toBe(0);
+  expect(after.level).toBe(1);
 });
 
 test('desktop layout screenshot', async ({ page }) => {

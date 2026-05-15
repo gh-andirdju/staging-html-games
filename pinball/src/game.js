@@ -253,7 +253,7 @@
     if (!wallHit && ball.y < 80) {
       var arcCX = WIDTH / 2;
       var arcCY = 0;
-      var arcR = WIDTH / 2 - WALL_LEFT + ball.radius;
+      var arcR = WIDTH / 2 - WALL_LEFT;
       var adx = ball.x - arcCX;
       var ady = ball.y - arcCY;
       var adist = Math.sqrt(adx * adx + ady * ady);
@@ -577,11 +577,15 @@
         delete incoming.ball;
       }
       if (incoming.leftFlipper && typeof incoming.leftFlipper === "object") {
+        var hadLfAngle = 'angle' in incoming.leftFlipper;
         state.leftFlipper = Object.assign(state.leftFlipper || initial.leftFlipper, incoming.leftFlipper);
+        if (hadLfAngle) { state.leftFlipper.prevAngle = state.leftFlipper.angle; }
         delete incoming.leftFlipper;
       }
       if (incoming.rightFlipper && typeof incoming.rightFlipper === "object") {
+        var hadRfAngle = 'angle' in incoming.rightFlipper;
         state.rightFlipper = Object.assign(state.rightFlipper || initial.rightFlipper, incoming.rightFlipper);
+        if (hadRfAngle) { state.rightFlipper.prevAngle = state.rightFlipper.angle; }
         delete incoming.rightFlipper;
       }
       if (incoming.plunger && typeof incoming.plunger === "object") {
@@ -593,7 +597,17 @@
       if (!state.bumpers || !Array.isArray(state.bumpers) || state.bumpers.length < 3) {
         state.bumpers = initial.bumpers;
       }
-      if (!state.targets || !Array.isArray(state.targets)) {
+      if (Array.isArray(state.targets)) {
+        state.targets = state.targets.map(function (t) {
+          return {
+            x: typeof t.x === "number" ? t.x : 0,
+            y: typeof t.y === "number" ? t.y : 0,
+            w: typeof t.w === "number" ? t.w : 0,
+            h: typeof t.h === "number" ? t.h : 0,
+            hit: Boolean(t.hit)
+          };
+        });
+      } else {
         state.targets = initial.targets;
       }
       if (typeof state.balls === "number") {
