@@ -140,7 +140,7 @@
     };
   }
 
-  function resolveFlipperCollision(ball, flipper) {
+  function resolveFlipperCollision(ball, flipper, dt) {
     var tip = flipperTip(flipper);
     var cp = closestPointOnSegment(
       flipper.pivotX, flipper.pivotY,
@@ -166,7 +166,7 @@
     ball.vx -= 2 * dot * nx;
     ball.vy -= 2 * dot * ny;
 
-    var angularVel = (flipper.angle - flipper.prevAngle) / FIXED_DT;
+    var angularVel = (flipper.angle - flipper.prevAngle) / dt;
     if (Math.abs(angularVel) > 0.5) {
       var tipSpeed = Math.abs(angularVel) * FLIPPER_LENGTH * cp.t;
       var boostSign = angularVel < 0 ? -1 : 1;
@@ -243,8 +243,8 @@
       ball.x = WALL_RIGHT - ball.radius;
       ball.vx = -Math.abs(ball.vx);
     }
-    if (ball.y - ball.radius < ball.radius + 10) {
-      ball.y = ball.radius * 2 + 10;
+    if (ball.y - ball.radius < 10) {
+      ball.y = ball.radius + 10;
       ball.vy = Math.abs(ball.vy);
     }
 
@@ -319,8 +319,8 @@
       state.level = Math.min(state.level + 1, 10);
     }
 
-    resolveFlipperCollision(ball, lf);
-    resolveFlipperCollision(ball, rf);
+    resolveFlipperCollision(ball, lf, dt);
+    resolveFlipperCollision(ball, rf, dt);
 
     if (ball.y > DRAIN_Y) {
       state.balls -= 1;
@@ -567,25 +567,29 @@
     },
     setState: function (nextState) {
       var incoming = clone(nextState);
-      state = Object.assign(state, incoming);
       var initial = makeInitialState();
+      if (incoming.ball && typeof incoming.ball === "object") {
+        state.ball = Object.assign(state.ball || initial.ball, incoming.ball);
+        delete incoming.ball;
+      }
+      if (incoming.leftFlipper && typeof incoming.leftFlipper === "object") {
+        state.leftFlipper = Object.assign(state.leftFlipper || initial.leftFlipper, incoming.leftFlipper);
+        delete incoming.leftFlipper;
+      }
+      if (incoming.rightFlipper && typeof incoming.rightFlipper === "object") {
+        state.rightFlipper = Object.assign(state.rightFlipper || initial.rightFlipper, incoming.rightFlipper);
+        delete incoming.rightFlipper;
+      }
+      if (incoming.plunger && typeof incoming.plunger === "object") {
+        state.plunger = Object.assign(state.plunger || { compressed: 0 }, incoming.plunger);
+        delete incoming.plunger;
+      }
+      state = Object.assign(state, incoming);
       if (!state.bumpers || !Array.isArray(state.bumpers)) {
         state.bumpers = initial.bumpers;
       }
       if (!state.targets || !Array.isArray(state.targets)) {
         state.targets = initial.targets;
-      }
-      if (!state.ball || typeof state.ball !== "object") {
-        state.ball = initial.ball;
-      }
-      if (!state.leftFlipper || typeof state.leftFlipper !== "object") {
-        state.leftFlipper = initial.leftFlipper;
-      }
-      if (!state.rightFlipper || typeof state.rightFlipper !== "object") {
-        state.rightFlipper = initial.rightFlipper;
-      }
-      if (!state.plunger || typeof state.plunger !== "object") {
-        state.plunger = { compressed: 0 };
       }
       updateHud();
       draw();

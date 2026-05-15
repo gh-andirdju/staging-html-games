@@ -209,25 +209,24 @@ test('HUD reflects state changes', async ({ page }) => {
 
 test('all targets hit resets them and increments level', async ({ page }) => {
   await openGame(page);
-  const s = await getState(page);
 
-  await page.evaluate((targets) => {
-    const hitAll = targets.map((t) => ({ ...t, hit: true }));
-    hitAll[hitAll.length - 1].hit = false;
-    window.__pinballTest.setState({
+  await page.evaluate(() => {
+    const api = window.__pinballTest;
+    const s = (api.getState ?? api.readState).call(api);
+    const hitAll = s.targets.map((t) => ({ ...t, hit: true }));
+    api.setState({
       status: 'playing',
       level: 1,
       targets: hitAll,
-      ball: { x: hitAll[hitAll.length - 1].x + 28, y: hitAll[hitAll.length - 1].y, vx: 0, vy: 50, radius: 10, launched: true }
+      ball: { x: 200, y: 500, vx: 0, vy: 0, radius: 10, launched: true }
     });
-  }, s.targets);
+  });
 
-  await advanceFrames(page, 5);
+  await advanceFrames(page, 1);
   const after = await getState(page);
 
-  const allReset = after.targets.every((t) => !t.hit);
-  const levelUp = after.level === 2;
-  expect(allReset || levelUp).toBe(true);
+  expect(after.targets.every((t) => !t.hit)).toBe(true);
+  expect(after.level).toBe(2);
 });
 
 test('desktop layout screenshot', async ({ page }) => {
