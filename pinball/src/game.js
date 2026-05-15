@@ -195,8 +195,6 @@
       return;
     }
 
-    state.frame += 1;
-
     var lf = state.leftFlipper;
     var rf = state.rightFlipper;
 
@@ -223,6 +221,8 @@
       } else if (state.plunger.compressed > 0) {
         ball.vy = -BALL_LAUNCH_SPEED * state.plunger.compressed;
         ball.launched = true;
+        ball.x = WALL_RIGHT - BALL_RADIUS;
+        ball.vx = 0;
         state.plunger.compressed = 0;
         state.status = "playing";
       }
@@ -231,24 +231,27 @@
       return;
     }
 
+    state.frame += 1;
     ball.vy += GRAVITY * dt;
     ball.x += ball.vx * dt;
     ball.y += ball.vy * dt;
 
+    var wallHit = false;
     if (ball.x - ball.radius < WALL_LEFT) {
       ball.x = WALL_LEFT + ball.radius;
       ball.vx = Math.abs(ball.vx);
-    }
-    if (ball.x + ball.radius > WALL_RIGHT) {
+      wallHit = true;
+    } else if (ball.x + ball.radius > WALL_RIGHT) {
       ball.x = WALL_RIGHT - ball.radius;
       ball.vx = -Math.abs(ball.vx);
+      wallHit = true;
     }
     if (ball.y - ball.radius < 10) {
       ball.y = ball.radius + 10;
       ball.vy = Math.abs(ball.vy);
     }
 
-    if (ball.y < 80) {
+    if (!wallHit && ball.y < 80) {
       var arcCX = WIDTH / 2;
       var arcCY = 0;
       var arcR = WIDTH / 2 - WALL_LEFT + ball.radius;
@@ -560,9 +563,6 @@
   window.__pinballTest = {
     isReady: false,
     getState: function () {
-      return clone(state);
-    },
-    readState: function () {
       return clone(state);
     },
     setState: function (nextState) {

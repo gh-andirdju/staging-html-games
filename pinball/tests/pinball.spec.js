@@ -24,7 +24,7 @@ async function openGame(page) {
     return (
       api &&
       api.isReady === true &&
-      (typeof api.getState === 'function' || typeof api.readState === 'function') &&
+      typeof api.getState === 'function' &&
       typeof api.setState === 'function' &&
       typeof api.advanceFrames === 'function' &&
       typeof api.restart === 'function' &&
@@ -36,17 +36,17 @@ async function openGame(page) {
 }
 
 async function getState(page) {
-  return page.evaluate(() => {
-    const api = window.__pinballTest;
-    const readState = api.getState ?? api.readState;
-    return readState.call(api);
-  });
+  return page.evaluate(() => window.__pinballTest.getState());
 }
 
 async function advanceFrames(page, frames = 1) {
-  await page.evaluate(async (frameCount) => {
-    await window.__pinballTest.advanceFrames(frameCount);
+  await page.evaluate((frameCount) => {
+    window.__pinballTest.advanceFrames(frameCount);
   }, frames);
+}
+
+async function restartGame(page) {
+  await page.evaluate(() => window.__pinballTest.restart());
 }
 
 test('exposes the test control contract and renders the canvas', async ({ page }) => {
@@ -186,6 +186,22 @@ test('restart resets game state', async ({ page }) => {
   });
 
   await page.evaluate(() => window.__pinballTest.restart());
+  const after = await getState(page);
+
+  expect(after.status).toBe('ready');
+  expect(after.balls).toBe(3);
+  expect(after.score).toBe(0);
+  expect(after.level).toBe(1);
+});
+
+test('restart button resets game state', async ({ page }) => {
+  await openGame(page);
+
+  await page.evaluate(() => {
+    window.__pinballTest.setState({ status: 'game_over', balls: 0, score: 5000, level: 4 });
+  });
+
+  await page.click('#restart');
   const after = await getState(page);
 
   expect(after.status).toBe('ready');
