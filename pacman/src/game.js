@@ -580,6 +580,7 @@
     state.globalMode = "scatter";
     state.modePhase = 0;
     state.modeTimer = 0;
+    state.deathTimer = 0;
   }
 
   function advanceLevel() {

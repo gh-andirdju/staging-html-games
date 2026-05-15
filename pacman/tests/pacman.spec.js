@@ -318,6 +318,70 @@ test('level advances and maze resets after levelComplete delay', async ({ page }
   expect(after.pelletsRemaining).toBeGreaterThan(0);
 });
 
+test('ghost combo scores 200 then 400 in sequence', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  // Place two ghosts on Pac-Man's tile while frightened; both eaten in one frame
+  // First eat awards 200, second awards 400 (combo multiplier)
+  await setState(page, {
+    frightenedTimer: 600,
+    ghosts: [
+      { tileRow: s.pacman.tileRow, tileCol: s.pacman.tileCol, mode: 'scatter', frightened: true },
+      { tileRow: s.pacman.tileRow, tileCol: s.pacman.tileCol, mode: 'scatter', frightened: true }
+    ]
+  });
+  const before = await getState(page);
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  expect(after.ghosts[0].mode).toBe('eaten');
+  expect(after.ghosts[1].mode).toBe('eaten');
+  expect(after.score - before.score).toBe(200 + 400);
+});
+
+test('eating last pellet naturally triggers levelComplete in same frame', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  const lastPellet = s.pellets.find((p) => !p.eaten);
+  expect(lastPellet).toBeDefined();
+  await setState(page, {
+    pelletsRemaining: 1,
+    pacman: { tileRow: lastPellet.row, tileCol: lastPellet.col }
+  });
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  expect(after.status).toBe('levelComplete');
+  expect(after.pelletsRemaining).toBe(0);
+});
+
+test('game over blocks further state changes', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { status: 'gameOver', score: 100, lives: 0 });
+  await advanceFrames(page, 30);
+  const after = await getState(page);
+  expect(after.status).toBe('gameOver');
+  expect(after.score).toBe(100);
+  expect(after.lives).toBe(0);
+});
+
+test('second power pellet while frightened resets timer and keeps ghosts frightened', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  const pp = s.powerPellets.find((p) => !p.eaten);
+  expect(pp).toBeDefined();
+  // Activate frightened mode first (timer low), then eat a second power pellet
+  await setState(page, { frightenedTimer: 100 });
+  await setState(page, { pacman: { tileRow: pp.row, tileCol: pp.col } });
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  // Timer should have reset to full FRIGHTENED_FRAMES, not continued from 100
+  expect(after.frightenedTimer).toBeGreaterThan(100);
+  const activeGhosts = after.ghosts.filter((g) => g.mode !== 'house');
+  expect(activeGhosts.length).toBeGreaterThan(0);
+  for (const g of activeGhosts) {
+    expect(g.frightened).toBe(true);
+  }
+});
+
 // ── Screenshot tests (UI) ──────────────────────────────────────────────────
 
 test('matches desktop layout screenshot', async ({ page }) => {
