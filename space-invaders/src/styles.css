@@ -93,6 +93,7 @@ canvas {
   aspect-ratio: 600 / 480;
   border-radius: 6px;
   box-shadow: var(--shadow), 0 0 0 1px var(--panel-border);
+  image-rendering: -webkit-crisp-edges;
   image-rendering: crisp-edges;
   image-rendering: pixelated;
 }

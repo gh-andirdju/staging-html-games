@@ -149,6 +149,7 @@ test('player fires a bullet with Space', async ({ page }) => {
 test('player bullet cooldown prevents rapid fire', async ({ page }) => {
   await openGame(page);
 
+  // Fire once; BULLET_COOLDOWN=30 means a second press within 30 frames is ignored
   await page.keyboard.down('Space');
   await advanceFrames(page, 1);
   await page.keyboard.up('Space');
@@ -328,7 +329,8 @@ test('player bullet degrades a shield cell', async ({ page }) => {
     enemies: oneAlive,
     bulletCooldown: 30,
     enemyMoveTimer: 999,
-    enemyFireTimer: 999
+    enemyFireTimer: 999,
+    deathTimer: 0
   });
   await advanceFrames(page, 4);
 
@@ -367,7 +369,8 @@ test('a destroyed shield cell (HP 0) does not stop bullets', async ({ page }) =>
     enemies: oneAlive,
     bulletCooldown: 30,
     enemyMoveTimer: 999,
-    enemyFireTimer: 999
+    enemyFireTimer: 999,
+    deathTimer: 0
   });
   await advanceFrames(page, 4);
 
