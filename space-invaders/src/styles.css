@@ -122,7 +122,7 @@ canvas {
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: none;
+  touch-action: manipulation;
   transition: background 0.1s, border-color 0.1s;
 }
 

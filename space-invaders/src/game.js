@@ -40,6 +40,9 @@
 
   var SCORE_BY_ROW = [30, 20, 20, 10, 10];
 
+  var DEATH_TIMER_FRAMES = 60;
+  var DEATH_FLASH_PERIOD = 6;
+
   var canvas = document.getElementById('game');
   var ctx = canvas.getContext('2d');
   var scoreEl = document.getElementById('score');
@@ -115,10 +118,6 @@
     return n;
   }
 
-  function enemyMoveInterval() {
-    return Math.max(4, Math.round(60 - aliveCount() * 0.9));
-  }
-
   function rng() {
     state.rngSeed = (Math.imul(1664525, state.rngSeed) + 1013904223) >>> 0;
     return state.rngSeed / 0x100000000;
@@ -161,10 +160,10 @@
       }
     }
 
-    // Enemy movement
+    // Enemy movement (interval shrinks as enemies die: faster at low count)
     state.enemyMoveTimer--;
     if (state.enemyMoveTimer <= 0) {
-      state.enemyMoveTimer = enemyMoveInterval();
+      state.enemyMoveTimer = Math.max(4, Math.round(60 - aliveCount() * 0.9));
 
       if (state.enemyDropPending) {
         // Drop enemies down and flip direction
@@ -314,8 +313,7 @@
           state.status = 'gameover';
           return;
         }
-        // Brief invincibility pause
-        state.deathTimer = 60;
+        state.deathTimer = DEATH_TIMER_FRAMES;
         state.bullets = [];
       }
     }
@@ -402,7 +400,7 @@
     }
 
     // Draw player
-    var flashOff = state.deathTimer > 0 && Math.floor(state.deathTimer / 6) % 2 === 0;
+    var flashOff = state.deathTimer > 0 && Math.floor(state.deathTimer / DEATH_FLASH_PERIOD) % 2 === 0;
     if (!flashOff) {
       ctx.fillStyle = '#22d3ee';
       drawPlayer(ctx, state.player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT);
@@ -473,8 +471,8 @@
 
   // Keyboard input
   window.addEventListener('keydown', function (e) {
-    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
-    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { e.preventDefault(); keys.left = true; }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { e.preventDefault(); keys.right = true; }
     if (e.key === ' ') { e.preventDefault(); keys.fire = true; }
     if (e.key === 'r' || e.key === 'R') { e.preventDefault(); restart(); }
   });

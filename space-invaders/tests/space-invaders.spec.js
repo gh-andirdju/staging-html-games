@@ -56,9 +56,10 @@ test('game initializes with correct defaults', async ({ page }) => {
   expect(state.lives).toBe(3);
   expect(state.wave).toBe(1);
   expect(state.status).toBe('playing');
-  expect(state.enemies.length).toBe(55);
+  expect(state.enemies.length).toBe(55); // 5 rows × 11 cols
   expect(state.enemies.filter(e => e.alive).length).toBe(55);
   expect(state.shields.length).toBe(4);
+  expect(state.enemyDir).toBe(1);
 });
 
 // ─── Player movement ─────────────────────────────────────────────────────────
@@ -101,6 +102,7 @@ test('player does not move past left edge', async ({ page }) => {
 
 test('player does not move past right edge', async ({ page }) => {
   await openGame(page);
+  // max valid x = WIDTH - PLAYER_WIDTH = 600 - 40 = 560
   await setState(page, { player: { x: 560 } });
 
   await page.keyboard.down('ArrowRight');
@@ -138,17 +140,21 @@ test('player bullet cooldown prevents rapid fire', async ({ page }) => {
   expect(state.bullets.length).toBe(1);
 });
 
-test('bullets move upward across frames', async ({ page }) => {
+test('bullets move upward at the correct speed', async ({ page }) => {
   await openGame(page);
+  const startY = 300;
   await setState(page, {
-    bullets: [{ x: 295, y: 300 }],
+    bullets: [{ x: 295, y: startY }],
     bulletCooldown: 30
   });
 
-  await advanceFrames(page, 10);
+  const frames = 10;
+  await advanceFrames(page, frames);
 
+  // BULLET_SPEED=380 px/s, FIXED_DT=1/60 s → 380/60*10 ≈ 63.33 px per 10 frames
+  const expectedY = startY - (380 / 60) * frames;
   const state = await getState(page);
-  expect(state.bullets[0].y).toBeLessThan(300);
+  expect(state.bullets[0].y).toBeCloseTo(expectedY, 1);
 });
 
 test('bullets are removed when they leave the top of the screen', async ({ page }) => {
@@ -166,9 +172,10 @@ test('bullets are removed when they leave the top of the screen', async ({ page 
 
 // ─── Enemy collision ──────────────────────────────────────────────────────────
 
-test('bullet hitting enemy kills it and adds score', async ({ page }) => {
+test('bullet hitting enemy kills it and removes the bullet', async ({ page }) => {
   await openGame(page);
   const stateBefore = await getState(page);
+  // Target bottom-right enemy (last in array, row 4, lowest score row)
   const target = stateBefore.enemies[stateBefore.enemies.length - 1];
 
   await setState(page, {
@@ -182,6 +189,24 @@ test('bullet hitting enemy kills it and adds score', async ({ page }) => {
   const killed = stateAfter.enemies[stateAfter.enemies.length - 1];
   expect(killed.alive).toBe(false);
   expect(stateAfter.score).toBeGreaterThan(0);
+  expect(stateAfter.bullets.length).toBe(0); // bullet is consumed on hit
+});
+
+test('bullet hitting a middle-row enemy scores correctly', async ({ page }) => {
+  await openGame(page);
+  const stateBefore = await getState(page);
+  // Row 2 enemy (mid-type, worth 20 points per SCORE_BY_ROW)
+  const midEnemy = stateBefore.enemies.find(e => e.row === 2);
+
+  await setState(page, {
+    bullets: [{ x: midEnemy.x + 8, y: midEnemy.y + 4 }],
+    bulletCooldown: 30
+  });
+
+  await advanceFrames(page, 2);
+
+  const stateAfter = await getState(page);
+  expect(stateAfter.score).toBe(20);
 });
 
 // ─── Enemy movement ───────────────────────────────────────────────────────────
@@ -190,7 +215,8 @@ test('enemies move horizontally', async ({ page }) => {
   await openGame(page);
   const before = (await getState(page)).enemies[0].x;
 
-  await setState(page, { enemyMoveTimer: 1 });
+  // Ensure direction is right so movement is predictable
+  await setState(page, { enemyDir: 1, enemyMoveTimer: 1 });
   await advanceFrames(page, 2);
 
   const after = (await getState(page)).enemies[0].x;
@@ -202,16 +228,17 @@ test('enemies drop down when hitting the right wall', async ({ page }) => {
   const stateBefore = await getState(page);
   const yBefore = stateBefore.enemies[0].y;
 
-  // Push enemies so the next move will hit the right wall
+  // Shift enemies +520 px right so the next rightward step hits the wall.
+  // ENEMY_START_X(40) + 10*col_spacing(46) + ENEMY_W(32) + 520 ≈ wall edge.
   await setState(page, {
     enemyDir: 1,
     enemyDropPending: false,
     enemyMoveTimer: 1,
     enemies: stateBefore.enemies.map(e => ({ ...e, x: e.x + 520 }))
   });
-  await advanceFrames(page, 1);  // triggers move that hits wall → sets dropPending
+  await advanceFrames(page, 1); // move hits wall → sets dropPending
   await setState(page, { enemyMoveTimer: 1 });
-  await advanceFrames(page, 1);  // next step triggers drop
+  await advanceFrames(page, 1); // next tick executes the drop
 
   const yAfter = (await getState(page)).enemies[0].y;
   expect(yAfter).toBeGreaterThan(yBefore);
@@ -219,17 +246,21 @@ test('enemies drop down when hitting the right wall', async ({ page }) => {
 
 // ─── Player hit / lives ───────────────────────────────────────────────────────
 
-test('enemy bullet hitting player reduces lives', async ({ page }) => {
+test('enemy bullet hitting player reduces lives and sets death timer', async ({ page }) => {
   await openGame(page);
   const livesBefore = (await getState(page)).lives;
 
+  // Place bullet overlapping the player position (player is centered at x≈280, PLAYER_Y=440)
   await setState(page, {
     enemyBullets: [{ x: 280, y: 436 }]
   });
-  await advanceFrames(page, 2);
+  // One frame: bullet moves into player → hit, deathTimer set, step returns early
+  await advanceFrames(page, 1);
 
-  const livesAfter = (await getState(page)).lives;
-  expect(livesAfter).toBeLessThan(livesBefore);
+  const stateAfter = await getState(page);
+  expect(stateAfter.lives).toBeLessThan(livesBefore);
+  expect(stateAfter.deathTimer).toBe(60); // DEATH_TIMER_FRAMES = 60
+  expect(stateAfter.bullets.length).toBe(0); // player bullets cleared on hit
 });
 
 test('losing last life sets status to gameover', async ({ page }) => {
@@ -249,7 +280,7 @@ test('losing last life sets status to gameover', async ({ page }) => {
 test('enemy reaching player y position triggers game over', async ({ page }) => {
   await openGame(page);
   const stateBefore = await getState(page);
-  // Move one enemy right to the player line
+  // PLAYER_Y = HEIGHT - 40 = 440; enemy hits when y + ENEMY_H >= PLAYER_Y
   const movedEnemies = stateBefore.enemies.map((e, i) =>
     i === 0 ? { ...e, y: 440 } : e
   );
@@ -265,13 +296,13 @@ test('player bullet degrades a shield cell', async ({ page }) => {
   await openGame(page);
   const stateBefore = await getState(page);
   const sh = stateBefore.shields[0];
-  const hpBefore = sh.cells[0];
+  const hpBefore = sh.cells[0]; // should be 3
 
-  // Kill all enemies except one (far away) so the win condition doesn't reset shields
+  // Keep one enemy alive so the win condition doesn't rebuild shields mid-test
   const oneAlive = stateBefore.enemies.map((e, i) =>
     i === 0 ? { ...e, x: 0, y: 0, alive: true } : { ...e, alive: false }
   );
-  // Start bullet just below the shield so it travels up into the top cell
+  // Bullet starts just inside the shield cell (travels up into cell 0)
   await setState(page, {
     bullets: [{ x: sh.x + 2, y: sh.y + 5 }],
     enemies: oneAlive,
@@ -285,14 +316,36 @@ test('player bullet degrades a shield cell', async ({ page }) => {
   expect(stateAfter.shields[0].cells[0]).toBeLessThan(hpBefore);
 });
 
+// ─── Enemy fire ───────────────────────────────────────────────────────────────
+
+test('enemy fires a bullet from the correct position', async ({ page }) => {
+  await openGame(page);
+  const stateBefore = await getState(page);
+
+  // Force the fire timer to trigger on the next frame
+  await setState(page, { enemyFireTimer: 1, rngSeed: 12345 });
+  await advanceFrames(page, 1);
+
+  const stateAfter = await getState(page);
+  expect(stateAfter.enemyBullets.length).toBeGreaterThan(0);
+
+  // Bullet must originate within the horizontal bounds of the enemy grid
+  const b = stateAfter.enemyBullets[0];
+  const minX = stateBefore.enemies[0].x;
+  const maxX = stateBefore.enemies[stateBefore.enemies.length - 1].x + 32; // ENEMY_W
+  expect(b.x).toBeGreaterThanOrEqual(minX);
+  expect(b.x).toBeLessThanOrEqual(maxX);
+  // Bullet must start at or below the top enemy row
+  expect(b.y).toBeGreaterThan(stateBefore.enemies[0].y);
+});
+
 // ─── Wave progression ─────────────────────────────────────────────────────────
 
-test('clearing all enemies advances the wave', async ({ page }) => {
+test('clearing all enemies advances the wave and resets direction', async ({ page }) => {
   await openGame(page);
-  const waveBefore = (await getState(page)).wave;
-
-  // Kill all but one enemy, then aim a bullet at the last one
   const stateBefore = await getState(page);
+  const waveBefore = stateBefore.wave;
+
   const last = stateBefore.enemies[stateBefore.enemies.length - 1];
   const killedEnemies = stateBefore.enemies.map((e, i) =>
     i < stateBefore.enemies.length - 1 ? { ...e, alive: false } : e
@@ -303,19 +356,23 @@ test('clearing all enemies advances the wave', async ({ page }) => {
     bullets: [{ x: last.x + 8, y: last.y + 4 }],
     enemyBullets: [],
     bulletCooldown: 30,
-    enemyMoveTimer: 999
+    enemyMoveTimer: 999,
+    // Flip direction so we can verify it resets to 1 on new wave
+    enemyDir: -1
   });
 
   await advanceFrames(page, 3);
 
-  const waveAfter = (await getState(page)).wave;
-  expect(waveAfter).toBe(waveBefore + 1);
+  const waveAfter = await getState(page);
+  expect(waveAfter.wave).toBe(waveBefore + 1);
+  expect(waveAfter.enemyDir).toBe(1); // always resets to moving right
+  expect(waveAfter.enemyDropPending).toBe(false);
+  expect(waveAfter.enemies.filter(e => e.alive).length).toBe(55); // full grid spawned
 });
 
 test('shields reset to full health when a new wave starts', async ({ page }) => {
   await openGame(page);
 
-  // Damage a shield cell then kill all-but-one enemy
   const stateBefore = await getState(page);
   const last = stateBefore.enemies[stateBefore.enemies.length - 1];
   const killedEnemies = stateBefore.enemies.map((e, i) =>
