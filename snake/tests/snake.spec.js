@@ -208,6 +208,54 @@ test('top wall collision sets gameOver', async ({ page }) => {
   expect(s.gameOver).toBe(true);
 });
 
+test('bottom wall collision sets gameOver', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__snakeTest.setState({
+      snake: [{ x: 10, y: 19 }, { x: 10, y: 18 }, { x: 10, y: 17 }],
+      direction: { x: 0, y: 1 },
+      nextDirection: { x: 0, y: 1 },
+      food: { x: 5, y: 5 },
+      score: 0,
+      highScore: 0,
+      level: 1,
+      foodEaten: 0,
+      tickInterval: 12,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 0
+    });
+  });
+
+  await advanceFrames(page, 12);
+  const s = await getState(page);
+  expect(s.gameOver).toBe(true);
+});
+
+test('left wall collision sets gameOver', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__snakeTest.setState({
+      snake: [{ x: 0, y: 10 }, { x: 1, y: 10 }, { x: 2, y: 10 }],
+      direction: { x: -1, y: 0 },
+      nextDirection: { x: -1, y: 0 },
+      food: { x: 5, y: 5 },
+      score: 0,
+      highScore: 0,
+      level: 1,
+      foodEaten: 0,
+      tickInterval: 12,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 0
+    });
+  });
+
+  await advanceFrames(page, 12);
+  const s = await getState(page);
+  expect(s.gameOver).toBe(true);
+});
+
 test('self collision sets gameOver', async ({ page }) => {
   await openGame(page);
   await page.evaluate(() => {
@@ -402,6 +450,34 @@ test.describe('mobile touch controls', () => {
       return { boardBottom: board.bottom, controlsTop: controls.top };
     });
     expect(layout.controlsTop).toBeGreaterThanOrEqual(layout.boardBottom - 1);
+  });
+
+  test('touch D-pad direction buttons are no-op after gameOver', async ({ page }) => {
+    await openGame(page);
+    await page.evaluate(() => {
+      window.__snakeTest.setState({
+        snake: [{ x: 19, y: 10 }, { x: 18, y: 10 }],
+        direction: { x: 1, y: 0 },
+        nextDirection: { x: 1, y: 0 },
+        food: { x: 5, y: 5 },
+        score: 0,
+        highScore: 0,
+        level: 1,
+        foodEaten: 0,
+        tickInterval: 12,
+        tickCounter: 0,
+        gameOver: false,
+        frame: 0
+      });
+    });
+
+    await advanceFrames(page, 12);
+    let s = await page.evaluate(() => window.__snakeTest.getState());
+    expect(s.gameOver).toBe(true);
+
+    await page.getByRole('button', { name: 'Up' }).dispatchEvent('pointerdown');
+    s = await page.evaluate(() => window.__snakeTest.getState());
+    expect(s.nextDirection).toEqual({ x: 1, y: 0 });
   });
 
   test('matches the portrait layout baseline', async ({ page }) => {

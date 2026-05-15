@@ -258,11 +258,11 @@
     button.addEventListener('pointerdown', (event) => {
       event.preventDefault();
       switch (action) {
-        case 'up':      setNextDirection(0, -1);  break;
-        case 'down':    setNextDirection(0,  1);  break;
-        case 'left':    setNextDirection(-1, 0);  break;
-        case 'right':   setNextDirection(1,  0);  break;
-        case 'restart': restartGame();            break;
+        case 'up':      if (!state.gameOver) setNextDirection(0, -1);  break;
+        case 'down':    if (!state.gameOver) setNextDirection(0,  1);  break;
+        case 'left':    if (!state.gameOver) setNextDirection(-1, 0);  break;
+        case 'right':   if (!state.gameOver) setNextDirection(1,  0);  break;
+        case 'restart': restartGame();                                  break;
       }
     });
   }
@@ -283,6 +283,12 @@
       if (!state.direction)     state.direction     = { x: 1, y: 0 };
       if (!state.nextDirection) state.nextDirection = structuredClone(state.direction);
       if (state.food == null)   spawnFood();
+      if (typeof state.gameOver !== 'boolean')          state.gameOver = false;
+      if (typeof state.score !== 'number')              state.score = 0;
+      if (typeof state.highScore !== 'number')          state.highScore = 0;
+      if (typeof state.level !== 'number')              state.level = 1;
+      if (typeof state.foodEaten !== 'number')          state.foodEaten = 0;
+      if (typeof state.frame !== 'number')              state.frame = 0;
       if (typeof state.tickInterval !== 'number')       state.tickInterval = BASE_TICK_INTERVAL;
       if (typeof state.tickCounter !== 'number')        state.tickCounter = 0;
       if (typeof state.statusMessage !== 'string')      state.statusMessage = '';
