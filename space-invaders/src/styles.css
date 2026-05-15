@@ -134,6 +134,11 @@ canvas {
   border-color: rgba(var(--accent-rgb), 0.55);
 }
 
+.touch-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .touch-fire {
   font-size: 13px;
   letter-spacing: 0.12em;

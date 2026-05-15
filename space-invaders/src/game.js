@@ -148,7 +148,7 @@
   }
 
   function step(dt) {
-    if (state.status === 'gameover' || state.status === 'won') return;
+    if (state.status === 'gameover') return;
 
     if (state.deathTimer > 0) {
       state.deathTimer--;

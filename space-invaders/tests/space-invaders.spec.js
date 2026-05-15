@@ -379,6 +379,20 @@ test('a destroyed shield cell (HP 0) does not stop bullets', async ({ page }) =>
   expect(stateAfter.shields[0].cells[0]).toBe(0);
 });
 
+test('restart button click resets game to initial state', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { score: 500, lives: 1, wave: 3, status: 'gameover' });
+
+  await page.click('#btn-restart');
+  await page.evaluate(() => window.__spaceInvadersTest.setAutoStep(false));
+
+  const state = await getState(page);
+  expect(state.score).toBe(0);
+  expect(state.lives).toBe(3);
+  expect(state.wave).toBe(1);
+  expect(state.status).toBe('playing');
+});
+
 // ─── Enemy fire ───────────────────────────────────────────────────────────────
 
 test('enemy fires a bullet from the correct position', async ({ page }) => {
@@ -400,6 +414,25 @@ test('enemy fires a bullet from the correct position', async ({ page }) => {
   expect(b.x).toBeLessThanOrEqual(maxX);
   // Bullet must start at or below the top enemy row
   expect(b.y).toBeGreaterThan(stateBefore.enemies[0].y);
+});
+
+test('enemy fire timer triggers but spawns no bullet when all enemies are dead', async ({ page }) => {
+  await openGame(page);
+  const stateBefore = await getState(page);
+
+  await setState(page, {
+    enemies: stateBefore.enemies.map(e => ({ ...e, alive: false })),
+    enemyFireTimer: 1,
+    enemyBullets: [],
+    enemyMoveTimer: 999
+  });
+  await advanceFrames(page, 2);
+
+  // Wave resets on same frame (aliveCount=0), new enemies won't fire immediately
+  // What matters: no extra bullet spawned during the tick with zero alive enemies
+  const stateAfter = await getState(page);
+  // After wave reset, enemyFireTimer is set to 80 so no bullet fires yet
+  expect(stateAfter.enemyBullets.length).toBe(0);
 });
 
 // ─── Wave progression ─────────────────────────────────────────────────────────
