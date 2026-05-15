@@ -350,6 +350,58 @@ test('player cannot fire bullets when game is over', async ({ page }) => {
   expect(state.bullets.length).toBe(0);
 });
 
+test('death timer counts down to zero and player can fire again', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    deathTimer: 60,
+    lives: 2,
+    enemyBullets: [],
+    enemyMoveTimer: 999,
+    enemyFireTimer: 999
+  });
+
+  await advanceFrames(page, 60);
+
+  const stateAfter = await getState(page);
+  expect(stateAfter.deathTimer).toBe(0);
+
+  // Player can fire again once deathTimer expires
+  await page.keyboard.down('Space');
+  await advanceFrames(page, 2);
+  await page.keyboard.up('Space');
+
+  const stateFinal = await getState(page);
+  expect(stateFinal.bullets.length).toBeGreaterThan(0);
+});
+
+test('shield cell degrades progressively through 3 hits to destroyed', async ({ page }) => {
+  await openGame(page);
+  const stateBefore = await getState(page);
+  const sh = stateBefore.shields[0];
+  const bx = sh.x + 2;
+  const by = sh.y + 5;
+
+  // Keep one enemy alive so wave doesn't reset
+  const oneAlive = stateBefore.enemies.map((e, i) =>
+    i === 0 ? { ...e, x: 0, y: 0, alive: true } : { ...e, alive: false }
+  );
+
+  // Fire a bullet at cell 0 three times; each decrement HP by 1: 3 → 2 → 1 → 0
+  for (let expectedHp = 2; expectedHp >= 0; expectedHp--) {
+    await setState(page, {
+      bullets: [{ x: bx, y: by }],
+      enemies: oneAlive,
+      bulletCooldown: 30,
+      enemyMoveTimer: 999,
+      enemyFireTimer: 999,
+      deathTimer: 0
+    });
+    await advanceFrames(page, 2);
+    const s = await getState(page);
+    expect(s.shields[0].cells[0]).toBe(expectedHp);
+  }
+});
+
 test('a destroyed shield cell (HP 0) does not stop bullets', async ({ page }) => {
   await openGame(page);
   const stateBefore = await getState(page);
@@ -463,6 +515,9 @@ test('clearing all enemies advances the wave and resets direction', async ({ pag
   expect(waveAfter.wave).toBe(waveBefore + 1);
   expect(waveAfter.enemyDir).toBe(1); // always resets to moving right
   expect(waveAfter.enemyDropPending).toBe(false);
+  // Timers were reset to 0/80 on wave start; after 3 frames they are actively counting
+  expect(waveAfter.enemyMoveTimer).toBeGreaterThan(0);
+  expect(waveAfter.enemyFireTimer).toBeGreaterThan(0);
   expect(waveAfter.enemies.filter(e => e.alive).length).toBe(55); // full grid spawned
   // Row types must match initial layout: row 0 = type 2, rows 1-2 = type 1, rows 3-4 = type 0
   expect(waveAfter.enemies.filter(e => e.row === 0).every(e => e.type === 2)).toBe(true);

@@ -217,38 +217,25 @@
       }
     }
 
-    // Enemy fire
+    // Enemy fire: collect the bottom-most alive enemy per column in one pass
     state.enemyFireTimer--;
     if (state.enemyFireTimer <= 0) {
-      var aliveCols = [];
+      var colShooters = [];
       for (var col = 0; col < ENEMY_COLS; col++) {
-        var colHasAlive = false;
         for (var row = ENEMY_ROWS - 1; row >= 0; row--) {
           var idx = row * ENEMY_COLS + col;
           if (idx < state.enemies.length && state.enemies[idx].alive) {
-            colHasAlive = true;
+            colShooters.push(state.enemies[idx]);
             break;
           }
         }
-        if (colHasAlive) aliveCols.push(col);
       }
-      if (aliveCols.length > 0) {
-        var chosenCol = aliveCols[Math.floor(rng() * aliveCols.length)];
-        // Find the bottom-most alive enemy in that column
-        var shooter = null;
-        for (var row = ENEMY_ROWS - 1; row >= 0; row--) {
-          var idx = row * ENEMY_COLS + chosenCol;
-          if (idx < state.enemies.length && state.enemies[idx].alive) {
-            shooter = state.enemies[idx];
-            break;
-          }
-        }
-        if (shooter) {
-          state.enemyBullets.push({
-            x: shooter.x + ENEMY_W / 2 - ENEMY_BULLET_W / 2,
-            y: shooter.y + ENEMY_H
-          });
-        }
+      if (colShooters.length > 0) {
+        var shooter = colShooters[Math.floor(rng() * colShooters.length)];
+        state.enemyBullets.push({
+          x: shooter.x + ENEMY_W / 2 - ENEMY_BULLET_W / 2,
+          y: shooter.y + ENEMY_H
+        });
       }
       state.enemyFireTimer = FIRE_COOLDOWN_MIN + Math.floor(rng() * FIRE_COOLDOWN_RANGE);
     }
