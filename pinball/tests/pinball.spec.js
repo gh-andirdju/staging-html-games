@@ -459,6 +459,41 @@ test('r key triggers restart', async ({ page }) => {
   expect(after.level).toBe(1);
 });
 
+test('target hit detection marks target hit and scores', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  const target = s.targets[0];
+  await page.evaluate((t) => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      level: 1,
+      ball: { x: t.x + t.w / 2, y: t.y + t.h / 2, vx: 0, vy: -50, radius: 10, launched: true }
+    });
+  }, target);
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  expect(after.targets[0].hit).toBe(true);
+  expect(after.score).toBeGreaterThan(0);
+});
+
+test('ball reflects off curved top wall', async ({ page }) => {
+  await openGame(page);
+  // Ball outside the arc boundary on the lateral side (x=80, adist≈193 > arcR-radius=160)
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      ball: { x: 80, y: 170, vx: -100, vy: -300, radius: 10, launched: true }
+    });
+  });
+  await advanceFrames(page, 10);
+  const after = await getState(page);
+  // Ball must remain inside the arc (not escape through the curved wall)
+  const adist = Math.sqrt((after.ball.x - 200) ** 2 + after.ball.y ** 2);
+  expect(adist).toBeLessThanOrEqual(170);
+  expect(after.ball.y).toBeGreaterThan(0);
+});
+
 test('desktop layout screenshot', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);

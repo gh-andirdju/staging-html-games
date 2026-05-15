@@ -250,7 +250,7 @@
       ball.vy = Math.abs(ball.vy);
     }
 
-    if (!wallHit && ball.y < 80) {
+    if (!wallHit && ball.y < WIDTH / 2 - WALL_LEFT + ball.radius) {
       var arcCX = WIDTH / 2;
       var arcCY = 0;
       var arcR = WIDTH / 2 - WALL_LEFT;
@@ -596,6 +596,15 @@
       state = Object.assign(state, incoming);
       if (!state.bumpers || !Array.isArray(state.bumpers) || state.bumpers.length < 3) {
         state.bumpers = initial.bumpers;
+      } else {
+        state.bumpers = state.bumpers.map(function (b) {
+          return {
+            x: typeof b.x === "number" ? b.x : 0,
+            y: typeof b.y === "number" ? b.y : 0,
+            radius: typeof b.radius === "number" ? b.radius : BUMPER_RADIUS,
+            hitTimer: typeof b.hitTimer === "number" ? Math.max(0, b.hitTimer) : 0
+          };
+        });
       }
       if (Array.isArray(state.targets)) {
         state.targets = state.targets.map(function (t) {
