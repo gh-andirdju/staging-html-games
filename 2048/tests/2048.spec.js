@@ -205,6 +205,26 @@ test('merge adds the merged value to score', async ({ page }) => {
   await expect(page.locator('#score')).toHaveText('8');
 });
 
+test('four equal tiles in a row produce two merged pairs not one chain', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [
+      [2, 2, 2, 2],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0]
+    ],
+    score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+  await page.keyboard.press('ArrowLeft');
+  const state = await getState(page);
+  expect(state.grid[0][0]).toBe(4);
+  expect(state.grid[0][1]).toBe(4);
+  expect(state.grid[0][2]).toBe(0);
+  expect(state.grid[0][3]).toBe(0);
+  expect(state.score).toBe(8);
+});
+
 // No-move case
 
 test('slide in direction with no valid moves does not change state', async ({ page }) => {
@@ -283,6 +303,22 @@ test('board with no valid moves triggers game over', async ({ page }) => {
   const state = await getState(page);
   expect(state.gameOver).toBe(true);
   await expect(page.locator('#status')).toContainText('Game Over');
+});
+
+test('game over still triggers after winning if board fills up', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [
+      [2, 4, 2, 4],
+      [4, 2, 4, 2],
+      [2, 4, 2, 4],
+      [4, 2, 4, 2]
+    ],
+    score: 0, best: 0, gameOver: false, won: true, statusMessage: 'You Win!'
+  });
+  await page.keyboard.press('ArrowLeft');
+  const state = await getState(page);
+  expect(state.gameOver).toBe(true);
 });
 
 // Restart

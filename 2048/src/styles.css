@@ -195,7 +195,8 @@ body {
 }
 .cell[data-value="4096"],
 .cell[data-value="8192"],
-.cell[data-value="16384"] {
+.cell[data-value="16384"],
+.cell[data-value]:not([data-value=""]):not([data-value="2"]):not([data-value="4"]):not([data-value="8"]):not([data-value="16"]):not([data-value="32"]):not([data-value="64"]):not([data-value="128"]):not([data-value="256"]):not([data-value="512"]):not([data-value="1024"]):not([data-value="2048"]):not([data-value="4096"]):not([data-value="8192"]):not([data-value="16384"]) {
   background: #fff;
   color: #1a0a00;
   font-size: clamp(9px, 2.5vw, 14px);
@@ -279,7 +280,8 @@ body {
 
   .cell[data-value="4096"],
   .cell[data-value="8192"],
-  .cell[data-value="16384"] {
+  .cell[data-value="16384"],
+  .cell[data-value]:not([data-value=""]):not([data-value="2"]):not([data-value="4"]):not([data-value="8"]):not([data-value="16"]):not([data-value="32"]):not([data-value="64"]):not([data-value="128"]):not([data-value="256"]):not([data-value="512"]):not([data-value="1024"]):not([data-value="2048"]):not([data-value="4096"]):not([data-value="8192"]):not([data-value="16384"]) {
     font-size: clamp(8px, 2.2vw, 12px);
   }
 }

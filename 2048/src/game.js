@@ -157,7 +157,7 @@
   }
 
   function checkGameOver() {
-    if (state.gameOver || state.won) return;
+    if (state.gameOver) return;
     if (!hasValidMoves()) {
       state.gameOver = true;
       state.statusMessage = 'Game Over';
@@ -310,6 +310,8 @@
       restartGame();
     },
     spawnTile(value, row, col) {
+      if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return;
+      if (typeof value !== 'number' || value <= 0) return;
       state.grid[row][col] = value;
       render();
     }
