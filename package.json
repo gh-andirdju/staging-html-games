@@ -11,6 +11,7 @@
     "test:snake": "cd snake && bun run test",
     "test:asteroids": "cd asteroids && bun run test",
     "test:pinball": "cd pinball && bun run test",
-    "test:all": "cd brickbreaker && bun run test && cd ../tetris && bun run test && cd ../2048 && bun run test && cd ../snake && bun run test && cd ../asteroids && bun run test && cd ../pinball && bun run test"
+    "test:space-invaders": "cd space-invaders && bun run test",
+    "test:all": "cd brickbreaker && bun run test && cd ../tetris && bun run test && cd ../2048 && bun run test && cd ../snake && bun run test && cd ../asteroids && bun run test && cd ../pinball && bun run test && cd ../space-invaders && bun run test"
   }
 }
