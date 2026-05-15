@@ -181,6 +181,7 @@ test('wall collision sets gameOver', async ({ page }) => {
   await advanceFrames(page, 12);
   const s = await getState(page);
   expect(s.gameOver).toBe(true);
+  await expect(page.locator('#status')).toHaveText('Game Over');
 });
 
 test('top wall collision sets gameOver', async ({ page }) => {
@@ -264,6 +265,34 @@ test('180-degree reversal is blocked during movement', async ({ page }) => {
   const s = await getState(page);
   expect(s.gameOver).toBe(false);
   expect(s.snake[0].x).toBe(11);
+});
+
+test('direction keys are no-op after gameOver', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__snakeTest.setState({
+      snake: [{ x: 19, y: 10 }, { x: 18, y: 10 }],
+      direction: { x: 1, y: 0 },
+      nextDirection: { x: 1, y: 0 },
+      food: { x: 5, y: 5 },
+      score: 0,
+      highScore: 0,
+      level: 1,
+      foodEaten: 0,
+      tickInterval: 12,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 0
+    });
+  });
+
+  await advanceFrames(page, 12);
+  let s = await getState(page);
+  expect(s.gameOver).toBe(true);
+
+  await page.keyboard.press('ArrowUp');
+  s = await getState(page);
+  expect(s.nextDirection).toEqual({ x: 1, y: 0 });
 });
 
 test('level increments and tickInterval decreases after FOODS_PER_LEVEL foods', async ({ page }) => {

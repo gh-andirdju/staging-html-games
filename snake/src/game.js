@@ -283,6 +283,8 @@
       if (!state.direction)     state.direction     = { x: 1, y: 0 };
       if (!state.nextDirection) state.nextDirection = structuredClone(state.direction);
       if (state.food == null)   spawnFood();
+      if (typeof state.tickInterval !== 'number')       state.tickInterval = BASE_TICK_INTERVAL;
+      if (typeof state.tickCounter !== 'number')        state.tickCounter = 0;
       if (typeof state.statusMessage !== 'string')      state.statusMessage = '';
       if (typeof state.statusTone !== 'string')         state.statusTone = 'normal';
       if (typeof state.statusMessageTimer !== 'number') state.statusMessageTimer = 0;
