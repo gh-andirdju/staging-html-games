@@ -476,7 +476,7 @@
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
     if (e.key === ' ') { e.preventDefault(); keys.fire = true; }
-    if (e.key === 'r' || e.key === 'R') restart();
+    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); restart(); }
   });
 
   window.addEventListener('keyup', function (e) {

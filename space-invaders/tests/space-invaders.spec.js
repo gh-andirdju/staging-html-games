@@ -312,6 +312,35 @@ test('clearing all enemies advances the wave', async ({ page }) => {
   expect(waveAfter).toBe(waveBefore + 1);
 });
 
+test('shields reset to full health when a new wave starts', async ({ page }) => {
+  await openGame(page);
+
+  // Damage a shield cell then kill all-but-one enemy
+  const stateBefore = await getState(page);
+  const last = stateBefore.enemies[stateBefore.enemies.length - 1];
+  const killedEnemies = stateBefore.enemies.map((e, i) =>
+    i < stateBefore.enemies.length - 1 ? { ...e, alive: false } : e
+  );
+  const damagedShields = stateBefore.shields.map((sh, si) =>
+    si === 0 ? { ...sh, cells: sh.cells.map((c, ci) => ci === 0 ? 1 : c) } : sh
+  );
+
+  await setState(page, {
+    enemies: killedEnemies,
+    shields: damagedShields,
+    bullets: [{ x: last.x + 8, y: last.y + 4 }],
+    enemyBullets: [],
+    bulletCooldown: 30,
+    enemyMoveTimer: 999
+  });
+
+  await advanceFrames(page, 3);
+
+  const stateAfter = await getState(page);
+  expect(stateAfter.wave).toBe(stateBefore.wave + 1);
+  expect(stateAfter.shields[0].cells[0]).toBe(3);
+});
+
 // ─── Screenshot tests ─────────────────────────────────────────────────────────
 
 test('matches the desktop layout baseline', async ({ page }) => {
