@@ -6,6 +6,7 @@ Static HTML games collection.
 - **Staging:** [gh-andirdju.github.io/staging-html-games](https://gh-andirdju.github.io/staging-html-games)
 
 - GitHub Pages repo-root entrypoint: [`index.html`](./index.html)
-- Games:
+- Each game lives in its own top-level folder. Current games:
   - [`brickbreaker/`](./brickbreaker/)
   - [`tetris/`](./tetris/)
+  - *(more games will be added here)*
