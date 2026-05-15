@@ -11,7 +11,8 @@
         --bg-top: #1a0e00;
         --bg-bottom: #080400;
         --accent: #f59e0b;
-        --panel-border: rgba(245, 158, 11, 0.28);
+        --accent-rgb: 245, 158, 11;
+        --panel-border: rgba(var(--accent-rgb), 0.28);
         --text-main: #fef9f0;
         --shadow: 0 14px 36px rgba(8, 3, 0, 0.48);
       }
@@ -20,7 +21,7 @@
         margin: 0;
         min-height: 100vh;
         background:
-          radial-gradient(circle at top, rgba(245, 158, 11, 0.15), transparent 30%),
+          radial-gradient(circle at top, rgba(var(--accent-rgb), 0.15), transparent 30%),
           linear-gradient(180deg, var(--bg-top), var(--bg-bottom) 62%);
         color: var(--text-main);
         font-family: "Trebuchet MS", "Arial Narrow", Arial, sans-serif;
@@ -42,7 +43,7 @@
         letter-spacing: 0.06em;
         text-transform: uppercase;
         color: var(--accent);
-        text-shadow: 0 0 24px rgba(245, 158, 11, 0.45);
+        text-shadow: 0 0 24px rgba(var(--accent-rgb), 0.45);
       }
 
       ul {
@@ -70,8 +71,8 @@
 
       li a:hover,
       li a:focus-visible {
-        border-color: rgba(245, 158, 11, 0.55);
-        box-shadow: 0 0 20px rgba(245, 158, 11, 0.18), var(--shadow);
+        border-color: rgba(var(--accent-rgb), 0.55);
+        box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.18), var(--shadow);
         outline: none;
       }
     </style>
