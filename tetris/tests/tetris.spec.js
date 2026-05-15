@@ -189,7 +189,7 @@ async function prepareVisualLayout(page) {
     gameOver: false,
     clearAnimation: null,
     statusMessage: 'Level 1',
-    statusTone: 'normal',
+    statusTone: '',
     statusMessageTimer: 0
   });
 }
