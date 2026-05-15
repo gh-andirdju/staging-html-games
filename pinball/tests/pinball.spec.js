@@ -459,6 +459,33 @@ test('r key triggers restart', async ({ page }) => {
   expect(after.level).toBe(1);
 });
 
+test('bumper hitTimer is 14 immediately after collision', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  const bumper = s.bumpers[0];
+  await page.evaluate((b) => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      ball: { x: b.x, y: b.y, vx: 0, vy: 0, radius: 10, launched: true }
+    });
+  }, bumper);
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  expect(after.bumpers[0].hitTimer).toBe(14);
+});
+
+test('slash key activates right flipper', async ({ page }) => {
+  await openGame(page);
+  const before = await getState(page);
+  const restAngle = before.rightFlipper.angle;
+  await page.keyboard.down('/');
+  await advanceFrames(page, 6);
+  await page.keyboard.up('/');
+  const after = await getState(page);
+  expect(after.rightFlipper.angle).not.toBeCloseTo(restAngle, 1);
+});
+
 test('target hit detection marks target hit and scores', async ({ page }) => {
   await openGame(page);
   const s = await getState(page);

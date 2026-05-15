@@ -270,6 +270,9 @@
 
     for (var i = 0; i < state.bumpers.length; i += 1) {
       var bumper = state.bumpers[i];
+      if (bumper.hitTimer > 0) {
+        bumper.hitTimer -= 1;
+      }
       var bdx = ball.x - bumper.x;
       var bdy = ball.y - bumper.y;
       var bdist = Math.sqrt(bdx * bdx + bdy * bdy);
@@ -286,10 +289,6 @@
         ball.vy = bny * outSpeed;
         bumper.hitTimer = 14;
         state.score += BUMPER_SCORE * state.level;
-      }
-
-      if (bumper.hitTimer > 0) {
-        bumper.hitTimer -= 1;
       }
     }
 
@@ -321,6 +320,12 @@
         state.targets[m].hit = false;
       }
       state.level = Math.min(state.level + 1, 10);
+      for (var n = 0; n < state.targets.length; n += 1) {
+        var tgt = state.targets[n];
+        if (circleHitsRect(ball.x, ball.y, ball.radius, tgt.x, tgt.y, tgt.w, tgt.h)) {
+          tgt.hit = true;
+        }
+      }
     }
 
     resolveFlipperCollision(ball, lf, dt);
