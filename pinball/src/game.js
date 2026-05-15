@@ -34,7 +34,7 @@
   var LANE_SCORE = 150;
   var WALL_LEFT = 30;
   var WALL_RIGHT = WIDTH - 30;
-  var LAUNCH_X = WIDTH - 22;
+  var LAUNCH_X = WALL_RIGHT - BALL_RADIUS;
   var DRAIN_Y = HEIGHT + BALL_RADIUS + 4;
 
   var keys = { left: false, right: false, launch: false };
@@ -221,7 +221,6 @@
       } else if (state.plunger.compressed > 0) {
         ball.vy = -BALL_LAUNCH_SPEED * state.plunger.compressed;
         ball.launched = true;
-        ball.x = WALL_RIGHT - BALL_RADIUS;
         ball.vx = 0;
         state.plunger.compressed = 0;
         state.status = "playing";
