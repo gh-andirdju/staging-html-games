@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pac-Man</title>
+    <link rel="stylesheet" href="src/styles.css">
+  </head>
+  <body>
+    <div class="game-shell">
+      <header class="hud" aria-label="Game stats">
+        <div class="stat-chip">
+          <span class="label">Score</span>
+          <strong id="score">0</strong>
+        </div>
+        <div class="stat-chip">
+          <span class="label">Lives</span>
+          <strong id="lives">3</strong>
+        </div>
+        <div class="stat-chip">
+          <span class="label">Level</span>
+          <strong id="level">1</strong>
+        </div>
+      </header>
+
+      <canvas id="game" width="800" height="520" aria-label="Pac-Man game canvas"></canvas>
+
+      <section class="touch-controls" aria-label="Touch controls">
+        <div class="thumb-zone dpad-zone">
+          <span class="control-label">Move</span>
+          <div class="dpad">
+            <button type="button" class="dpad-btn" data-action="up" aria-label="Up">▲</button>
+            <button type="button" class="dpad-btn" data-action="left" aria-label="Left">◀</button>
+            <button type="button" class="dpad-btn" data-action="down" aria-label="Down">▼</button>
+            <button type="button" class="dpad-btn" data-action="right" aria-label="Right">▶</button>
+          </div>
+        </div>
+        <div class="thumb-zone action-zone">
+          <span class="control-label">System</span>
+          <button id="restart" type="button" class="action-button" aria-label="Restart game">Restart</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="src/game.js"></script>
+  </body>
+</html>
