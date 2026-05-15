@@ -315,7 +315,7 @@
         break;
       }
     }
-    if (allHit) {
+    if (state.targets.length > 0 && allHit) {
       for (var m = 0; m < state.targets.length; m += 1) {
         state.targets[m].hit = false;
       }

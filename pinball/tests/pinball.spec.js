@@ -116,7 +116,8 @@ test('ball launches when plunger is compressed and released', async ({ page }) =
   await advanceFrames(page, 5);
   const after = await getState(page);
 
-  expect(after.status === 'playing' || after.ball.launched === true).toBe(true);
+  expect(after.status).toBe('playing');
+  expect(after.ball.launched).toBe(true);
   expect(after.ball.vy).toBeLessThan(0);
 });
 
@@ -228,7 +229,7 @@ test('all targets hit resets them and increments level', async ({ page }) => {
 
   await page.evaluate(() => {
     const api = window.__pinballTest;
-    const s = (api.getState ?? api.readState).call(api);
+    const s = api.getState();
     const hitAll = s.targets.map((t) => ({ ...t, hit: true }));
     api.setState({
       status: 'playing',
@@ -243,6 +244,29 @@ test('all targets hit resets them and increments level', async ({ page }) => {
 
   expect(after.targets.every((t) => !t.hit)).toBe(true);
   expect(after.level).toBe(2);
+});
+
+test('frame counter increments during playing but not during ready', async ({ page }) => {
+  await openGame(page);
+
+  const before = await getState(page);
+  expect(before.status).toBe('ready');
+  const frameBefore = before.frame;
+
+  await advanceFrames(page, 5);
+  const afterReady = await getState(page);
+  expect(afterReady.frame).toBe(frameBefore);
+
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      ball: { x: 200, y: 400, vx: 0, vy: 0, radius: 10, launched: true }
+    });
+  });
+
+  await advanceFrames(page, 5);
+  const afterPlaying = await getState(page);
+  expect(afterPlaying.frame).toBe(frameBefore + 5);
 });
 
 test('desktop layout screenshot', async ({ page }) => {
