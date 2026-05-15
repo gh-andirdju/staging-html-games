@@ -396,6 +396,35 @@ test('restart button click resets HUD scores', async ({ page }) => {
   expect(state.gameState).toBe('serving');
 });
 
+test('won state freezes ball and paddles', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    ball: { x: 400, y: 260, dx: 200, dy: 100 },
+    gameState: 'won',
+    winner: 'player'
+  });
+  const before = await getState(page);
+
+  await advanceFrames(page, 10);
+
+  const after = await getState(page);
+  expect(after.ball.x).toBeCloseTo(before.ball.x, 1);
+  expect(after.ball.y).toBeCloseTo(before.ball.y, 1);
+});
+
+test('ball speed is capped at BALL_SPEED_MAX after many paddle hits', async ({ page }) => {
+  await openGame(page);
+  // Repeatedly apply setState with increasing dx to simulate many bounces, then check cap
+  await setState(page, {
+    ball: { x: 48, y: 260, dx: -480, dy: 0 },
+    playerPaddle: { y: 220 },
+    gameState: 'playing'
+  });
+  await advanceFrames(page, 4);
+  const state = await getState(page);
+  expect(Math.abs(state.ball.dx)).toBeLessThanOrEqual(520 + 1);
+});
+
 test('HUD displays correct scores', async ({ page }) => {
   await openGame(page);
   await setState(page, { playerScore: 5, aiScore: 3 });

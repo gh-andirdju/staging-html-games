@@ -41,7 +41,8 @@
     gameState: 'serving',
     winner: null,
     serveTimer: SERVE_DELAY,
-    serveCount: 0
+    serveCount: 0,
+    serveToward: 'ai'
   };
 
   function clamp(v, lo, hi) {
@@ -56,8 +57,9 @@
   }
 
   function launchBall(towardPlayer) {
-    const angle = ((state.serveCount % 2 === 0 ? 1 : -1) * 0.5);
-    state.ball.dy = angle * BALL_SPEED;
+    const n = state.serveCount;
+    const ySign = (n % 2 === 0 ? 1 : -1);
+    state.ball.dy = ySign * BALL_SPEED * 0.5;
     state.ball.dx = towardPlayer ? -BALL_SPEED : BALL_SPEED;
     state.serveCount += 1;
   }
@@ -65,8 +67,10 @@
   function scorePoint(scorer) {
     if (scorer === 'player') {
       state.playerScore += 1;
+      state.serveToward = 'ai';
     } else {
       state.aiScore += 1;
+      state.serveToward = 'player';
     }
     if (state.playerScore >= WIN_SCORE) {
       state.gameState = 'won';
@@ -90,7 +94,7 @@
       state.serveTimer -= 1;
       if (state.serveTimer <= 0) {
         state.gameState = 'playing';
-        launchBall(state.aiScore > state.playerScore);
+        launchBall(state.serveToward === 'player');
       }
       return;
     }
@@ -225,6 +229,7 @@
     state.winner = null;
     state.serveTimer = SERVE_DELAY;
     state.serveCount = 0;
+    state.serveToward = 'ai';
     updateHud();
     draw();
   }
@@ -316,7 +321,7 @@
       if (nextState.ball) Object.assign(state.ball, nextState.ball);
       if (nextState.playerPaddle) Object.assign(state.playerPaddle, nextState.playerPaddle);
       if (nextState.aiPaddle) Object.assign(state.aiPaddle, nextState.aiPaddle);
-      ['playerScore', 'aiScore', 'gameState', 'winner', 'serveTimer', 'serveCount'].forEach(function (k) {
+      ['playerScore', 'aiScore', 'gameState', 'winner', 'serveTimer', 'serveCount', 'serveToward'].forEach(function (k) {
         if (nextState[k] !== undefined) state[k] = nextState[k];
       });
       updateHud();
