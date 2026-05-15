@@ -189,7 +189,8 @@ test('equal tiles merge when slid together', async ({ page }) => {
   await page.keyboard.press('ArrowLeft');
   const state = await getState(page);
   expect(state.grid[0][0]).toBe(4);
-  expect(state.grid[0][1]).toBe(0);
+  const tileCount = state.grid.flat().filter(v => v !== 0).length;
+  expect(tileCount).toBe(2);
 });
 
 test('merge adds the merged value to score', async ({ page }) => {
