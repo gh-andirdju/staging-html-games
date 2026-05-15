@@ -13,7 +13,7 @@
   --accent: #f59e0b;
   --accent-warm: #fb923c;
   --accent-gold: #fbbf24;
-  --button-bg: linear-gradient(180deg, #fb923c, #c2410c);
+  --button-bg: linear-gradient(180deg, var(--accent-warm), #c2410c);
   --shadow: 0 14px 36px rgba(8, 3, 0, 0.48);
 }
 
