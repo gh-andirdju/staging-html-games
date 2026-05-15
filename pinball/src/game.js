@@ -581,6 +581,7 @@
       }
       if (incoming.plunger && typeof incoming.plunger === "object") {
         state.plunger = Object.assign(state.plunger || { compressed: 0 }, incoming.plunger);
+        state.plunger.compressed = Math.max(0, Math.min(1, state.plunger.compressed));
         delete incoming.plunger;
       }
       state = Object.assign(state, incoming);
@@ -589,6 +590,9 @@
       }
       if (!state.targets || !Array.isArray(state.targets)) {
         state.targets = initial.targets;
+      }
+      if (typeof state.balls === "number") {
+        state.balls = Math.max(0, Math.floor(state.balls));
       }
       updateHud();
       draw();
