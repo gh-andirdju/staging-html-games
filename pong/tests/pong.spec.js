@@ -412,17 +412,17 @@ test('won state freezes ball and paddles', async ({ page }) => {
   expect(after.ball.y).toBeCloseTo(before.ball.y, 1);
 });
 
-test('ball speed is capped at BALL_SPEED_MAX after many paddle hits', async ({ page }) => {
+test('ball speed is capped at BALL_SPEED_MAX after paddle hit at near-cap speed', async ({ page }) => {
   await openGame(page);
-  // Repeatedly apply setState with increasing dx to simulate many bounces, then check cap
+  // dx = -510: one uncapped bounce would give 510 * 1.05 = 535.5, exceeding the 520 cap
   await setState(page, {
-    ball: { x: 48, y: 260, dx: -480, dy: 0 },
+    ball: { x: 48, y: 260, dx: -510, dy: 0 },
     playerPaddle: { y: 220 },
     gameState: 'playing'
   });
   await advanceFrames(page, 4);
   const state = await getState(page);
-  expect(Math.abs(state.ball.dx)).toBeLessThanOrEqual(520 + 1);
+  expect(Math.abs(state.ball.dx)).toBeLessThanOrEqual(520);
 });
 
 test('HUD displays correct scores', async ({ page }) => {
