@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pinball</title>
+    <link rel="stylesheet" href="src/styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="hud" aria-label="Game status">
+        <div class="hud-primary">
+          <div class="stat-chip">
+            <span class="label">Score</span>
+            <strong id="score">0</strong>
+          </div>
+          <div class="stat-chip">
+            <span class="label">Balls</span>
+            <strong id="balls">3</strong>
+          </div>
+          <div class="stat-chip">
+            <span class="label">Level</span>
+            <strong id="level">1</strong>
+          </div>
+        </div>
+        <div class="hud-meta">
+          <div class="meta-chip status-wrap">
+            <span class="label">Status</span>
+            <strong id="status">Ready</strong>
+          </div>
+        </div>
+      </header>
+
+      <section class="playfield">
+        <canvas id="game" width="400" height="700" aria-label="Pinball game area"></canvas>
+      </section>
+
+      <section class="touch-controls" aria-label="Touch controls">
+        <div class="flipper-zone">
+          <button id="btn-left" type="button" class="flipper-button">Left<br>Flipper</button>
+          <button id="btn-launch" type="button" class="launch-button">Launch</button>
+          <button id="btn-right" type="button" class="flipper-button">Right<br>Flipper</button>
+        </div>
+        <div class="action-zone">
+          <button id="restart" type="button" class="action-button">Restart</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="src/game.js"></script>
+  </body>
+</html>
