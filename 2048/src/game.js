@@ -177,10 +177,10 @@
     scoreEl.textContent = String(state.score);
     bestEl.textContent = String(state.best);
     statusEl.textContent = state.statusMessage;
-    if (state.won) {
-      statusWrapEl.dataset.tone = 'win';
-    } else if (state.gameOver) {
+    if (state.gameOver) {
       statusWrapEl.dataset.tone = 'loss';
+    } else if (state.won) {
+      statusWrapEl.dataset.tone = 'win';
     } else {
       delete statusWrapEl.dataset.tone;
     }

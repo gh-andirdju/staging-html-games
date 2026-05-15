@@ -323,6 +323,7 @@ test('game over still triggers after winning if board fills up', async ({ page }
   await page.keyboard.press('ArrowLeft');
   const state = await getState(page);
   expect(state.gameOver).toBe(true);
+  await expect(page.locator('#status')).toContainText('Game Over');
 });
 
 // Restart
