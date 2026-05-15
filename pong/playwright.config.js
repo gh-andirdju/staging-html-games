@@ -1,4 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
+import { existsSync } from 'fs';
+
+// Use a pre-installed headless shell when the expected Playwright-managed
+// version is absent (e.g. this staging environment).
+const FALLBACK_SHELL = '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell';
+const executablePath =
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+  (existsSync(FALLBACK_SHELL) ? FALLBACK_SHELL : undefined);
 
 const port = Number(process.env.PORT ?? 5200);
 const appBasePath = process.env.APP_BASE_PATH
@@ -38,9 +46,7 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        launchOptions: {
-          executablePath: '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell'
-        }
+        ...(executablePath ? { launchOptions: { executablePath } } : {})
       }
     }
   ]

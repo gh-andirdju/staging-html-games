@@ -146,6 +146,7 @@ body {
   color: #fef3c7;
   font-size: 14px;
   font-weight: 700;
+  cursor: ns-resize;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;

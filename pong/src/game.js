@@ -16,6 +16,8 @@
   const SERVE_DELAY = 60;
   const NET_H = 10;
   const NET_GAP = 8;
+  const BALL_SPEED_MAX = 520;
+  const BALL_SPEED_ACCEL = 1.05;
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
@@ -26,7 +28,6 @@
   const restartBtn = document.getElementById('restart');
 
   const keys = { up: false, down: false };
-  let serveCount = 0;
   let autoStep = true;
   let rafId = null;
   let prevTimestamp = null;
@@ -39,7 +40,8 @@
     aiScore: 0,
     gameState: 'serving',
     winner: null,
-    serveTimer: SERVE_DELAY
+    serveTimer: SERVE_DELAY,
+    serveCount: 0
   };
 
   function clamp(v, lo, hi) {
@@ -54,10 +56,10 @@
   }
 
   function launchBall(towardPlayer) {
-    const angle = ((serveCount % 2 === 0 ? 1 : -1) * 0.5);
+    const angle = ((state.serveCount % 2 === 0 ? 1 : -1) * 0.5);
     state.ball.dy = angle * BALL_SPEED;
     state.ball.dx = towardPlayer ? -BALL_SPEED : BALL_SPEED;
-    serveCount += 1;
+    state.serveCount += 1;
   }
 
   function scorePoint(scorer) {
@@ -125,9 +127,10 @@
     if (ball.dx < 0 && ball.x - BALL_R <= PLAYER_X + PADDLE_W && ball.x + BALL_R >= PLAYER_X) {
       if (ball.y + BALL_R >= pp.y && ball.y - BALL_R <= pp.y + PADDLE_H) {
         ball.x = PLAYER_X + PADDLE_W + BALL_R;
-        ball.dx = Math.abs(ball.dx);
+        const speed = Math.min(Math.abs(ball.dx) * BALL_SPEED_ACCEL, BALL_SPEED_MAX);
+        ball.dx = speed;
         const hitRatio = (ball.y - (pp.y + PADDLE_H / 2)) / (PADDLE_H / 2);
-        ball.dy = hitRatio * BALL_SPEED * 0.85;
+        ball.dy = hitRatio * speed * 0.85;
         if (Math.abs(ball.dy) < 40) ball.dy = ball.dy >= 0 ? 40 : -40;
       }
     }
@@ -136,9 +139,10 @@
     if (ball.dx > 0 && ball.x + BALL_R >= AI_X && ball.x - BALL_R <= AI_X + PADDLE_W) {
       if (ball.y + BALL_R >= ap.y && ball.y - BALL_R <= ap.y + PADDLE_H) {
         ball.x = AI_X - BALL_R;
-        ball.dx = -Math.abs(ball.dx);
+        const speed = Math.min(Math.abs(ball.dx) * BALL_SPEED_ACCEL, BALL_SPEED_MAX);
+        ball.dx = -speed;
         const hitRatio = (ball.y - (ap.y + PADDLE_H / 2)) / (PADDLE_H / 2);
-        ball.dy = hitRatio * BALL_SPEED * 0.85;
+        ball.dy = hitRatio * speed * 0.85;
         if (Math.abs(ball.dy) < 40) ball.dy = ball.dy >= 0 ? 40 : -40;
       }
     }
@@ -220,7 +224,7 @@
     state.gameState = 'serving';
     state.winner = null;
     state.serveTimer = SERVE_DELAY;
-    serveCount = 0;
+    state.serveCount = 0;
     updateHud();
     draw();
   }
@@ -312,7 +316,7 @@
       if (nextState.ball) Object.assign(state.ball, nextState.ball);
       if (nextState.playerPaddle) Object.assign(state.playerPaddle, nextState.playerPaddle);
       if (nextState.aiPaddle) Object.assign(state.aiPaddle, nextState.aiPaddle);
-      ['playerScore', 'aiScore', 'gameState', 'winner', 'serveTimer'].forEach(function (k) {
+      ['playerScore', 'aiScore', 'gameState', 'winner', 'serveTimer', 'serveCount'].forEach(function (k) {
         if (nextState[k] !== undefined) state[k] = nextState[k];
       });
       updateHud();

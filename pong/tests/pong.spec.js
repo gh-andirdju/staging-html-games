@@ -48,8 +48,8 @@ async function setState(page, nextState) {
 }
 
 async function advanceFrames(page, frames = 1) {
-  await page.evaluate(async (value) => {
-    await window.__pongTest.advanceFrames(value);
+  await page.evaluate((value) => {
+    window.__pongTest.advanceFrames(value);
   }, frames);
 }
 
@@ -354,6 +354,46 @@ test('game transitions to won state when AI reaches win score', async ({ page })
   const state = await getState(page);
   expect(state.gameState).toBe('won');
   expect(state.winner).toBe('ai');
+});
+
+test('paddle edge hit deflects ball at steeper angle than center hit', async ({ page }) => {
+  await openGame(page);
+
+  // Center hit: ball hits middle of player paddle
+  await setState(page, {
+    ball: { x: 48, y: 260, dx: -200, dy: 0 },
+    playerPaddle: { y: 220 },
+    gameState: 'playing'
+  });
+  await advanceFrames(page, 4);
+  const centerState = await getState(page);
+  const centerDy = Math.abs(centerState.ball.dy);
+
+  // Edge hit: ball hits near top edge of player paddle
+  await setState(page, {
+    ball: { x: 48, y: 226, dx: -200, dy: 0 },
+    playerPaddle: { y: 220 },
+    gameState: 'playing'
+  });
+  await advanceFrames(page, 4);
+  const edgeState = await getState(page);
+  const edgeDy = Math.abs(edgeState.ball.dy);
+
+  expect(edgeDy).toBeGreaterThan(centerDy);
+});
+
+test('restart button click resets HUD scores', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { playerScore: 4, aiScore: 2 });
+
+  await page.locator('#restart').click();
+
+  const playerText = await page.locator('#player-score').textContent();
+  const aiText = await page.locator('#ai-score').textContent();
+  expect(playerText).toBe('0');
+  expect(aiText).toBe('0');
+  const state = await getState(page);
+  expect(state.gameState).toBe('serving');
 });
 
 test('HUD displays correct scores', async ({ page }) => {
