@@ -42,13 +42,15 @@
       </section>
 
       <section class="touch-controls" aria-label="Touch controls">
-        <div class="dpad" aria-label="Directional controls">
-          <button type="button" class="dpad-btn dpad-up" data-action="up" aria-label="Move up">▲</button>
-          <button type="button" class="dpad-btn dpad-left" data-action="left" aria-label="Move left">◀</button>
-          <button type="button" class="dpad-btn dpad-right" data-action="right" aria-label="Move right">▶</button>
-          <button type="button" class="dpad-btn dpad-down" data-action="down" aria-label="Move down">▼</button>
+        <div class="thumb-zone dpad-zone" aria-label="Directional controls">
+          <div class="dpad">
+            <button type="button" class="dpad-btn dpad-up" data-action="up" aria-label="Move up">▲</button>
+            <button type="button" class="dpad-btn dpad-left" data-action="left" aria-label="Move left">◀</button>
+            <button type="button" class="dpad-btn dpad-right" data-action="right" aria-label="Move right">▶</button>
+            <button type="button" class="dpad-btn dpad-down" data-action="down" aria-label="Move down">▼</button>
+          </div>
         </div>
-        <div class="side-controls">
+        <div class="thumb-zone side-controls">
           <button type="button" id="undo-btn" data-action="undo" aria-label="Undo last move">Undo</button>
         </div>
       </section>

@@ -36,7 +36,8 @@ body {
 }
 
 .topbar,
-.playfield {
+.playfield,
+.thumb-zone {
   border: 1px solid var(--panel-border);
   border-radius: 18px;
   background: var(--panel);
@@ -171,6 +172,21 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 8px);
 }
 
+.dpad-zone {
+  padding: 10px;
+  display: grid;
+  place-items: center;
+}
+
+.side-controls {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
 .dpad {
   --btn: 56px;
   --gap: 6px;
@@ -202,11 +218,8 @@ body {
   user-select: none;
 }
 
-.side-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
+.dpad-btn:active {
+  filter: brightness(0.82);
 }
 
 #undo-btn {
@@ -232,7 +245,8 @@ body {
   }
 
   .topbar,
-  .playfield {
+  .playfield,
+  .thumb-zone {
     border-radius: 16px;
   }
 
@@ -273,6 +287,11 @@ body {
 
   .touch-controls {
     padding: 4px 4px;
+  }
+
+  .dpad-zone,
+  .side-controls {
+    padding: 6px;
   }
 
   .dpad {
