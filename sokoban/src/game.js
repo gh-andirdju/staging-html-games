@@ -277,9 +277,7 @@
           ctx.fillRect(x + 2, y + 2, CELL_SIZE - 4, 3);
           ctx.fillRect(x + 2, y + 2, 3, CELL_SIZE - 4);
         } else if (cell === TARGET) {
-          // Floor with target marker
-          ctx.fillStyle = '#12080000';
-          ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+          // Floor with target marker — transparent so bg shows through
           // Draw X cross for target
           const cx = x + CELL_SIZE / 2;
           const cy = y + CELL_SIZE / 2;
