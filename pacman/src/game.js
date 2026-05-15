@@ -229,7 +229,7 @@
 
     if (state.status === "dying") {
       state.deathTimer--;
-      if (state.deathTimer <= 0) respawn();
+      if (state.deathTimer < 0) respawn();
       return;
     }
 
@@ -514,9 +514,11 @@
     for (var i = 0; i < state.ghosts.length; i++) {
       var g = state.ghosts[i];
       if (g.mode !== "house" && g.mode !== "eaten") {
+        if (g.mode !== "frightened") {
+          g.direction = OPPOSITES[g.direction] || g.direction;
+        }
         g.frightened = true;
         g.mode = "frightened";
-        g.direction = OPPOSITES[g.direction] || g.direction;
       }
     }
   }
