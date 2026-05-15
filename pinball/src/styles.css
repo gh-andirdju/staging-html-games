@@ -177,6 +177,10 @@ body {
   filter: brightness(1.08);
 }
 
+.launch-button:active {
+  filter: brightness(0.88);
+}
+
 .action-zone {
   display: grid;
   justify-items: end;
@@ -200,6 +204,10 @@ body {
 .action-button:hover,
 .action-button:focus-visible {
   filter: brightness(1.08);
+}
+
+.action-button:active {
+  filter: brightness(0.88);
 }
 
 @media (min-width: 481px) {

@@ -299,6 +299,116 @@ test('right flipper boost launches ball upward', async ({ page }) => {
   expect(after.ball.vy).toBeLessThan(0);
 });
 
+test('level caps at 10 when all targets cleared', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    const api = window.__pinballTest;
+    const s = api.getState();
+    api.setState({
+      status: 'playing',
+      level: 10,
+      targets: s.targets.map((t) => ({ ...t, hit: true })),
+      ball: { x: 200, y: 500, vx: 0, vy: 0, radius: 10, launched: true }
+    });
+  });
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  expect(after.level).toBe(10);
+  expect(after.targets.every((t) => !t.hit)).toBe(true);
+});
+
+test('score multiplier increases with level', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  const bumper = s.bumpers[0];
+  await page.evaluate((b) => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      level: 2,
+      ball: { x: b.x, y: b.y, vx: 0, vy: 0, radius: 10, launched: true }
+    });
+  }, bumper);
+  await advanceFrames(page, 3);
+  const after = await getState(page);
+  expect(after.score).toBeGreaterThanOrEqual(100);
+});
+
+test('game_over status blocks physics advancement', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'game_over',
+      ball: { x: 200, y: 400, vx: 100, vy: 100, radius: 10, launched: true }
+    });
+  });
+  const before = await getState(page);
+  await advanceFrames(page, 10);
+  const after = await getState(page);
+  expect(after.frame).toBe(before.frame);
+  expect(after.ball.y).toBe(before.ball.y);
+});
+
+test('ball reflects off left wall', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      ball: { x: 32, y: 400, vx: -100, vy: 0, radius: 10, launched: true }
+    });
+  });
+  await advanceFrames(page, 3);
+  const after = await getState(page);
+  expect(after.ball.vx).toBeGreaterThan(0);
+});
+
+test('ball reflects off right wall', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      ball: { x: 368, y: 400, vx: 100, vy: 0, radius: 10, launched: true }
+    });
+  });
+  await advanceFrames(page, 3);
+  const after = await getState(page);
+  expect(after.ball.vx).toBeLessThan(0);
+});
+
+test('HUD score updates in DOM after bumper hit via advanceFrames', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  const bumper = s.bumpers[0];
+  await page.evaluate((b) => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      ball: { x: b.x, y: b.y, vx: 0, vy: 0, radius: 10, launched: true }
+    });
+  }, bumper);
+  await advanceFrames(page, 3);
+  const after = await getState(page);
+  const hudScore = await page.locator('#score').innerText();
+  expect(Number(hudScore)).toBe(after.score);
+  expect(after.score).toBeGreaterThan(0);
+});
+
+test('ball speed is capped after flipper boost', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      ball: { x: 196, y: 622, vx: 0, vy: 50, radius: 10, launched: true }
+    });
+  });
+  await page.keyboard.down('z');
+  await advanceFrames(page, 4);
+  await page.keyboard.up('z');
+  const after = await getState(page);
+  const speed = Math.sqrt(after.ball.vx ** 2 + after.ball.vy ** 2);
+  expect(speed).toBeLessThanOrEqual(900);
+});
+
 test('desktop layout screenshot', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);

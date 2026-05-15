@@ -225,6 +225,7 @@
         state.status = "playing";
       }
       ball.x = LAUNCH_X;
+      ball.y = HEIGHT - 130;
       ball.vx = 0;
       return;
     }
@@ -297,12 +298,14 @@
       if (!target.hit && circleHitsRect(ball.x, ball.y, ball.radius, target.x, target.y, target.w, target.h)) {
         target.hit = true;
         state.score += LANE_SCORE * state.level;
-        var cy = target.y + target.h / 2;
-        if (ball.y < cy) {
-          ball.vy = -Math.abs(ball.vy);
-        } else {
-          ball.vy = Math.abs(ball.vy);
-        }
+        var tcpx = clamp(ball.x, target.x, target.x + target.w);
+        var tcpy = clamp(ball.y, target.y, target.y + target.h);
+        var tndx = ball.x - tcpx;
+        var tndy = ball.y - tcpy;
+        var tnl = Math.sqrt(tndx * tndx + tndy * tndy);
+        if (tnl > 0.001) { tndx /= tnl; tndy /= tnl; } else { tndx = 0; tndy = -1; }
+        var tndot = ball.vx * tndx + ball.vy * tndy;
+        if (tndot < 0) { ball.vx -= 2 * tndot * tndx; ball.vy -= 2 * tndot * tndy; }
       }
     }
 
@@ -338,11 +341,11 @@
   function drawTable() {
     ctx.strokeStyle = "rgba(245, 158, 11, 0.55)";
     ctx.lineWidth = 3;
+    var arcR = WIDTH / 2 - WALL_LEFT;
     ctx.beginPath();
     ctx.moveTo(WALL_LEFT, HEIGHT);
-    ctx.lineTo(WALL_LEFT, 80);
-    ctx.quadraticCurveTo(WALL_LEFT, 20, WIDTH / 2, 14);
-    ctx.quadraticCurveTo(WALL_RIGHT, 20, WALL_RIGHT, 80);
+    ctx.lineTo(WALL_LEFT, arcR);
+    ctx.arc(WIDTH / 2, 0, arcR, Math.PI, 0);
     ctx.lineTo(WALL_RIGHT, HEIGHT);
     ctx.stroke();
 
@@ -587,7 +590,7 @@
         delete incoming.plunger;
       }
       state = Object.assign(state, incoming);
-      if (!state.bumpers || !Array.isArray(state.bumpers)) {
+      if (!state.bumpers || !Array.isArray(state.bumpers) || state.bumpers.length < 3) {
         state.bumpers = initial.bumpers;
       }
       if (!state.targets || !Array.isArray(state.targets)) {
