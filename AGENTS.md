@@ -2,12 +2,12 @@
 
 ## Project Structure & Module Organization
 This repo is a static HTML games collection. Each game lives in its own top-level folder (`brickbreaker/`, `tetris/`) with local runtime code in `src/`, page entrypoint in `index.html`, Playwright tests in `tests/`, config in `playwright.config.js`, and a Bun static server in `server.js`. Root `index.html` lists game links for GitHub Pages. Keep generated files such as `node_modules/` and `test-results/` out of git.
-The repository is deployed on GitHub Pages at `https://gh-andirdju.github.io/html-games`, so paths and hosted behavior must remain compatible with that base URL.
+The repository is deployed on GitHub Pages at `https://gh-andirdju.github.io/staging-html-games`, so paths and hosted behavior must remain compatible with that base URL.
 
 ## Build, Test, and Development Commands
 Run commands from the repo root when serving the whole collection, or from the target game folder when working on a single game.
 - `bun run dev`: serve the root landing page and all game directories from one Bun server.
-- `bun run dev:pages`: serve the collection using the GitHub Pages base path `/html-games/`.
+- `bun run dev:pages`: serve the collection using the GitHub Pages base path `/staging-html-games/`.
 - `bun run test:all`: run both game Playwright suites from the root.
 - `bun install`: install dependencies from `bun.lock`.
 - `bun run dev`: serve the game on its configured local port.
