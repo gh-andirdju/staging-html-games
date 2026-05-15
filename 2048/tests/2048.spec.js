@@ -392,6 +392,80 @@ test('HUD and grid are visible and properly positioned', async ({ page }) => {
   expect(Math.abs(gridBox.width - gridBox.height)).toBeLessThan(gridBox.width * 0.1);
 });
 
+// Touch swipe controls
+
+test.describe('touch swipe controls', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('swipe left moves tiles left', async ({ page }) => {
+    await openGame(page);
+    await setState(page, {
+      grid: [[0, 0, 0, 2], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+      score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+    });
+    await page.evaluate(() => {
+      const cx = 200, cy = 400;
+      document.dispatchEvent(new TouchEvent('touchstart', {
+        touches: [new Touch({ identifier: 1, target: document.body, clientX: cx, clientY: cy })],
+        bubbles: true, cancelable: true
+      }));
+      document.dispatchEvent(new TouchEvent('touchend', {
+        changedTouches: [new Touch({ identifier: 1, target: document.body, clientX: cx - 80, clientY: cy })],
+        bubbles: true, cancelable: true
+      }));
+    });
+    const state = await getState(page);
+    expect(state.grid[0][0]).toBe(2);
+    const tileCount = state.grid.flat().filter(v => v !== 0).length;
+    expect(tileCount).toBe(2);
+  });
+
+  test('swipe right moves tiles right', async ({ page }) => {
+    await openGame(page);
+    await setState(page, {
+      grid: [[2, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+      score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+    });
+    await page.evaluate(() => {
+      const cx = 200, cy = 400;
+      document.dispatchEvent(new TouchEvent('touchstart', {
+        touches: [new Touch({ identifier: 1, target: document.body, clientX: cx, clientY: cy })],
+        bubbles: true, cancelable: true
+      }));
+      document.dispatchEvent(new TouchEvent('touchend', {
+        changedTouches: [new Touch({ identifier: 1, target: document.body, clientX: cx + 80, clientY: cy })],
+        bubbles: true, cancelable: true
+      }));
+    });
+    const state = await getState(page);
+    expect(state.grid[0][3]).toBe(2);
+    const tileCount = state.grid.flat().filter(v => v !== 0).length;
+    expect(tileCount).toBe(2);
+  });
+
+  test('swipe below threshold does not move tiles', async ({ page }) => {
+    await openGame(page);
+    await setState(page, {
+      grid: [[0, 0, 0, 2], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+      score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+    });
+    const before = await getState(page);
+    await page.evaluate(() => {
+      const cx = 200, cy = 400;
+      document.dispatchEvent(new TouchEvent('touchstart', {
+        touches: [new Touch({ identifier: 1, target: document.body, clientX: cx, clientY: cy })],
+        bubbles: true, cancelable: true
+      }));
+      document.dispatchEvent(new TouchEvent('touchend', {
+        changedTouches: [new Touch({ identifier: 1, target: document.body, clientX: cx - 10, clientY: cy })],
+        bubbles: true, cancelable: true
+      }));
+    });
+    const after = await getState(page);
+    expect(after.grid).toEqual(before.grid);
+  });
+});
+
 // Screenshot tests
 
 test('matches desktop layout baseline', async ({ page }) => {
