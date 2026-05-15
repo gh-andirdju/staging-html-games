@@ -299,6 +299,8 @@ test('eaten ghost returns to chase/scatter after travelling home', async ({ page
   await advanceFrames(page, 300);
   const revived = await getState(page);
   const mode = revived.ghosts[0].mode;
+  expect(mode).not.toBe('house');
+  expect(mode).not.toBe('eaten');
   expect(mode === 'scatter' || mode === 'chase').toBe(true);
 });
 

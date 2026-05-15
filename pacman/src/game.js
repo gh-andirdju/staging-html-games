@@ -235,7 +235,7 @@
 
     if (state.status === "levelComplete") {
       state.deathTimer--;
-      if (state.deathTimer <= 0) advanceLevel();
+      if (state.deathTimer < 0) advanceLevel();
       return;
     }
 
@@ -422,7 +422,8 @@
         valid.push(d);
       }
       if (valid.length === 0) return OPPOSITES[ghost.direction] || "up";
-      var idx = (ghost.tileRow * 100 + ghost.tileCol + renderTick) % valid.length;
+      var ghostSalt = ghost.name.charCodeAt(0);
+      var idx = (ghost.tileRow * 100 + ghost.tileCol + renderTick + ghostSalt) % valid.length;
       return valid[idx];
     } else if (ghost.mode === "scatter") {
       targetRow = ghost.scatterRow;
