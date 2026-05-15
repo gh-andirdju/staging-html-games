@@ -371,8 +371,14 @@
       if (ghost.mode === "eaten" &&
           ghost.tileRow === GHOST_HOME_ROW &&
           ghost.tileCol === GHOST_HOME_COL) {
-        ghost.mode = state.globalMode;
+        ghost.mode = "house";
+        ghost.houseTimer = 0;
         ghost.frightened = false;
+        var snap = tileCenter(GHOST_HOME_ROW, GHOST_HOME_COL);
+        ghost.x = snap.x;
+        ghost.y = snap.y;
+        ghost.moveProgress = 0;
+        return;
       }
 
       ghost.direction = pickGhostDir(ghost);
@@ -429,8 +435,19 @@
         targetRow = pm.tileRow + DIR_VECTORS[pm.direction].dr * 4;
         targetCol = pm.tileCol + DIR_VECTORS[pm.direction].dc * 4;
       } else if (ghost.name === "inky") {
-        targetRow = pm.tileRow + DIR_VECTORS[pm.direction].dr * 2;
-        targetCol = pm.tileCol + DIR_VECTORS[pm.direction].dc * 2;
+        var pivRow = pm.tileRow + DIR_VECTORS[pm.direction].dr * 2;
+        var pivCol = pm.tileCol + DIR_VECTORS[pm.direction].dc * 2;
+        var blinky = null;
+        for (var k = 0; k < state.ghosts.length; k++) {
+          if (state.ghosts[k].name === "blinky") { blinky = state.ghosts[k]; break; }
+        }
+        if (blinky) {
+          targetRow = 2 * pivRow - blinky.tileRow;
+          targetCol = 2 * pivCol - blinky.tileCol;
+        } else {
+          targetRow = pivRow;
+          targetCol = pivCol;
+        }
       } else {
         var dRow = ghost.tileRow - pm.tileRow;
         var dCol = ghost.tileCol - pm.tileCol;
@@ -557,6 +574,9 @@
     state.ghosts = GHOST_DEFS.map(makeGhost);
     state.frightenedTimer = 0;
     state.ghostCombo = 0;
+    state.globalMode = "scatter";
+    state.modePhase = 0;
+    state.modeTimer = 0;
   }
 
   function advanceLevel() {
@@ -607,7 +627,7 @@
   function drawMaze() {
     for (var r = 0; r < ROWS; r++) {
       for (var c = 0; c < COLS; c++) {
-        var t = MAZE_TEMPLATE[r][c];
+        var t = state.maze[r][c];
         var x = MAZE_X + c * TILE;
         var y = MAZE_Y + r * TILE;
         if (t === 0) {
@@ -651,7 +671,7 @@
     var iconY = MAZE_Y + ROWS * TILE + 12;
     var startX = MAZE_X + 10;
     ctx.fillStyle = "#ffff00";
-    for (var i = 0; i < state.lives; i++) {
+    for (var i = 0; i < state.lives - 1; i++) {
       var cx = startX + i * 22;
       ctx.beginPath();
       ctx.moveTo(cx, iconY);
@@ -782,7 +802,7 @@
     lastTimestamp = ts;
 
     if (autoStep) {
-      while (elapsed > 0) {
+      while (elapsed > 1e-9) {
         var dt = Math.min(FIXED_DT, elapsed);
         step(dt);
         elapsed -= dt;

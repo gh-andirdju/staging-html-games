@@ -284,6 +284,38 @@ test('eating a frightened ghost awards points and marks ghost eaten', async ({ p
   expect(after.ghosts[0].frightened).toBe(false);
 });
 
+test('eaten ghost returns to chase/scatter after travelling home', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  // Place pacman on ghost 0, set frightened so ghost gets eaten
+  await setState(page, {
+    frightenedTimer: 600,
+    pacman: { tileRow: s.ghosts[0].tileRow, tileCol: s.ghosts[0].tileCol }
+  });
+  await advanceFrames(page, 1);
+  const eaten = await getState(page);
+  expect(eaten.ghosts[0].mode).toBe('eaten');
+  // Advance enough frames for the ghost to travel home and exit
+  await advanceFrames(page, 300);
+  const revived = await getState(page);
+  const mode = revived.ghosts[0].mode;
+  expect(mode === 'scatter' || mode === 'chase').toBe(true);
+});
+
+test('level advances and maze resets after levelComplete delay', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { pelletsRemaining: 0, status: 'playing' });
+  await advanceFrames(page, 1);
+  const transitioning = await getState(page);
+  expect(transitioning.status).toBe('levelComplete');
+  // Advance past LEVEL_COMPLETE_FRAMES (120)
+  await advanceFrames(page, 130);
+  const after = await getState(page);
+  expect(after.level).toBe(2);
+  expect(after.status).toBe('playing');
+  expect(after.pelletsRemaining).toBeGreaterThan(0);
+});
+
 // ── Screenshot tests (UI) ──────────────────────────────────────────────────
 
 test('matches desktop layout screenshot', async ({ page }) => {
