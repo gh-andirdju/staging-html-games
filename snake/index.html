@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Snake</title>
+    <link rel="stylesheet" href="src/styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <span class="eyebrow">Classic Arcade</span>
+          <strong class="title">Snake</strong>
+        </div>
+        <button id="restart" type="button">Restart</button>
+      </header>
+
+      <section class="playfield" aria-label="Game area">
+        <header class="hud" aria-label="Game status">
+          <div class="stat-card">
+            <span class="label">Score</span>
+            <strong id="score">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="label">Level</span>
+            <strong id="level">1</strong>
+          </div>
+          <div class="stat-card">
+            <span class="label">Best</span>
+            <strong id="high-score">0</strong>
+          </div>
+          <div class="status-wrap">
+            <span class="label">Status</span>
+            <strong id="status">5 food to level 2</strong>
+          </div>
+        </header>
+
+        <div class="board-wrap">
+          <canvas id="game" width="400" height="400" aria-label="Snake board"></canvas>
+        </div>
+      </section>
+
+      <section class="touch-controls" aria-label="Touch controls">
+        <div class="thumb-zone d-pad-zone">
+          <span class="control-label">Move</span>
+          <div class="d-pad">
+            <button type="button" data-action="up" aria-label="Up">▲</button>
+            <button type="button" data-action="left" aria-label="Left">◀</button>
+            <button type="button" data-action="right" aria-label="Right">▶</button>
+            <button type="button" data-action="down" aria-label="Down">▼</button>
+          </div>
+        </div>
+        <div class="thumb-zone action-zone">
+          <span class="control-label">Game</span>
+          <button type="button" data-action="restart">Restart</button>
+        </div>
+      </section>
+    </main>
+    <script src="src/game.js"></script>
+  </body>
+</html>
