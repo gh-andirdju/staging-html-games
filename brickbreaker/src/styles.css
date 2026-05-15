@@ -116,12 +116,14 @@ body {
   width: 100%;
   max-height: calc(100svh - 190px);
   aspect-ratio: 800 / 520;
-  border: 1px solid rgba(56, 189, 248, 0.28);
+  border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: 18px;
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.94)),
     #020617;
-  box-shadow: var(--shadow);
+  box-shadow:
+    var(--shadow),
+    0 0 20px rgba(56, 189, 248, 0.12);
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;

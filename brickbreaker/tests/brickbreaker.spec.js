@@ -61,6 +61,7 @@ async function restart(page) {
 
 async function prepareVisualLayout(page) {
   const state = await getState(page);
+  const ball = state.balls?.[0] ?? state.ball ?? {};
   await setState(page, {
     ...state,
     level: 1,
@@ -73,7 +74,8 @@ async function prepareVisualLayout(page) {
     lasers: [],
     activeEffects: {},
     paddleWidth: 112,
-    laserCooldown: 0
+    laserCooldown: 0,
+    ball: { ...ball, x: 400, y: 380 }
   });
   await mutateState(page, 'centerPaddle');
   await page.locator('canvas').first().scrollIntoViewIfNeeded();
