@@ -313,6 +313,8 @@
       if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return;
       if (typeof value !== 'number' || value <= 0) return;
       state.grid[row][col] = value;
+      checkWin();
+      checkGameOver();
       render();
     }
   };

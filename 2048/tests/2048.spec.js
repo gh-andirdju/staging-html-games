@@ -115,7 +115,8 @@ test('slide left moves tiles left', async ({ page }) => {
   await page.keyboard.press('ArrowLeft');
   const state = await getState(page);
   expect(state.grid[0][0]).toBe(2);
-  expect(state.grid[0][3]).toBe(0);
+  const tileCount = state.grid.flat().filter(v => v !== 0).length;
+  expect(tileCount).toBe(2);
 });
 
 test('slide right moves tiles right', async ({ page }) => {
@@ -132,7 +133,8 @@ test('slide right moves tiles right', async ({ page }) => {
   await page.keyboard.press('ArrowRight');
   const state = await getState(page);
   expect(state.grid[0][3]).toBe(2);
-  expect(state.grid[0][0]).toBe(0);
+  const tileCount = state.grid.flat().filter(v => v !== 0).length;
+  expect(tileCount).toBe(2);
 });
 
 test('slide up moves tiles up', async ({ page }) => {
@@ -149,7 +151,8 @@ test('slide up moves tiles up', async ({ page }) => {
   await page.keyboard.press('ArrowUp');
   const state = await getState(page);
   expect(state.grid[0][0]).toBe(2);
-  expect(state.grid[3][0]).toBe(0);
+  const tileCount = state.grid.flat().filter(v => v !== 0).length;
+  expect(tileCount).toBe(2);
 });
 
 test('slide down moves tiles down', async ({ page }) => {
@@ -166,7 +169,8 @@ test('slide down moves tiles down', async ({ page }) => {
   await page.keyboard.press('ArrowDown');
   const state = await getState(page);
   expect(state.grid[3][0]).toBe(2);
-  expect(state.grid[0][0]).toBe(0);
+  const tileCount = state.grid.flat().filter(v => v !== 0).length;
+  expect(tileCount).toBe(2);
 });
 
 // Merge mechanics
