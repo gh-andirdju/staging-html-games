@@ -175,6 +175,25 @@ function expectRightHandedErgonomics(layout) {
   expect(centerY(hardDrop)).toBeGreaterThanOrEqual(centerY(rotate));
 }
 
+async function prepareVisualLayout(page) {
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  board[17] = [0, 0, 3, 3, 3, 0, 4, 4, 0, 0];
+  board[18] = [0, 5, 5, 0, 2, 2, 0, 1, 1, 1];
+  board[19] = [6, 6, 5, 2, 2, 7, 7, 0, 3, 3];
+  await setState(page, {
+    board,
+    current: { type: 'T', index: 3, x: 4, y: 3, rotation: 0 },
+    score: 1200,
+    lines: 4,
+    level: 1,
+    gameOver: false,
+    clearAnimation: null,
+    statusMessage: 'Level 1',
+    statusTone: 'normal',
+    statusMessageTimer: 0
+  });
+}
+
 test('renders and exposes ready test API', async ({ page }) => {
   await openGame(page);
   await expect.poll(async () => {
@@ -413,6 +432,18 @@ test('game over on spawn collision then restart recovers', async ({ page }) => {
   expect(restarted.score).toBe(0);
 });
 
+test('matches the desktop layout baseline', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openGame(page);
+  await prepareVisualLayout(page);
+
+  await expect(page).toHaveScreenshot('tetris-desktop-layout.png', {
+    animations: 'disabled',
+    fullPage: false,
+    maxDiffPixels: 10
+  });
+});
+
 test.describe('mobile touch controls', () => {
   test.use({
     viewport: { width: 390, height: 844 },
@@ -515,15 +546,17 @@ test.describe('mobile touch controls', () => {
     }).toBe('left');
   });
 
-  test('captures portrait layout screenshot for control validation', async ({ page }) => {
+  test('matches the portrait layout baseline', async ({ page }) => {
     await openGame(page);
+    await prepareVisualLayout(page);
 
     const layout = await getPortraitLayout(page);
     expectRightHandedErgonomics(layout);
 
-    await page.screenshot({
-      path: 'test-results/tetris-controls-portrait-validation.png',
-      fullPage: false
+    await expect(page).toHaveScreenshot('tetris-portrait-layout.png', {
+      animations: 'disabled',
+      fullPage: false,
+      maxDiffPixels: 10
     });
   });
 });
