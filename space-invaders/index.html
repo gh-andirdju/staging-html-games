@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Space Invaders</title>
+    <link rel="stylesheet" href="src/styles.css">
+  </head>
+  <body>
+    <div class="game-shell">
+      <div class="hud">
+        <div class="hud-row hud-primary">
+          <div class="hud-chip">
+            <span class="hud-label">Score</span>
+            <span class="hud-value" id="score">0</span>
+          </div>
+          <div class="hud-chip">
+            <span class="hud-label">Lives</span>
+            <span class="hud-value" id="lives">3</span>
+          </div>
+          <div class="hud-chip">
+            <span class="hud-label">Wave</span>
+            <span class="hud-value" id="wave">1</span>
+          </div>
+        </div>
+        <div class="hud-row hud-meta">
+          <span id="status-msg"></span>
+        </div>
+      </div>
+      <div class="playfield">
+        <canvas id="game" width="600" height="480"></canvas>
+      </div>
+      <div class="touch-controls">
+        <div class="touch-move-row">
+          <button class="touch-btn touch-left" id="btn-left" aria-label="Move left">&#9664;</button>
+          <button class="touch-btn touch-fire" id="btn-fire" aria-label="Fire">FIRE</button>
+          <button class="touch-btn touch-right" id="btn-right" aria-label="Move right">&#9654;</button>
+        </div>
+        <button class="restart-btn" id="btn-restart">Restart</button>
+      </div>
+    </div>
+    <script src="src/game.js"></script>
+  </body>
+</html>
