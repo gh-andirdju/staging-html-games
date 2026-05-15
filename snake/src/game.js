@@ -4,6 +4,7 @@
   const BASE_TICK_INTERVAL = 12;
   const MIN_TICK_INTERVAL = 4;
   const FOODS_PER_LEVEL = 5;
+  const LEVEL_MESSAGE_FRAMES = 120;
 
   const COLOR_BG   = '#020617';
   const COLOR_HEAD = '#f59e0b';
@@ -75,6 +76,9 @@
     if (newLevel !== state.level) {
       state.level = newLevel;
       state.tickInterval = Math.max(MIN_TICK_INTERVAL, BASE_TICK_INTERVAL - (state.level - 1) * 2);
+      state.statusMessage = `Level ${state.level}`;
+      state.statusTone = 'milestone';
+      state.statusMessageTimer = LEVEL_MESSAGE_FRAMES;
     }
     spawnFood();
   }
@@ -111,6 +115,7 @@
 
   function oneFrame() {
     if (!state.gameOver) {
+      if (state.statusMessageTimer > 0) state.statusMessageTimer -= 1;
       state.tickCounter += 1;
       if (state.tickCounter >= state.tickInterval) {
         state.tickCounter = 0;
@@ -158,7 +163,7 @@
     ctx.strokeRect(x * CELL_SIZE + 0.5, y * CELL_SIZE + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
   }
 
-  function render() {
+  function drawCanvas() {
     ctx.fillStyle = COLOR_BG;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -180,7 +185,9 @@
       ctx.font      = '14px "Trebuchet MS", sans-serif';
       ctx.fillText('Press R or Restart', canvas.width / 2, canvas.height / 2 + 14);
     }
+  }
 
+  function updateHud() {
     const foodToNext = FOODS_PER_LEVEL - (state.foodEaten % FOODS_PER_LEVEL);
     scoreEl.textContent     = String(state.score);
     levelEl.textContent     = String(state.level);
@@ -188,10 +195,18 @@
     if (state.gameOver) {
       statusEl.textContent      = 'Game Over';
       statusWrapEl.dataset.tone = 'warning';
+    } else if (state.statusMessageTimer > 0 && state.statusMessage) {
+      statusEl.textContent      = state.statusMessage;
+      statusWrapEl.dataset.tone = state.statusTone;
     } else {
       statusEl.textContent      = `${foodToNext} food to level ${state.level + 1}`;
       statusWrapEl.dataset.tone = 'normal';
     }
+  }
+
+  function render() {
+    drawCanvas();
+    updateHud();
   }
 
   function setNextDirection(x, y) {
@@ -215,18 +230,21 @@
   function restartGame() {
     seededValue = (Math.random() * 4294967296) >>> 0;
     state = {
-      snake:         [{ x: 12, y: 10 }, { x: 11, y: 10 }, { x: 10, y: 10 }],
-      direction:     { x: 1, y: 0 },
-      nextDirection: { x: 1, y: 0 },
-      food:          null,
-      score:         0,
-      highScore:     readHighScore(),
-      level:         1,
-      foodEaten:     0,
-      tickInterval:  BASE_TICK_INTERVAL,
-      tickCounter:   0,
-      gameOver:      false,
-      frame:         0
+      snake:              [{ x: 12, y: 10 }, { x: 11, y: 10 }, { x: 10, y: 10 }],
+      direction:          { x: 1, y: 0 },
+      nextDirection:      { x: 1, y: 0 },
+      food:               null,
+      score:              0,
+      highScore:          readHighScore(),
+      level:              1,
+      foodEaten:          0,
+      tickInterval:       BASE_TICK_INTERVAL,
+      tickCounter:        0,
+      gameOver:           false,
+      frame:              0,
+      statusMessage:      '',
+      statusTone:         'normal',
+      statusMessageTimer: 0
     };
     spawnFood();
     render();
@@ -265,6 +283,9 @@
       if (!state.direction)     state.direction     = { x: 1, y: 0 };
       if (!state.nextDirection) state.nextDirection = structuredClone(state.direction);
       if (state.food == null)   spawnFood();
+      if (typeof state.statusMessage !== 'string')      state.statusMessage = '';
+      if (typeof state.statusTone !== 'string')         state.statusTone = 'normal';
+      if (typeof state.statusMessageTimer !== 'number') state.statusMessageTimer = 0;
       render();
     },
     async advanceFrames(frameCount) {

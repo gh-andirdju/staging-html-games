@@ -43,6 +43,32 @@ async function advanceFrames(page, frames) {
   }, frames);
 }
 
+async function prepareVisualLayout(page) {
+  await page.evaluate(() => {
+    window.__snakeTest.setState({
+      snake: [
+        { x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 },
+        { x: 7, y: 10 }, { x: 6, y: 10 }, { x: 6, y: 9 },
+        { x: 6, y: 8 }, { x: 7, y: 8 }, { x: 8, y: 8 }
+      ],
+      direction: { x: 1, y: 0 },
+      nextDirection: { x: 1, y: 0 },
+      food: { x: 14, y: 7 },
+      score: 80,
+      highScore: 80,
+      level: 2,
+      foodEaten: 8,
+      tickInterval: 10,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 40,
+      statusMessage: '',
+      statusTone: 'normal',
+      statusMessageTimer: 0
+    });
+  });
+}
+
 test('renders and exposes ready test API', async ({ page }) => {
   await openGame(page);
   await expect.poll(async () => {
@@ -84,6 +110,14 @@ test('arrow keys and WASD update nextDirection', async ({ page }) => {
   await page.keyboard.press('s');
   s = await getState(page);
   expect(s.nextDirection).toEqual({ x: 0, y: 1 });
+
+  await page.keyboard.press('a');
+  s = await getState(page);
+  expect(s.nextDirection).toEqual({ x: -1, y: 0 });
+
+  await page.keyboard.press('d');
+  s = await getState(page);
+  expect(s.nextDirection).toEqual({ x: 1, y: 0 });
 });
 
 test('snake moves one step per tickInterval frames and grows when eating food', async ({ page }) => {
@@ -149,10 +183,34 @@ test('wall collision sets gameOver', async ({ page }) => {
   expect(s.gameOver).toBe(true);
 });
 
+test('top wall collision sets gameOver', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__snakeTest.setState({
+      snake: [{ x: 10, y: 0 }, { x: 10, y: 1 }, { x: 10, y: 2 }],
+      direction: { x: 0, y: -1 },
+      nextDirection: { x: 0, y: -1 },
+      food: { x: 5, y: 5 },
+      score: 0,
+      highScore: 0,
+      level: 1,
+      foodEaten: 0,
+      tickInterval: 12,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 0
+    });
+  });
+
+  await advanceFrames(page, 12);
+  const s = await getState(page);
+  expect(s.gameOver).toBe(true);
+});
+
 test('self collision sets gameOver', async ({ page }) => {
   await openGame(page);
   await page.evaluate(() => {
-    // U-shape: head at (5,6), body loops up and across; moving up hits body at (5,5)
+    // U-shape: head at (5,6), body loops up to (5,5); moving up hits body at (5,5)
     window.__snakeTest.setState({
       snake: [
         { x: 5, y: 6 },
@@ -182,6 +240,32 @@ test('self collision sets gameOver', async ({ page }) => {
   expect(s.gameOver).toBe(true);
 });
 
+test('180-degree reversal is blocked during movement', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__snakeTest.setState({
+      snake: [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }],
+      direction: { x: 1, y: 0 },
+      nextDirection: { x: 1, y: 0 },
+      food: { x: 15, y: 15 },
+      score: 0,
+      highScore: 0,
+      level: 1,
+      foodEaten: 0,
+      tickInterval: 12,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 0
+    });
+  });
+
+  await page.keyboard.press('ArrowLeft');
+  await advanceFrames(page, 12);
+  const s = await getState(page);
+  expect(s.gameOver).toBe(false);
+  expect(s.snake[0].x).toBe(11);
+});
+
 test('level increments and tickInterval decreases after FOODS_PER_LEVEL foods', async ({ page }) => {
   await openGame(page);
   await page.evaluate(() => {
@@ -207,7 +291,8 @@ test('level increments and tickInterval decreases after FOODS_PER_LEVEL foods', 
   expect(s.foodEaten).toBe(5);
   expect(s.level).toBe(2);
   expect(s.tickInterval).toBe(10);
-  expect(s.tickInterval).toBeLessThan(12);
+  expect(s.statusTone).toBe('milestone');
+  await expect(page.locator('#status')).toHaveText('Level 2');
 });
 
 test('restart resets all state', async ({ page }) => {
@@ -244,6 +329,18 @@ test('restart resets all state', async ({ page }) => {
   expect(s.food).not.toBeNull();
 });
 
+test('matches the desktop layout baseline', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openGame(page);
+  await prepareVisualLayout(page);
+
+  await expect(page).toHaveScreenshot('snake-desktop-layout.png', {
+    animations: 'disabled',
+    fullPage: false,
+    maxDiffPixels: 10
+  });
+});
+
 test.describe('mobile touch controls', () => {
   test.use({
     viewport: { width: 390, height: 844 },
@@ -276,5 +373,16 @@ test.describe('mobile touch controls', () => {
       return { boardBottom: board.bottom, controlsTop: controls.top };
     });
     expect(layout.controlsTop).toBeGreaterThanOrEqual(layout.boardBottom - 1);
+  });
+
+  test('matches the portrait layout baseline', async ({ page }) => {
+    await openGame(page);
+    await prepareVisualLayout(page);
+
+    await expect(page).toHaveScreenshot('snake-portrait-layout.png', {
+      animations: 'disabled',
+      fullPage: false,
+      maxDiffPixels: 10
+    });
   });
 });
