@@ -5,24 +5,35 @@
   var TILE = 20;
   var COLS = 21;
   var ROWS = 21;
-  var MAZE_X = 190;  // (800 - 21*20) / 2
-  var MAZE_Y = 40;   // top margin inside canvas
+  var MAZE_X = 190;
+  var MAZE_Y = 40;
   var FIXED_DT = 1 / 60;
-  var PACMAN_SPEED = 7.5;          // tiles per second
+  var PACMAN_SPEED = 7.5;
   var GHOST_SPEED_NORMAL = 6.5;
   var GHOST_SPEED_FRIGHTENED = 4.0;
   var GHOST_SPEED_EATEN = 12.0;
-  var FRIGHTENED_FRAMES = 480;     // 8 seconds at 60 fps
+  var FRIGHTENED_FRAMES = 480;
   var DOT_SCORE = 10;
   var PELLET_SCORE = 50;
   var GHOST_SCORES = [200, 400, 800, 1600];
-  var SCATTER_FRAMES = 420;        // 7 s
-  var CHASE_FRAMES = 1200;         // 20 s
+  var SCATTER_FRAMES = 420;
+  var CHASE_FRAMES = 1200;
   var DEATH_FRAMES = 90;
   var LEVEL_COMPLETE_FRAMES = 120;
+  var COLLISION_RADIUS = TILE * 0.6;
+
+  // Ghost house region — non-eaten/non-house ghosts and Pac-Man cannot enter
+  var GH_MIN_ROW = 8;
+  var GH_MAX_ROW = 12;
+  var GH_MIN_COL = 6;
+  var GH_MAX_COL = 14;
 
   // ── Maze template ──────────────────────────────────────────────────────────
   // 0=wall  1=dot  2=power-pellet  3=open  4=ghost-house door
+  //
+  // Row 6 opens cols 9-11 to form a corridor above the ghost house.
+  // Row 7 col 10 is the single ghost-house door connecting that corridor to the
+  // ghost-house interior (rows 8-12, cols 6-14).
   var MAZE_TEMPLATE = [
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,0],
@@ -30,8 +41,8 @@
     [0,1,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,1,0],
-    [0,1,1,1,1,0,1,1,1,0,0,0,1,1,1,0,1,1,1,1,0],
-    [0,0,0,0,1,0,0,0,3,0,0,0,3,0,0,0,1,0,0,0,0],
+    [0,1,1,1,1,0,1,1,1,3,3,3,1,1,1,0,1,1,1,1,0],
+    [0,0,0,0,1,0,0,0,3,0,4,0,3,0,0,0,1,0,0,0,0],
     [0,0,0,0,1,0,3,3,3,3,3,3,3,3,3,0,1,0,0,0,0],
     [3,3,3,3,1,0,3,0,3,3,3,3,3,0,3,0,1,3,3,3,3],
     [0,0,0,0,1,0,3,0,4,3,3,3,4,0,3,0,1,0,0,0,0],
@@ -44,23 +55,23 @@
     [0,0,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,0,0],
     [0,1,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,0],
     [0,1,0,0,1,0,1,1,1,1,0,1,1,1,1,0,1,0,0,1,0],
-    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0]
+    [0,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,0]
   ];
 
-  // Ghost starting positions and scatter corners
+  // Ghost definitions — Blinky starts outside the house at the exit tile
   var GHOST_DEFS = [
-    { name: "blinky", color: "#ff0000", startRow: 9,  startCol: 10, scatterRow: 0,  scatterCol: 20, houseWait: 0   },
+    { name: "blinky", color: "#ff0000", startRow: 6,  startCol: 10, scatterRow: 0,  scatterCol: 20, houseWait: 0   },
     { name: "pinky",  color: "#ffb8ff", startRow: 10, startCol: 9,  scatterRow: 0,  scatterCol: 0,  houseWait: 60  },
     { name: "inky",   color: "#00ffff", startRow: 10, startCol: 10, scatterRow: 20, scatterCol: 20, houseWait: 120 },
     { name: "clyde",  color: "#ffb852", startRow: 10, startCol: 11, scatterRow: 20, scatterCol: 0,  houseWait: 180 }
   ];
 
-  var PACMAN_START_ROW = 17;
+  var PACMAN_START_ROW = 20;
   var PACMAN_START_COL = 10;
-  // Tile above ghost-house door – where exiting ghosts surface
-  var GHOST_EXIT_ROW = 9;
+  // Where exiting ghosts appear in the main maze (just above the door)
+  var GHOST_EXIT_ROW = 6;
   var GHOST_EXIT_COL = 10;
-  // Ghost house interior center (eaten ghosts head here)
+  // Eaten-ghost home target inside the house
   var GHOST_HOME_ROW = 10;
   var GHOST_HOME_COL = 10;
 
@@ -71,7 +82,7 @@
     right: { dr:  0, dc: 1 }
   };
   var OPPOSITES = { up: "down", down: "up", left: "right", right: "left" };
-  var DIR_ORDER = ["up", "left", "down", "right"]; // classic ghost preference order
+  var DIR_ORDER = ["up", "left", "down", "right"];
 
   // ── DOM ────────────────────────────────────────────────────────────────────
   var canvas = document.getElementById("game");
@@ -84,10 +95,10 @@
   // ── State ──────────────────────────────────────────────────────────────────
   var state;
   var autoStep = true;
-  var renderTick = 0;  // incremented each draw(); used for deterministic animations
+  var renderTick = 0;
   var lastTimestamp = 0;
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Tile helpers ───────────────────────────────────────────────────────────
   function tileCenter(row, col) {
     return {
       x: MAZE_X + col * TILE + TILE / 2,
@@ -109,17 +120,17 @@
     return tileAt(maze, row, col) === 4;
   }
 
-  // Can a character enter this tile?
-  // Ghosts can pass through doors; Pac-Man cannot.
-  // Eaten ghosts can enter the house; other ghosts cannot enter (only exit through door).
-  function passable(maze, row, col, isGhost, ghostEaten) {
-    var t = tileAt(maze, row, col);
-    if (t === 0) return false;
-    if (t === 4) return isGhost && ghostEaten; // door: only eaten ghosts enter
-    return true;
+  function isInGhostHouse(row, col) {
+    return row >= GH_MIN_ROW && row <= GH_MAX_ROW &&
+           col >= GH_MIN_COL && col <= GH_MAX_COL;
   }
 
-  // ── Maze / pellet init ─────────────────────────────────────────────────────
+  // Pac-Man is blocked by walls, doors, and the ghost-house interior
+  function isBlockedForPacman(maze, row, col) {
+    return isWall(maze, row, col) || isDoor(maze, row, col) || isInGhostHouse(row, col);
+  }
+
+  // ── Maze / item init ───────────────────────────────────────────────────────
   function makeMaze() {
     return MAZE_TEMPLATE.map(function (row) { return row.slice(); });
   }
@@ -175,7 +186,7 @@
       tileCol: def.startCol,
       targetRow: def.startRow,
       targetCol: def.startCol,
-      direction: "up",
+      direction: "left",
       mode: mode,
       frightened: false,
       houseTimer: def.houseWait,
@@ -198,7 +209,7 @@
       score: 0,
       lives: 3,
       level: 1,
-      status: "playing",  // playing | dying | levelComplete | gameOver
+      status: "playing",
       frightenedTimer: 0,
       ghostCombo: 0,
       globalMode: "scatter",
@@ -213,8 +224,8 @@
 
   // ── Step ───────────────────────────────────────────────────────────────────
   function step(dt) {
-    renderTick++;  // advance only on game steps, not on every draw (keeps screenshots deterministic)
     if (state.status === "gameOver") return;
+    renderTick++;
 
     if (state.status === "dying") {
       state.deathTimer--;
@@ -228,10 +239,8 @@
       return;
     }
 
-    // Global ghost mode cycling (scatter ↔ chase)
     tickGlobalMode();
 
-    // Frightened timer
     if (state.frightenedTimer > 0) {
       state.frightenedTimer--;
       if (state.frightenedTimer === 0) {
@@ -240,43 +249,37 @@
       }
     }
 
-    // Move entities
     movePacman(dt);
     for (var i = 0; i < state.ghosts.length; i++) {
       moveGhost(state.ghosts[i], dt);
     }
 
-    // Check pellet eating
     eatPellets();
-
-    // Ghost collisions
     checkGhostCollisions();
 
-    // Win check
     if (state.pelletsRemaining <= 0 && state.status === "playing") {
       state.status = "levelComplete";
       state.deathTimer = LEVEL_COMPLETE_FRAMES;
     }
   }
 
-  // ── Global mode ────────────────────────────────────────────────────────────
+  // ── Global ghost mode ──────────────────────────────────────────────────────
   var MODE_SCHEDULE = [
     { mode: "scatter", duration: SCATTER_FRAMES },
     { mode: "chase",   duration: CHASE_FRAMES   },
     { mode: "scatter", duration: SCATTER_FRAMES },
-    { mode: "chase",   duration: 0              }  // 0 = permanent
+    { mode: "chase",   duration: 0              }
   ];
 
   function tickGlobalMode() {
     var phase = MODE_SCHEDULE[Math.min(state.modePhase, MODE_SCHEDULE.length - 1)];
-    if (phase.duration === 0) return;  // permanent chase
+    if (phase.duration === 0) return;
     state.modeTimer++;
     if (state.modeTimer >= phase.duration) {
       state.modeTimer = 0;
       state.modePhase++;
       var next = MODE_SCHEDULE[Math.min(state.modePhase, MODE_SCHEDULE.length - 1)];
       state.globalMode = next.mode;
-      // Reverse ghost directions on switch (except frightened / eaten / house)
       for (var i = 0; i < state.ghosts.length; i++) {
         var g = state.ghosts[i];
         if (g.mode === "scatter" || g.mode === "chase") {
@@ -295,41 +298,35 @@
 
     while (pm.moveProgress >= 1.0) {
       pm.moveProgress -= 1.0;
-
-      // Arrive at target tile
       pm.tileRow = pm.targetRow;
-      pm.tileCol = ((pm.targetCol % COLS) + COLS) % COLS; // tunnel wrap
+      pm.tileCol = ((pm.targetCol % COLS) + COLS) % COLS;
 
       // Try buffered direction first
-      var nr, nc;
-      nr = pm.tileRow + DIR_VECTORS[pm.nextDirection].dr;
-      nc = pm.tileCol + DIR_VECTORS[pm.nextDirection].dc;
-      if (!isWall(state.maze, nr, nc)) {
+      var nr = pm.tileRow + DIR_VECTORS[pm.nextDirection].dr;
+      var nc = pm.tileCol + DIR_VECTORS[pm.nextDirection].dc;
+      if (!isBlockedForPacman(state.maze, nr, nc)) {
         pm.direction = pm.nextDirection;
       }
 
       // Move in chosen direction if open
       nr = pm.tileRow + DIR_VECTORS[pm.direction].dr;
       nc = pm.tileCol + DIR_VECTORS[pm.direction].dc;
-      if (!isWall(state.maze, nr, nc)) {
+      if (!isBlockedForPacman(state.maze, nr, nc)) {
         pm.targetRow = nr;
         pm.targetCol = nc;
       } else {
-        // Blocked — stay in place
         pm.targetRow = pm.tileRow;
         pm.targetCol = pm.tileCol;
         pm.moveProgress = 0;
       }
     }
 
-    // Interpolate pixel position; handle tunnel discontinuity
     var fromX = MAZE_X + pm.tileCol * TILE + TILE / 2;
     var fromY = MAZE_Y + pm.tileRow * TILE + TILE / 2;
     var wrappedTargetCol = ((pm.targetCol % COLS) + COLS) % COLS;
     var toX = MAZE_X + wrappedTargetCol * TILE + TILE / 2;
     var toY = MAZE_Y + pm.targetRow * TILE + TILE / 2;
 
-    // Skip interpolation across tunnel boundary (col 0↔20) to avoid visual jump
     if (Math.abs(wrappedTargetCol - pm.tileCol) > 1) {
       pm.x = toX;
       pm.y = toY;
@@ -344,7 +341,7 @@
     if (ghost.mode === "house") {
       ghost.houseTimer--;
       if (ghost.houseTimer <= 0) {
-        // Teleport to exit position and start moving
+        // Teleport to exit tile in the main maze (above the ghost-house door)
         ghost.tileRow = GHOST_EXIT_ROW;
         ghost.tileCol = GHOST_EXIT_COL;
         ghost.targetRow = GHOST_EXIT_ROW;
@@ -353,8 +350,8 @@
         ghost.x = pos.x;
         ghost.y = pos.y;
         ghost.moveProgress = 0;
-        ghost.mode = state.globalMode;
         ghost.direction = "left";
+        ghost.mode = state.globalMode;
       }
       return;
     }
@@ -368,12 +365,9 @@
 
     while (ghost.moveProgress >= 1.0) {
       ghost.moveProgress -= 1.0;
-
-      // Arrive at target
       ghost.tileRow = ghost.targetRow;
       ghost.tileCol = ((ghost.targetCol % COLS) + COLS) % COLS;
 
-      // Check if eaten ghost reached home
       if (ghost.mode === "eaten" &&
           ghost.tileRow === GHOST_HOME_ROW &&
           ghost.tileCol === GHOST_HOME_COL) {
@@ -381,13 +375,11 @@
         ghost.frightened = false;
       }
 
-      // Choose next direction
       ghost.direction = pickGhostDir(ghost);
       ghost.targetRow = ghost.tileRow + DIR_VECTORS[ghost.direction].dr;
       ghost.targetCol = ghost.tileCol + DIR_VECTORS[ghost.direction].dc;
     }
 
-    // Interpolate pixel position
     var wrappedTargetCol = ((ghost.targetCol % COLS) + COLS) % COLS;
     var fromX = MAZE_X + ghost.tileCol * TILE + TILE / 2;
     var fromY = MAZE_Y + ghost.tileRow * TILE + TILE / 2;
@@ -412,26 +404,24 @@
       targetRow = GHOST_HOME_ROW;
       targetCol = GHOST_HOME_COL;
     } else if (ghost.frightened) {
-      // Pick random valid direction (no reversal)
       var valid = [];
       for (var i = 0; i < DIR_ORDER.length; i++) {
         var d = DIR_ORDER[i];
         if (d === OPPOSITES[ghost.direction]) continue;
         var nr = ghost.tileRow + DIR_VECTORS[d].dr;
         var nc = ghost.tileCol + DIR_VECTORS[d].dc;
-        if (!isWall(state.maze, nr, nc) && !isDoor(state.maze, nr, nc)) {
-          valid.push(d);
-        }
+        var t = tileAt(state.maze, nr, nc);
+        if (t === 0 || t === 4) continue;
+        if (isInGhostHouse(nr, nc)) continue;
+        valid.push(d);
       }
       if (valid.length === 0) return OPPOSITES[ghost.direction] || "up";
-      // Use deterministic pseudo-random based on position and tick for testability
       var idx = (ghost.tileRow * 100 + ghost.tileCol + renderTick) % valid.length;
       return valid[idx];
     } else if (ghost.mode === "scatter") {
       targetRow = ghost.scatterRow;
       targetCol = ghost.scatterCol;
     } else {
-      // Chase mode
       if (ghost.name === "blinky") {
         targetRow = pm.tileRow;
         targetCol = pm.tileCol;
@@ -442,7 +432,6 @@
         targetRow = pm.tileRow + DIR_VECTORS[pm.direction].dr * 2;
         targetCol = pm.tileCol + DIR_VECTORS[pm.direction].dc * 2;
       } else {
-        // Clyde: chase when far, scatter when close
         var dRow = ghost.tileRow - pm.tileRow;
         var dCol = ghost.tileCol - pm.tileCol;
         if (dRow * dRow + dCol * dCol > 64) {
@@ -455,19 +444,19 @@
       }
     }
 
-    // Pick direction minimising distance to target; no reversals; no walls
-    var bestDir = OPPOSITES[ghost.direction] || "up"; // fallback: reverse
+    var bestDir = OPPOSITES[ghost.direction] || "up";
     var bestDist = Infinity;
     for (var j = 0; j < DIR_ORDER.length; j++) {
       var dir = DIR_ORDER[j];
       if (dir === OPPOSITES[ghost.direction]) continue;
       var tr = ghost.tileRow + DIR_VECTORS[dir].dr;
       var tc = ghost.tileCol + DIR_VECTORS[dir].dc;
-      // Eaten ghosts can enter ghost house; others cannot
-      var canEnterDoor = isEaten;
-      var t = tileAt(state.maze, tr, tc);
-      if (t === 0) continue;
-      if (t === 4 && !canEnterDoor) continue;
+      var tile = tileAt(state.maze, tr, tc);
+      if (tile === 0) continue;
+      // Doors: only eaten ghosts may enter
+      if (tile === 4 && !isEaten) continue;
+      // Ghost house interior: only eaten ghosts may enter
+      if (isInGhostHouse(tr, tc) && !isEaten) continue;
       var dist = (tr - targetRow) * (tr - targetRow) + (tc - targetCol) * (tc - targetCol);
       if (dist < bestDist) {
         bestDist = dist;
@@ -528,13 +517,12 @@
   // ── Ghost collision ────────────────────────────────────────────────────────
   function checkGhostCollisions() {
     var pm = state.pacman;
-    var threshold = TILE * 0.75;
     for (var i = 0; i < state.ghosts.length; i++) {
       var g = state.ghosts[i];
       if (g.mode === "house" || g.mode === "eaten") continue;
       var dx = pm.x - g.x;
       var dy = pm.y - g.y;
-      if (dx * dx + dy * dy < threshold * threshold) {
+      if (dx * dx + dy * dy < COLLISION_RADIUS * COLLISION_RADIUS) {
         if (g.frightened) {
           eatGhost(g);
         } else {
@@ -597,16 +585,13 @@
 
   // ── Draw ───────────────────────────────────────────────────────────────────
   function draw() {
-    var W = canvas.width;
-    var H = canvas.height;
     ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     drawMaze();
     drawPellets();
     drawPowerPellets();
     drawLivesBar();
-
     for (var i = 0; i < state.ghosts.length; i++) {
       drawGhost(state.ghosts[i]);
     }
@@ -620,20 +605,17 @@
   }
 
   function drawMaze() {
-    var wallColor = "#1a1aff";
     for (var r = 0; r < ROWS; r++) {
       for (var c = 0; c < COLS; c++) {
-        var t = MAZE_TEMPLATE[r][c];  // use template for fixed walls
+        var t = MAZE_TEMPLATE[r][c];
         var x = MAZE_X + c * TILE;
         var y = MAZE_Y + r * TILE;
         if (t === 0) {
-          ctx.fillStyle = wallColor;
+          ctx.fillStyle = "#1a1aff";
           ctx.fillRect(x, y, TILE, TILE);
-          // Inner lighter highlight
           ctx.fillStyle = "#2222cc";
           ctx.fillRect(x + 1, y + 1, TILE - 2, TILE - 2);
-        } else if (state.maze[r][c] === 4) {
-          // Ghost house door — pink horizontal bar
+        } else if (t === 4) {
           ctx.fillStyle = "#ffb8de";
           ctx.fillRect(x, y + Math.floor(TILE * 0.4), TILE, Math.ceil(TILE * 0.2));
         }
@@ -653,7 +635,6 @@
   }
 
   function drawPowerPellets() {
-    // Blink every 15 render ticks (deterministic, not time-based)
     if (Math.floor(renderTick / 15) % 2 === 0) {
       ctx.fillStyle = "#ffcc00";
       for (var i = 0; i < state.powerPellets.length; i++) {
@@ -667,7 +648,6 @@
   }
 
   function drawLivesBar() {
-    // Draw small pac-man icons below the maze
     var iconY = MAZE_Y + ROWS * TILE + 12;
     var startX = MAZE_X + 10;
     ctx.fillStyle = "#ffff00";
@@ -683,22 +663,16 @@
 
   function drawPacman() {
     var pm = state.pacman;
-    // Use renderTick for deterministic mouth animation
     var mouthAngle = Math.abs(Math.sin(renderTick * 0.18)) * 0.35;
     if (state.status === "dying") {
-      // Shrink during death
-      var progress = 1 - state.deathTimer / DEATH_FRAMES;
-      mouthAngle = progress * Math.PI;
+      mouthAngle = (1 - state.deathTimer / DEATH_FRAMES) * Math.PI;
     }
-
     var rotOffset = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 };
     var rot = rotOffset[pm.direction] || 0;
-    var radius = TILE * 0.45;
-
     ctx.fillStyle = "#ffff00";
     ctx.beginPath();
     ctx.moveTo(pm.x, pm.y);
-    ctx.arc(pm.x, pm.y, radius, rot + mouthAngle, rot + Math.PI * 2 - mouthAngle);
+    ctx.arc(pm.x, pm.y, TILE * 0.45, rot + mouthAngle, rot + Math.PI * 2 - mouthAngle);
     ctx.closePath();
     ctx.fill();
   }
@@ -725,13 +699,10 @@
 
     ctx.fillStyle = bodyColor;
     ctx.beginPath();
-    // Dome top
     ctx.arc(gx, gy - r * 0.1, r, Math.PI, 0, false);
-    // Right side down
     var bY = gy + r * 0.85;
-    ctx.lineTo(gx + r, bY);
-    // Wavy bottom (3 bumps)
     var bumpW = r * 2 / 3;
+    ctx.lineTo(gx + r, bY);
     ctx.quadraticCurveTo(gx + r - bumpW * 0.4, bY - r * 0.28, gx + r - bumpW, bY);
     ctx.quadraticCurveTo(gx + r - bumpW * 1.4, bY - r * 0.28, gx, bY);
     ctx.quadraticCurveTo(gx - bumpW * 0.4, bY - r * 0.28, gx - bumpW, bY);
@@ -740,11 +711,9 @@
     ctx.closePath();
     ctx.fill();
 
-    // Eyes (only when not frightened, or show simple dots when frightened)
     if (!ghost.frightened) {
       drawGhostEyes(gx, gy);
     } else {
-      // Scared face: two dots and a wavy mouth
       ctx.fillStyle = bodyColor === "#ffffff" ? "#0000dd" : "#ffffff";
       ctx.beginPath();
       ctx.arc(gx - 3, gy - 1, 2, 0, Math.PI * 2);
@@ -867,14 +836,13 @@
     },
 
     setState: function (partial) {
-      renderTick = 0;  // reset so screenshot comparisons are deterministic
+      renderTick = 0;
       if (typeof partial.score === "number") state.score = partial.score;
       if (typeof partial.lives === "number") state.lives = partial.lives;
       if (typeof partial.level === "number") state.level = partial.level;
       if (typeof partial.status === "string") state.status = partial.status;
       if (typeof partial.frightenedTimer === "number") {
         state.frightenedTimer = partial.frightenedTimer;
-        // Sync ghost frightened flag
         if (partial.frightenedTimer > 0) {
           for (var i = 0; i < state.ghosts.length; i++) {
             var g = state.ghosts[i];
@@ -890,7 +858,6 @@
       }
       if (partial.pacman) {
         Object.assign(state.pacman, partial.pacman);
-        // Sync pixel position if tile coords are provided
         if (typeof partial.pacman.tileRow === "number" && typeof partial.pacman.tileCol === "number") {
           var pos = tileCenter(partial.pacman.tileRow, partial.pacman.tileCol);
           state.pacman.x = pos.x;

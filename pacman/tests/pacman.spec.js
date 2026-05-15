@@ -178,6 +178,7 @@ test('eating a power pellet triggers frightened mode', async ({ page }) => {
   expect(after.frightenedTimer).toBeGreaterThan(0);
   // All non-house ghosts should be frightened
   const activeGhosts = after.ghosts.filter((g) => g.mode !== 'house');
+  expect(activeGhosts.length).toBeGreaterThan(0);
   for (const g of activeGhosts) {
     expect(g.frightened).toBe(true);
   }
@@ -227,9 +228,8 @@ test('lives decrement when pacman is caught by non-frightened ghost', async ({ p
   });
   await advanceFrames(page, 1);
   const after = await getState(page);
-  // Either lives decremented or dying state
-  const lifeLost = after.lives < before.lives || after.status === 'dying';
-  expect(lifeLost).toBe(true);
+  expect(after.lives).toBe(before.lives - 1);
+  expect(after.status).toBe('dying');
 });
 
 test('all pellets eaten transitions to levelComplete', async ({ page }) => {
@@ -279,7 +279,9 @@ test('eating a frightened ghost awards points and marks ghost eaten', async ({ p
   const before = await getState(page);
   await advanceFrames(page, 1);
   const after = await getState(page);
-  expect(after.score).toBeGreaterThan(before.score);
+  expect(after.score - before.score).toBe(200);
+  expect(after.ghosts[0].mode).toBe('eaten');
+  expect(after.ghosts[0].frightened).toBe(false);
 });
 
 // ── Screenshot tests (UI) ──────────────────────────────────────────────────
