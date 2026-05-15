@@ -247,7 +247,7 @@ test.describe('mobile layout', () => {
     await openGame(page);
     const canvasBox = await page.locator('#game').boundingBox();
     const controlsBox = await page.locator('.touch-controls').boundingBox();
-    expect(controlsBox.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height - 4);
+    expect(controlsBox.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height);
   });
 
   test('mobile portrait layout screenshot', async ({ page }) => {
