@@ -351,7 +351,12 @@
         ghost.y = pos.y;
         ghost.moveProgress = 0;
         ghost.direction = "left";
-        ghost.mode = state.globalMode;
+        if (state.frightenedTimer > 0) {
+          ghost.mode = "frightened";
+          ghost.frightened = true;
+        } else {
+          ghost.mode = state.globalMode;
+        }
       }
       return;
     }

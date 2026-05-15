@@ -299,9 +299,11 @@ test('eaten ghost returns to chase/scatter after travelling home', async ({ page
   await advanceFrames(page, 300);
   const revived = await getState(page);
   const mode = revived.ghosts[0].mode;
+  // Ghost must be back in active play — not stuck in house or still in eaten mode.
+  // If frightenedTimer is still active the ghost exits as 'frightened', which is correct.
   expect(mode).not.toBe('house');
   expect(mode).not.toBe('eaten');
-  expect(mode === 'scatter' || mode === 'chase').toBe(true);
+  expect(['scatter', 'chase', 'frightened'].includes(mode)).toBe(true);
 });
 
 test('level advances and maze resets after levelComplete delay', async ({ page }) => {
@@ -361,6 +363,21 @@ test('game over blocks further state changes', async ({ page }) => {
   expect(after.status).toBe('gameOver');
   expect(after.score).toBe(100);
   expect(after.lives).toBe(0);
+});
+
+test('ghost exiting house during frightened period exits as frightened', async ({ page }) => {
+  await openGame(page);
+  // Set frightened timer active and force a house ghost to exit immediately
+  await setState(page, {
+    frightenedTimer: 400,
+    ghosts: [{ tileRow: 10, tileCol: 10, mode: 'house', houseTimer: 1, frightened: false }]
+  });
+  // Advance one frame so houseTimer decrements to 0 and ghost exits
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  // Ghost should have exited and be frightened (not able to kill Pac-Man)
+  expect(after.ghosts[0].mode).toBe('frightened');
+  expect(after.ghosts[0].frightened).toBe(true);
 });
 
 test('second power pellet while frightened resets timer and keeps ghosts frightened', async ({ page }) => {
