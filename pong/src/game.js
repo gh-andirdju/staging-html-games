@@ -279,6 +279,7 @@
 
   // Mouse control
   canvas.addEventListener('mousemove', function (e) {
+    if (state.gameState === 'won') return;
     const rect = canvas.getBoundingClientRect();
     const scale = HEIGHT / rect.height;
     const canvasY = (e.clientY - rect.top) * scale;
