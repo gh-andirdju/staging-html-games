@@ -11,3 +11,4 @@ Static HTML games collection.
 |------|--------|
 | Brick Breaker | [`brickbreaker/`](./brickbreaker/) |
 | Tetris | [`tetris/`](./tetris/) |
+| Snake | [`snake/`](./snake/) |
