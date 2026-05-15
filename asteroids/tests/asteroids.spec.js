@@ -350,7 +350,8 @@ test('bullet travels forward and expires after its lifetime', async ({ page }) =
   expect(mid.bullets.length).toBe(1);
   expect(mid.bullets[0].x).toBeGreaterThan(400);
 
-  await advanceFrames(page, 3);
+  // life: 3 → after 2 more frames (3 total) life reaches 0 and bullet is removed
+  await advanceFrames(page, 2);
   const gone = await getState(page);
   expect(gone.bullets.length).toBe(0);
 });

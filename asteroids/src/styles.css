@@ -78,7 +78,7 @@ body {
   align-items: center;
   justify-content: center;
   aspect-ratio: 800 / 600;
-  max-height: calc(100vh - 160px);
+  min-height: 0;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   overflow: hidden;
@@ -155,10 +155,6 @@ canvas {
 
   .hud-label { font-size: 11px; }
   .hud-value { font-size: 24px; }
-
-  .playfield {
-    max-height: calc(100vh - 180px);
-  }
 
   .ctrl-btn {
     width: 60px;

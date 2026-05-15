@@ -31,9 +31,7 @@
   }
 
   function wrap(val, max) {
-    if (val < 0) return val + max;
-    if (val >= max) return val - max;
-    return val;
+    return ((val % max) + max) % max;
   }
 
   // ── Constants ─────────────────────────────────────────────────────────────
@@ -197,13 +195,13 @@
       state.fireCooldown = FIRE_COOLDOWN;
     }
 
-    // Move bullets
-    state.bullets = state.bullets.filter(b => b.life > 0);
+    // Move bullets (decrement first so life:1 expires after this frame)
     for (const b of state.bullets) {
       b.x = wrap(b.x + b.vx, W);
       b.y = wrap(b.y + b.vy, H);
       b.life--;
     }
+    state.bullets = state.bullets.filter(b => b.life > 0);
 
     // Move asteroids
     for (const a of state.asteroids) {
