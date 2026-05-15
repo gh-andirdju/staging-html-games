@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Asteroids</title>
+    <link rel="stylesheet" href="src/styles.css">
+  </head>
+  <body>
+    <div class="game-shell">
+      <header class="hud">
+        <div class="hud-chip">
+          <span class="hud-label">Score</span>
+          <span class="hud-value" id="hud-score">0</span>
+        </div>
+        <div class="hud-chip">
+          <span class="hud-label">Lives</span>
+          <span class="hud-value" id="hud-lives">3</span>
+        </div>
+        <div class="hud-chip">
+          <span class="hud-label">Level</span>
+          <span class="hud-value" id="hud-level">1</span>
+        </div>
+      </header>
+      <div class="playfield">
+        <canvas id="game" width="800" height="600"></canvas>
+      </div>
+      <section class="touch-controls" aria-label="Touch controls">
+        <button id="rotate-left" class="ctrl-btn" aria-label="Rotate Left">&#8634;</button>
+        <button id="thrust" class="ctrl-btn" aria-label="Thrust">&#9650;</button>
+        <button id="fire" class="ctrl-btn fire-btn" aria-label="Fire">&#9679;</button>
+        <button id="rotate-right" class="ctrl-btn" aria-label="Rotate Right">&#8635;</button>
+      </section>
+    </div>
+    <script src="src/game.js"></script>
+  </body>
+</html>

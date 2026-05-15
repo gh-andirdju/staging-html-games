@@ -15,6 +15,7 @@ Current games:
 |------|--------|
 | Brick Breaker | `brickbreaker/` |
 | Tetris | `tetris/` |
+| Snake | `snake/` |
 
 Keep all asset paths and routing compatible with the `/html-games/` base URL, as that is the production base path used by both `bun run dev:pages` and the live site.
 
