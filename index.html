@@ -8,19 +8,19 @@
       *, *::before, *::after { box-sizing: border-box; }
 
       :root {
-        --bg-top: #20103a;
-        --bg-bottom: #050816;
-        --accent: #38bdf8;
-        --panel-border: rgba(125, 211, 252, 0.24);
-        --text-main: #f8fafc;
-        --shadow: 0 14px 36px rgba(3, 7, 18, 0.42);
+        --bg-top: #1a0e00;
+        --bg-bottom: #080400;
+        --accent: #f59e0b;
+        --panel-border: rgba(245, 158, 11, 0.28);
+        --text-main: #fef9f0;
+        --shadow: 0 14px 36px rgba(8, 3, 0, 0.48);
       }
 
       body {
         margin: 0;
         min-height: 100vh;
         background:
-          radial-gradient(circle at top, rgba(56, 189, 248, 0.18), transparent 30%),
+          radial-gradient(circle at top, rgba(245, 158, 11, 0.15), transparent 30%),
           linear-gradient(180deg, var(--bg-top), var(--bg-bottom) 62%);
         color: var(--text-main);
         font-family: "Trebuchet MS", "Arial Narrow", Arial, sans-serif;
@@ -42,7 +42,7 @@
         letter-spacing: 0.06em;
         text-transform: uppercase;
         color: var(--accent);
-        text-shadow: 0 0 24px rgba(56, 189, 248, 0.4);
+        text-shadow: 0 0 24px rgba(245, 158, 11, 0.45);
       }
 
       ul {
@@ -58,7 +58,7 @@
         padding: 16px 24px;
         border: 1px solid var(--panel-border);
         border-radius: 18px;
-        background: rgba(10, 14, 31, 0.9);
+        background: rgba(20, 10, 0, 0.9);
         box-shadow: var(--shadow);
         color: var(--text-main);
         text-decoration: none;
@@ -70,8 +70,8 @@
 
       li a:hover,
       li a:focus-visible {
-        border-color: rgba(56, 189, 248, 0.55);
-        box-shadow: 0 0 20px rgba(56, 189, 248, 0.18), var(--shadow);
+        border-color: rgba(245, 158, 11, 0.55);
+        box-shadow: 0 0 20px rgba(245, 158, 11, 0.18), var(--shadow);
         outline: none;
       }
     </style>

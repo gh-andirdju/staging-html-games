@@ -3,25 +3,25 @@
 }
 
 :root {
-  --bg-top: #20103a;
-  --bg-bottom: #050816;
-  --panel: rgba(10, 14, 31, 0.9);
-  --panel-border: rgba(125, 211, 252, 0.24);
-  --text-main: #f8fafc;
-  --text-dim: #9fb3d9;
-  --text-faint: #6b7da8;
-  --accent: #38bdf8;
-  --accent-warm: #fb7185;
+  --bg-top: #1a0e00;
+  --bg-bottom: #080400;
+  --panel: rgba(20, 10, 0, 0.9);
+  --panel-border: rgba(245, 158, 11, 0.28);
+  --text-main: #fef9f0;
+  --text-dim: #c4a46b;
+  --text-faint: #8a6939;
+  --accent: #f59e0b;
+  --accent-warm: #fb923c;
   --accent-gold: #fbbf24;
-  --button-bg: linear-gradient(180deg, #fb7185, #e11d48);
-  --shadow: 0 14px 36px rgba(3, 7, 18, 0.42);
+  --button-bg: linear-gradient(180deg, #fb923c, #c2410c);
+  --shadow: 0 14px 36px rgba(8, 3, 0, 0.48);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(56, 189, 248, 0.18), transparent 30%),
+    radial-gradient(circle at top, rgba(245, 158, 11, 0.15), transparent 30%),
     linear-gradient(180deg, var(--bg-top), var(--bg-bottom) 62%);
   color: var(--text-main);
   font-family: "Trebuchet MS", "Arial Narrow", Arial, sans-serif;
@@ -62,7 +62,7 @@ body {
   border: 1px solid var(--panel-border);
   border-radius: 16px;
   background:
-    linear-gradient(180deg, rgba(21, 25, 47, 0.96), rgba(8, 12, 27, 0.94)),
+    linear-gradient(180deg, rgba(25, 12, 0, 0.96), rgba(12, 5, 0, 0.94)),
     var(--panel);
   box-shadow: var(--shadow);
 }
@@ -116,14 +116,14 @@ body {
   width: 100%;
   max-height: calc(100svh - 190px);
   aspect-ratio: 800 / 520;
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  border: 1px solid rgba(245, 158, 11, 0.35);
   border-radius: 18px;
   background:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.94)),
-    #020617;
+    linear-gradient(180deg, rgba(20, 10, 0, 0.9), rgba(8, 4, 0, 0.94)),
+    #080400;
   box-shadow:
     var(--shadow),
-    0 0 20px rgba(56, 189, 248, 0.12);
+    0 0 20px rgba(245, 158, 11, 0.10);
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
@@ -153,16 +153,16 @@ body {
 .drag-lane {
   width: 100%;
   min-height: 68px;
-  border: 1px dashed rgba(125, 211, 252, 0.55);
+  border: 1px dashed rgba(245, 158, 11, 0.55);
   border-radius: 999px;
   background:
-    linear-gradient(90deg, rgba(8, 47, 73, 0.66), rgba(30, 41, 59, 0.92)),
-    radial-gradient(circle at center, rgba(56, 189, 248, 0.14), transparent 58%);
+    linear-gradient(90deg, rgba(73, 30, 0, 0.66), rgba(59, 28, 0, 0.92)),
+    radial-gradient(circle at center, rgba(245, 158, 11, 0.12), transparent 58%);
   display: grid;
   place-items: center;
   padding: 0 18px;
   text-align: center;
-  color: #dbeafe;
+  color: #fef3c7;
   font-size: 14px;
   font-weight: 700;
   touch-action: none;
@@ -188,13 +188,13 @@ body {
   border: 0;
   border-radius: 999px;
   background: var(--button-bg);
-  color: #fff1f2;
+  color: #fff7ed;
   font: inherit;
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.03em;
   cursor: pointer;
-  box-shadow: 0 10px 22px rgba(225, 29, 72, 0.34);
+  box-shadow: 0 10px 22px rgba(194, 65, 12, 0.38);
 }
 
 .action-button:hover,
