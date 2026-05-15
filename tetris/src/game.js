@@ -52,7 +52,7 @@
   let rafId = null;
   let accumulator = 0;
   let lastTime = 0;
-  let seededValue = (Math.random() * 4294967296) >>> 0 || 1;
+  let seededValue = (Math.random() * 4294967296) >>> 0;
   let bag = [];
   const held = {
     left: false,
@@ -365,7 +365,7 @@
   }
 
   function restartGame() {
-    seededValue = (Math.random() * 4294967296) >>> 0 || 1;
+    seededValue = (Math.random() * 4294967296) >>> 0;
     bag = [];
     state = {
       board: createBoard(),
