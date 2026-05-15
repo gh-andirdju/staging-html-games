@@ -161,7 +161,9 @@ test('ball drain decrements ball count', async ({ page }) => {
 
   await advanceFrames(page, 5);
   const after = await getState(page);
-  expect(after.balls).toBeLessThan(3);
+  expect(after.balls).toBe(2);
+  expect(after.status).toBe('ready');
+  expect(after.ball.x).toBeCloseTo(360, 0);
 });
 
 test('game over when last ball drains', async ({ page }) => {
