@@ -78,9 +78,9 @@
         { x: 280, y: 210, radius: BUMPER_RADIUS, hitTimer: 0 }
       ],
       targets: [
-        { x: 52, y: 360, width: 56, height: 12, hit: false },
-        { x: 172, y: 320, width: 56, height: 12, hit: false },
-        { x: 292, y: 360, width: 56, height: 12, hit: false }
+        { x: 52, y: 360, w: 56, h: 12, hit: false },
+        { x: 172, y: 320, w: 56, h: 12, hit: false },
+        { x: 292, y: 360, w: 56, h: 12, hit: false }
       ],
       score: 0,
       balls: 3,
@@ -168,11 +168,10 @@
 
     var angularVel = (flipper.angle - flipper.prevAngle) / dt;
     if (Math.abs(angularVel) > 0.5) {
-      var tipSpeed = Math.abs(angularVel) * FLIPPER_LENGTH * cp.t;
-      var boostSign = angularVel < 0 ? -1 : 1;
-      var boost = boostSign * tipSpeed * 0.55;
-      ball.vx += nx * boost;
-      ball.vy += ny * boost;
+      var tipVx = -Math.sin(flipper.angle) * angularVel * FLIPPER_LENGTH * cp.t * 0.55;
+      var tipVy =  Math.cos(flipper.angle) * angularVel * FLIPPER_LENGTH * cp.t * 0.55;
+      ball.vx += tipVx;
+      ball.vy += tipVy;
       var speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
       if (speed > 900) {
         var s = 900 / speed;
@@ -295,10 +294,10 @@
 
     for (var j = 0; j < state.targets.length; j += 1) {
       var target = state.targets[j];
-      if (!target.hit && circleHitsRect(ball.x, ball.y, ball.radius, target.x, target.y, target.width, target.height)) {
+      if (!target.hit && circleHitsRect(ball.x, ball.y, ball.radius, target.x, target.y, target.w, target.h)) {
         target.hit = true;
         state.score += LANE_SCORE * state.level;
-        var cy = target.y + target.height / 2;
+        var cy = target.y + target.h / 2;
         if (ball.y < cy) {
           ball.vy = -Math.abs(ball.vy);
         } else {
@@ -407,14 +406,14 @@
 
   function drawTarget(target) {
     ctx.fillStyle = target.hit ? "rgba(245, 158, 11, 0.18)" : "rgba(245, 158, 11, 0.75)";
-    ctx.fillRect(target.x, target.y, target.width, target.height);
+    ctx.fillRect(target.x, target.y, target.w, target.h);
 
     if (!target.hit) {
       ctx.fillStyle = "#fff";
       ctx.font = "bold 9px Arial, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(String(LANE_SCORE * state.level), target.x + target.width / 2, target.y + target.height / 2);
+      ctx.fillText(String(LANE_SCORE * state.level), target.x + target.w / 2, target.y + target.h / 2);
       ctx.textAlign = "start";
       ctx.textBaseline = "alphabetic";
     }
@@ -486,18 +485,18 @@
     drawOverlay();
   }
 
+  var accumulator = 0;
   function frame(timestamp) {
     if (!lastTime) {
       lastTime = timestamp;
     }
-    var elapsed = Math.min((timestamp - lastTime) / 1000, 0.1);
+    accumulator += Math.min((timestamp - lastTime) / 1000, 0.1);
     lastTime = timestamp;
 
     if (autoStep) {
-      while (elapsed > 0) {
-        var dt = Math.min(FIXED_DT, elapsed);
-        step(dt);
-        elapsed -= dt;
+      while (accumulator >= FIXED_DT) {
+        step(FIXED_DT);
+        accumulator -= FIXED_DT;
       }
     }
 
@@ -542,6 +541,7 @@
   }, { passive: false });
   btnLeft.addEventListener("pointerup", function () { keys.left = false; });
   btnLeft.addEventListener("pointercancel", function () { keys.left = false; });
+  btnLeft.addEventListener("pointerleave", function () { keys.left = false; });
 
   btnRight.addEventListener("pointerdown", function (e) {
     keys.right = true;
@@ -549,6 +549,7 @@
   }, { passive: false });
   btnRight.addEventListener("pointerup", function () { keys.right = false; });
   btnRight.addEventListener("pointercancel", function () { keys.right = false; });
+  btnRight.addEventListener("pointerleave", function () { keys.right = false; });
 
   btnLaunch.addEventListener("pointerdown", function (e) {
     keys.launch = true;
@@ -556,6 +557,7 @@
   }, { passive: false });
   btnLaunch.addEventListener("pointerup", function () { keys.launch = false; });
   btnLaunch.addEventListener("pointercancel", function () { keys.launch = false; });
+  btnLaunch.addEventListener("pointerleave", function () { keys.launch = false; });
 
   restartButton.addEventListener("click", restart);
 
@@ -593,6 +595,9 @@
       }
       if (typeof state.balls === "number") {
         state.balls = Math.max(0, Math.floor(state.balls));
+      }
+      if (typeof state.level === "number") {
+        state.level = Math.max(1, Math.min(10, Math.floor(state.level)));
       }
       updateHud();
       draw();

@@ -269,6 +269,36 @@ test('frame counter increments during playing but not during ready', async ({ pa
   expect(afterPlaying.frame).toBe(frameBefore + 5);
 });
 
+test('left flipper boost launches ball upward', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      ball: { x: 196, y: 622, vx: 0, vy: 50, radius: 10, launched: true }
+    });
+  });
+  await page.keyboard.down('z');
+  await advanceFrames(page, 4);
+  await page.keyboard.up('z');
+  const after = await getState(page);
+  expect(after.ball.vy).toBeLessThan(0);
+});
+
+test('right flipper boost launches ball upward', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      ball: { x: 200, y: 595, vx: 0, vy: 50, radius: 10, launched: true }
+    });
+  });
+  await page.keyboard.down('x');
+  await advanceFrames(page, 4);
+  await page.keyboard.up('x');
+  const after = await getState(page);
+  expect(after.ball.vy).toBeLessThan(0);
+});
+
 test('desktop layout screenshot', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);
