@@ -4,8 +4,17 @@
 This repo is a growing static HTML games collection. Each game lives in its own top-level folder (e.g. `brickbreaker/`, `tetris/`, and more to come) with local runtime code in `src/`, page entrypoint in `index.html`, Playwright tests in `tests/`, config in `playwright.config.js`, and a Bun static server in `server.js`. Root `index.html` lists all game links for GitHub Pages and must be updated when a new game folder is added. Keep generated files such as `node_modules/` and `test-results/` out of git.
 This collection is served from two repositories — changes are developed in staging and merged into production. Both repos share these guidelines.
 
-- **Production:** [gh-andirdju.github.io/html-games](https://gh-andirdju.github.io/html-games)
-- **Staging:** [gh-andirdju.github.io/staging-html-games](https://gh-andirdju.github.io/staging-html-games)
+| | URL |
+|---|---|
+| **Production** | [gh-andirdju.github.io/html-games](https://gh-andirdju.github.io/html-games) |
+| **Staging** | [gh-andirdju.github.io/staging-html-games](https://gh-andirdju.github.io/staging-html-games) |
+
+Current games:
+
+| Game | Folder |
+|------|--------|
+| Brick Breaker | `brickbreaker/` |
+| Tetris | `tetris/` |
 
 Keep all asset paths and routing compatible with the `/html-games/` base URL, as that is the production base path used by both `bun run dev:pages` and the live site.
 
