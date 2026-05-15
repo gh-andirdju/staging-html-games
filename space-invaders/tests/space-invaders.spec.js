@@ -246,6 +246,45 @@ test('losing last life sets status to gameover', async ({ page }) => {
   expect(state.status).toBe('gameover');
 });
 
+test('enemy reaching player y position triggers game over', async ({ page }) => {
+  await openGame(page);
+  const stateBefore = await getState(page);
+  // Move one enemy right to the player line
+  const movedEnemies = stateBefore.enemies.map((e, i) =>
+    i === 0 ? { ...e, y: 440 } : e
+  );
+  await setState(page, { enemies: movedEnemies, enemyMoveTimer: 999 });
+
+  await advanceFrames(page, 2);
+
+  const state = await getState(page);
+  expect(state.status).toBe('gameover');
+});
+
+test('player bullet degrades a shield cell', async ({ page }) => {
+  await openGame(page);
+  const stateBefore = await getState(page);
+  const sh = stateBefore.shields[0];
+  const hpBefore = sh.cells[0];
+
+  // Kill all enemies except one (far away) so the win condition doesn't reset shields
+  const oneAlive = stateBefore.enemies.map((e, i) =>
+    i === 0 ? { ...e, x: 0, y: 0, alive: true } : { ...e, alive: false }
+  );
+  // Start bullet just below the shield so it travels up into the top cell
+  await setState(page, {
+    bullets: [{ x: sh.x + 2, y: sh.y + 5 }],
+    enemies: oneAlive,
+    bulletCooldown: 30,
+    enemyMoveTimer: 999,
+    enemyFireTimer: 999
+  });
+  await advanceFrames(page, 4);
+
+  const stateAfter = await getState(page);
+  expect(stateAfter.shields[0].cells[0]).toBeLessThan(hpBefore);
+});
+
 // ─── Wave progression ─────────────────────────────────────────────────────────
 
 test('clearing all enemies advances the wave', async ({ page }) => {
@@ -278,6 +317,8 @@ test('clearing all enemies advances the wave', async ({ page }) => {
 test('matches the desktop layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1024 });
   await openGame(page);
+  // Restart to guarantee a fully deterministic initial state for the snapshot
+  await page.evaluate(() => window.__spaceInvadersTest.restart());
 
   await expect(page).toHaveScreenshot('space-invaders-desktop-layout.png', {
     animations: 'disabled',
@@ -289,6 +330,8 @@ test('matches the desktop layout baseline', async ({ page }) => {
 test('matches the mobile layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openGame(page);
+  // Restart to guarantee a fully deterministic initial state for the snapshot
+  await page.evaluate(() => window.__spaceInvadersTest.restart());
 
   await expect(page).toHaveScreenshot('space-invaders-mobile-layout.png', {
     animations: 'disabled',

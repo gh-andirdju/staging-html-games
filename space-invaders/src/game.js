@@ -47,14 +47,6 @@
   var waveEl = document.getElementById('wave');
   var statusEl = document.getElementById('status-msg');
 
-  function createSeededRandom(seed) {
-    var s = seed >>> 0;
-    return function () {
-      s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-      return s / 0x100000000;
-    };
-  }
-
   function buildEnemies() {
     var enemies = [];
     for (var row = 0; row < ENEMY_ROWS; row++) {
