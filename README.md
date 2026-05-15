@@ -1,6 +1,9 @@
 # html-games
 
-Static HTML games collection, served at **https://gh-andirdju.github.io/html-games** (production) and **https://gh-andirdju.github.io/staging-html-games** (staging).
+Static HTML games collection.
+
+- **Production:** [gh-andirdju.github.io/html-games](https://gh-andirdju.github.io/html-games)
+- **Staging:** [gh-andirdju.github.io/staging-html-games](https://gh-andirdju.github.io/staging-html-games)
 
 - GitHub Pages repo-root entrypoint: [`index.html`](./index.html)
 - Games:
