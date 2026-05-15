@@ -69,11 +69,14 @@ test('player moves left with ArrowLeft', async ({ page }) => {
   const before = (await getState(page)).player.x;
 
   await page.keyboard.down('ArrowLeft');
-  await advanceFrames(page, 30);
+  const frames = 30;
+  await advanceFrames(page, frames);
   await page.keyboard.up('ArrowLeft');
 
+  // PLAYER_SPEED=220 px/s, FIXED_DT=1/60 → 220/60*30 = 110 px
+  const expectedDelta = (220 / 60) * frames;
   const after = (await getState(page)).player.x;
-  expect(after).toBeLessThan(before);
+  expect(before - after).toBeCloseTo(expectedDelta, 0);
 });
 
 test('player moves right with ArrowRight', async ({ page }) => {
@@ -81,11 +84,28 @@ test('player moves right with ArrowRight', async ({ page }) => {
   const before = (await getState(page)).player.x;
 
   await page.keyboard.down('ArrowRight');
-  await advanceFrames(page, 30);
+  const frames = 30;
+  await advanceFrames(page, frames);
+  await page.keyboard.up('ArrowRight');
+
+  // PLAYER_SPEED=220 px/s, FIXED_DT=1/60 → 220/60*30 = 110 px
+  const expectedDelta = (220 / 60) * frames;
+  const after = (await getState(page)).player.x;
+  expect(after - before).toBeCloseTo(expectedDelta, 0);
+});
+
+test('holding both arrow keys simultaneously does not move the player', async ({ page }) => {
+  await openGame(page);
+  const before = (await getState(page)).player.x;
+
+  await page.keyboard.down('ArrowLeft');
+  await page.keyboard.down('ArrowRight');
+  await advanceFrames(page, 10);
+  await page.keyboard.up('ArrowLeft');
   await page.keyboard.up('ArrowRight');
 
   const after = (await getState(page)).player.x;
-  expect(after).toBeGreaterThan(before);
+  expect(after).toBe(before);
 });
 
 test('player does not move past left edge', async ({ page }) => {
@@ -316,6 +336,46 @@ test('player bullet degrades a shield cell', async ({ page }) => {
   expect(stateAfter.shields[0].cells[0]).toBeLessThan(hpBefore);
 });
 
+test('player cannot fire bullets when game is over', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { status: 'gameover' });
+
+  await page.keyboard.down('Space');
+  await advanceFrames(page, 2);
+  await page.keyboard.up('Space');
+
+  const state = await getState(page);
+  expect(state.bullets.length).toBe(0);
+});
+
+test('a destroyed shield cell (HP 0) does not stop bullets', async ({ page }) => {
+  await openGame(page);
+  const stateBefore = await getState(page);
+  const sh = stateBefore.shields[0];
+
+  // Set cell 0 to HP 0 (destroyed) and keep one enemy alive so wave doesn't reset
+  const destroyedShields = stateBefore.shields.map((s, si) =>
+    si === 0 ? { ...s, cells: s.cells.map((c, ci) => ci === 0 ? 0 : c) } : s
+  );
+  const oneAlive = stateBefore.enemies.map((e, i) =>
+    i === 0 ? { ...e, x: 0, y: 0, alive: true } : { ...e, alive: false }
+  );
+  // Bullet aimed at the destroyed cell
+  await setState(page, {
+    bullets: [{ x: sh.x + 2, y: sh.y + 5 }],
+    shields: destroyedShields,
+    enemies: oneAlive,
+    bulletCooldown: 30,
+    enemyMoveTimer: 999,
+    enemyFireTimer: 999
+  });
+  await advanceFrames(page, 4);
+
+  const stateAfter = await getState(page);
+  // Bullet should pass through the destroyed cell (not blocked); cell stays at 0
+  expect(stateAfter.shields[0].cells[0]).toBe(0);
+});
+
 // ─── Enemy fire ───────────────────────────────────────────────────────────────
 
 test('enemy fires a bullet from the correct position', async ({ page }) => {
@@ -368,6 +428,12 @@ test('clearing all enemies advances the wave and resets direction', async ({ pag
   expect(waveAfter.enemyDir).toBe(1); // always resets to moving right
   expect(waveAfter.enemyDropPending).toBe(false);
   expect(waveAfter.enemies.filter(e => e.alive).length).toBe(55); // full grid spawned
+  // Row types must match initial layout: row 0 = type 2, rows 1-2 = type 1, rows 3-4 = type 0
+  expect(waveAfter.enemies.filter(e => e.row === 0).every(e => e.type === 2)).toBe(true);
+  expect(waveAfter.enemies.filter(e => e.row === 1 || e.row === 2).every(e => e.type === 1)).toBe(true);
+  expect(waveAfter.enemies.filter(e => e.row >= 3).every(e => e.type === 0)).toBe(true);
+  // New wave enemies must start at ENEMY_START_Y = 60
+  expect(waveAfter.enemies[0].y).toBe(60);
 });
 
 test('shields reset to full health when a new wave starts', async ({ page }) => {

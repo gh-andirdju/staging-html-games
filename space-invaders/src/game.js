@@ -30,6 +30,7 @@
 
   var FIRE_COOLDOWN_MIN = 60;
   var FIRE_COOLDOWN_MAX = 150;
+  var FIRE_COOLDOWN_RANGE = FIRE_COOLDOWN_MAX - FIRE_COOLDOWN_MIN;
 
   var SHIELD_COUNT = 4;
   var SHIELD_COLS = 4;
@@ -42,6 +43,7 @@
 
   var DEATH_TIMER_FRAMES = 60;
   var DEATH_FLASH_PERIOD = 6;
+  var ENEMY_SPEED_SCALE = 0.9; // frames saved per enemy killed (controls acceleration)
 
   var canvas = document.getElementById('game');
   var ctx = canvas.getContext('2d');
@@ -127,6 +129,24 @@
     return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
   }
 
+  function bulletHitsShield(bx, by, bw, bh) {
+    for (var si = 0; si < state.shields.length; si++) {
+      var sh = state.shields[si];
+      for (var ci = 0; ci < sh.cells.length; ci++) {
+        if (sh.cells[ci] <= 0) continue;
+        var cr = Math.floor(ci / SHIELD_COLS);
+        var cc = ci % SHIELD_COLS;
+        var cx = sh.x + cc * SHIELD_CELL_W;
+        var cy = sh.y + cr * SHIELD_CELL_H;
+        if (rectOverlap(bx, by, bw, bh, cx, cy, SHIELD_CELL_W, SHIELD_CELL_H)) {
+          sh.cells[ci]--;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   function step(dt) {
     if (state.status === 'gameover' || state.status === 'won') return;
 
@@ -163,7 +183,7 @@
     // Enemy movement (interval shrinks as enemies die: faster at low count)
     state.enemyMoveTimer--;
     if (state.enemyMoveTimer <= 0) {
-      state.enemyMoveTimer = Math.max(4, Math.round(60 - aliveCount() * 0.9));
+      state.enemyMoveTimer = Math.max(4, Math.round(60 - aliveCount() * ENEMY_SPEED_SCALE));
 
       if (state.enemyDropPending) {
         // Drop enemies down and flip direction
@@ -230,8 +250,7 @@
           });
         }
       }
-      var range = FIRE_COOLDOWN_MAX - FIRE_COOLDOWN_MIN;
-      state.enemyFireTimer = FIRE_COOLDOWN_MIN + Math.floor(rng() * range);
+      state.enemyFireTimer = FIRE_COOLDOWN_MIN + Math.floor(rng() * FIRE_COOLDOWN_RANGE);
     }
 
     // Move enemy bullets
@@ -262,43 +281,13 @@
     // Player bullet vs shield collision
     for (var bi = state.bullets.length - 1; bi >= 0; bi--) {
       var b = state.bullets[bi];
-      var hit = false;
-      for (var si = 0; si < state.shields.length && !hit; si++) {
-        var sh = state.shields[si];
-        for (var ci = 0; ci < sh.cells.length && !hit; ci++) {
-          if (sh.cells[ci] <= 0) continue;
-          var cr = Math.floor(ci / SHIELD_COLS);
-          var cc = ci % SHIELD_COLS;
-          var cx = sh.x + cc * SHIELD_CELL_W;
-          var cy = sh.y + cr * SHIELD_CELL_H;
-          if (rectOverlap(b.x, b.y, BULLET_W, BULLET_H, cx, cy, SHIELD_CELL_W, SHIELD_CELL_H)) {
-            sh.cells[ci]--;
-            hit = true;
-          }
-        }
-      }
-      if (hit) state.bullets.splice(bi, 1);
+      if (bulletHitsShield(b.x, b.y, BULLET_W, BULLET_H)) state.bullets.splice(bi, 1);
     }
 
     // Enemy bullet vs shield collision
     for (var bi = state.enemyBullets.length - 1; bi >= 0; bi--) {
       var b = state.enemyBullets[bi];
-      var hit = false;
-      for (var si = 0; si < state.shields.length && !hit; si++) {
-        var sh = state.shields[si];
-        for (var ci = 0; ci < sh.cells.length && !hit; ci++) {
-          if (sh.cells[ci] <= 0) continue;
-          var cr = Math.floor(ci / SHIELD_COLS);
-          var cc = ci % SHIELD_COLS;
-          var cx = sh.x + cc * SHIELD_CELL_W;
-          var cy = sh.y + cr * SHIELD_CELL_H;
-          if (rectOverlap(b.x, b.y, ENEMY_BULLET_W, ENEMY_BULLET_H, cx, cy, SHIELD_CELL_W, SHIELD_CELL_H)) {
-            sh.cells[ci]--;
-            hit = true;
-          }
-        }
-      }
-      if (hit) state.enemyBullets.splice(bi, 1);
+      if (bulletHitsShield(b.x, b.y, ENEMY_BULLET_W, ENEMY_BULLET_H)) state.enemyBullets.splice(bi, 1);
     }
 
     // Enemy bullet vs player collision

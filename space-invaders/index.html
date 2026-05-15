@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="src/styles.css">
   </head>
   <body>
-    <div class="game-shell">
+    <main class="game-shell">
       <div class="hud">
         <div class="hud-row hud-primary">
           <div class="hud-chip">
@@ -32,13 +32,13 @@
       </div>
       <div class="touch-controls">
         <div class="touch-move-row">
-          <button class="touch-btn touch-left" id="btn-left" aria-label="Move left">&#9664;</button>
-          <button class="touch-btn touch-fire" id="btn-fire" aria-label="Fire">FIRE</button>
-          <button class="touch-btn touch-right" id="btn-right" aria-label="Move right">&#9654;</button>
+          <button class="touch-btn touch-left" id="btn-left" aria-label="Move left (Arrow Left or A)">&#9664;</button>
+          <button class="touch-btn touch-fire" id="btn-fire" aria-label="Fire (Spacebar)">FIRE</button>
+          <button class="touch-btn touch-right" id="btn-right" aria-label="Move right (Arrow Right or D)">&#9654;</button>
         </div>
-        <button class="restart-btn" id="btn-restart">Restart</button>
+        <button class="restart-btn" id="btn-restart" aria-label="Restart game (R)">Restart</button>
       </div>
-    </div>
+    </main>
     <script src="src/game.js"></script>
   </body>
 </html>
