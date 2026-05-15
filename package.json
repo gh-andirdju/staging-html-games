@@ -8,6 +8,7 @@
     "test:brickbreaker": "cd brickbreaker && bun run test",
     "test:tetris": "cd tetris && bun run test",
     "test:snake": "cd snake && bun run test",
-    "test:all": "cd brickbreaker && bun run test && cd ../tetris && bun run test && cd ../snake && bun run test"
+    "test:asteroids": "cd asteroids && bun run test",
+    "test:all": "cd brickbreaker && bun run test && cd ../tetris && bun run test && cd ../snake && bun run test && cd ../asteroids && bun run test"
   }
 }
