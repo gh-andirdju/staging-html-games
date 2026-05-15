@@ -85,11 +85,12 @@
     const asteroids = [];
     for (let i = 0; i < count; i++) {
       const rng = makeRng(level * 100 + i);
-      let x, y;
+      let x, y, attempts = 0;
       do {
         x = rng() * W;
         y = rng() * H;
-      } while (circlesOverlap(x, y, 80, W / 2, H / 2, 120));
+        attempts++;
+      } while (attempts < 30 && circlesOverlap(x, y, 80, W / 2, H / 2, 120));
       asteroids.push(makeAsteroid(x, y, 3, level * 1000 + i));
     }
     return asteroids;
@@ -264,7 +265,6 @@
   }
 
   function updateParticles() {
-    state.particles = state.particles.filter(p => p.life > 0);
     for (const p of state.particles) {
       p.x += p.vx;
       p.y += p.vy;
@@ -272,6 +272,7 @@
       p.vy *= 0.97;
       p.life--;
     }
+    state.particles = state.particles.filter(p => p.life > 0);
   }
 
   function updateHUD() {

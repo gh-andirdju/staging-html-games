@@ -143,12 +143,12 @@ test.describe('mobile portrait layout', () => {
   test('touch controls are below the canvas', async ({ page }) => {
     await openGame(page);
 
-    const canvasBox = await page.locator('canvas#game').boundingBox();
+    const playfieldBox = await page.locator('.playfield').boundingBox();
     const controlsBox = await page.locator('.touch-controls').boundingBox();
 
-    expect(canvasBox).not.toBeNull();
+    expect(playfieldBox).not.toBeNull();
     expect(controlsBox).not.toBeNull();
-    expect(controlsBox.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height - 1);
+    expect(controlsBox.y).toBeGreaterThanOrEqual(playfieldBox.y + playfieldBox.height - 1);
   });
 });
 
@@ -574,4 +574,85 @@ test('HUD level updates when wave is cleared', async ({ page }) => {
   await advanceFrames(page, 1);
 
   await expect(page.locator('#hud-level')).toHaveText('4');
+});
+
+// ── Fire cooldown ─────────────────────────────────────────────────────────────
+
+test('fire cooldown prevents rapid bullet creation', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  await setState(page, { ...s, bullets: [], fireCooldown: 0 });
+
+  // Fire once — creates a bullet and starts cooldown
+  await page.keyboard.down('Space');
+  await advanceFrames(page, 1);
+  const after1 = await getState(page);
+  expect(after1.bullets.length).toBe(1);
+  expect(after1.fireCooldown).toBeGreaterThan(0);
+
+  // Holding space down for cooldown duration should not create a second bullet yet
+  await advanceFrames(page, 3);
+  const after2 = await getState(page);
+  expect(after2.bullets.length).toBe(1);
+
+  await page.keyboard.up('Space');
+});
+
+// ── Respawn sequence ──────────────────────────────────────────────────────────
+
+test('ship respawns to playing after RESPAWN_FRAMES frames in dead state', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  await setState(page, {
+    ...s,
+    status: 'dead',
+    respawnCountdown: 3,
+    lives: 2
+  });
+
+  await advanceFrames(page, 3);
+
+  const after = await getState(page);
+  expect(after.status).toBe('playing');
+  expect(after.ship).toBeTruthy();
+  expect(after.ship.invincible).toBe(true);
+});
+
+// ── Game over halts simulation ────────────────────────────────────────────────
+
+test('advancing frames after game over does not change score or asteroids', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  await setState(page, {
+    ...s,
+    status: 'gameOver',
+    lives: 0,
+    score: 1234,
+    asteroids: [{ x: 400, y: 200, vx: 2, vy: 0, radius: 20, size: 1, seed: 7777, vertices: [] }]
+  });
+
+  await advanceFrames(page, 10);
+
+  const after = await getState(page);
+  expect(after.score).toBe(1234);
+  expect(after.asteroids.length).toBe(1);
+});
+
+// ── Bullet edge wrapping ──────────────────────────────────────────────────────
+
+test('bullet wraps from right edge to left edge', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  await setState(page, {
+    ...s,
+    ship: { ...s.ship, invincible: true, invincibleFrames: 999 },
+    asteroids: [],
+    bullets: [{ x: 798, y: 300, vx: 8, vy: 0, life: 10 }]
+  });
+
+  await advanceFrames(page, 1);
+
+  const after = await getState(page);
+  expect(after.bullets.length).toBe(1);
+  expect(after.bullets[0].x).toBeLessThan(20);
 });
