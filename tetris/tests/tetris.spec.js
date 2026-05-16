@@ -178,7 +178,7 @@ async function prepareVisualLayout(page) {
     gravityTick: 0,
     lockTimer: 0,
     heldPiece: 'S',
-    holdUsed: false,
+    holdUsed: true,
     nextPieceType: 'I'
   });
 }
@@ -507,6 +507,39 @@ test('4-line Tetris clear awards correct score and status message', async ({ pag
   const after = await getState(page);
   expect(after.lines).toBe(4);
   expect(after.score).toBeGreaterThanOrEqual(800); // 800 (Tetris) + hard-drop bonus
+  expect(after.statusMessage).toMatch(/tetris clear/i);
+  expect(after.statusTone).toBe('milestone');
+});
+
+test('Tetris clear message shown even when clear also causes a level-up', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // lines=6 so clearing 4 pushes total to 10 → level 2 (crosses boundary)
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  for (let row = 16; row <= 19; row++) {
+    board[row] = [1, 1, 1, 1, 1, 0, 1, 1, 1, 1];
+  }
+
+  await setState(page, {
+    ...state,
+    board,
+    score: 0,
+    lines: 6,
+    level: 1,
+    current: { type: 'I', index: 1, x: 5, y: 2, rotation: 3 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  const hardBtn = page.locator('[data-action="hard-drop"]');
+  await hardBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 1);
+  await hardBtn.dispatchEvent('pointerup');
+  await advanceFrames(page, 25);
+
+  const after = await getState(page);
+  expect(after.lines).toBe(10);
+  expect(after.level).toBe(2);
   expect(after.statusMessage).toMatch(/tetris clear/i);
   expect(after.statusTone).toBe('milestone');
 });

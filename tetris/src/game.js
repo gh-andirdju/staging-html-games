@@ -122,7 +122,8 @@
   }
 
   function holdPiece() {
-    if (state.holdUsed || !state.current || state.clearAnimation || state.gameOver) return;
+    if (!state.current || state.clearAnimation || state.gameOver) return;
+    if (state.holdUsed) { setStatusMessage('Hold not available'); return; }
     const currentType = state.current.type;
     if (state.heldPiece === null) {
       state.heldPiece = currentType;
@@ -201,17 +202,17 @@
   function onLinesResolved(cleared) {
     const previousLevel = state.level;
     updateLevelAndSpeed();
+    if (cleared === 4) {
+      const linesToNextLevel = (10 - (state.lines % 10)) || 10;
+      setStatusMessage(`Tetris clear: ${linesToNextLevel} lines to next level`, 'milestone');
+      return;
+    }
     if (state.level > previousLevel) {
       if (state.level % MILESTONE_LEVEL_INTERVAL === 0) {
         setStatusMessage(`Milestone reached: level ${state.level}`, 'milestone');
       } else {
         setStatusMessage(`Level ${state.level} speed up`, 'normal');
       }
-      return;
-    }
-    if (cleared === 4) {
-      const linesToNextLevel = (10 - (state.lines % 10)) || 10;
-      setStatusMessage(`Tetris clear: ${linesToNextLevel} lines to next level`, 'milestone');
       return;
     }
     syncStatusMessage({ forceFallback: true });
