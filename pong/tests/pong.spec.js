@@ -447,12 +447,12 @@ test('AI moves faster with higher scores', async ({ page }) => {
 test('serve speed increases with score', async ({ page }) => {
   await openGame(page);
 
-  await setState(page, { gameState: 'serving', serveTimer: 1, playerScore: 0, aiScore: 0 });
-  await advanceFrames(page, 2);
+  await setState(page, { gameState: 'serving', serveTimer: 0, playerScore: 0, aiScore: 0 });
+  await advanceFrames(page, 1);
   const earlySpeed = Math.abs((await getState(page)).ball.dx);
 
-  await setState(page, { gameState: 'serving', serveTimer: 1, playerScore: 5, aiScore: 5 });
-  await advanceFrames(page, 2);
+  await setState(page, { gameState: 'serving', serveTimer: 0, playerScore: 5, aiScore: 5 });
+  await advanceFrames(page, 1);
   const lateSpeed = Math.abs((await getState(page)).ball.dx);
 
   expect(lateSpeed).toBeGreaterThan(earlySpeed);
