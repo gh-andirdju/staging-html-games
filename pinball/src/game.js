@@ -100,7 +100,7 @@
 
   function resetBallToLauncher() {
     state.ball.x = LAUNCH_X;
-    state.ball.y = HEIGHT - 100;
+    state.ball.y = BALL_LAUNCH_Y;
     state.ball.vx = 0;
     state.ball.vy = 0;
     state.ball.launched = false;
@@ -226,7 +226,7 @@
         state.status = "playing";
       }
       ball.x = LAUNCH_X;
-      ball.y = HEIGHT - 100;
+      ball.y = BALL_LAUNCH_Y;
       ball.vx = 0;
       return;
     }
