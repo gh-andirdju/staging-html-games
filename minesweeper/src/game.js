@@ -17,6 +17,8 @@
   const COLOR_CORRECT_FLAG  = '#16a34a';
   const COLOR_GRID          = '#1e293b';
 
+  const NEIGHBORS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+
   const TICK_FRAMES = 60;
   const STATUS_FRAMES = 180;
 
@@ -81,17 +83,13 @@
       for (let c = 0; c < cols; c++) {
         if (board[r][c].mine) { board[r][c].adjacent = 0; continue; }
         let count = 0;
-        for (const [dr, dc] of neighbors()) {
+        for (const [dr, dc] of NEIGHBORS) {
           const nr = r + dr, nc = c + dc;
           if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc].mine) count++;
         }
         board[r][c].adjacent = count;
       }
     }
-  }
-
-  function neighbors() {
-    return [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
   }
 
   function revealCell(row, col) {
@@ -140,7 +138,7 @@
       cell.revealed = true;
       state.revealed++;
       if (cell.adjacent === 0) {
-        for (const [dr, dc] of neighbors()) {
+        for (const [dr, dc] of NEIGHBORS) {
           stack.push([r + dr, c + dc]);
         }
       }
@@ -184,17 +182,18 @@
   }
 
   function chordReveal(row, col) {
+    if (state.gameOver) return;
     const { board, rows, cols } = state;
     if (row < 0 || row >= rows || col < 0 || col >= cols) return;
     const cell = board[row][col];
     if (!cell.revealed || cell.adjacent === 0) return;
     let flagCount = 0;
-    for (const [dr, dc] of neighbors()) {
+    for (const [dr, dc] of NEIGHBORS) {
       const nr = row + dr, nc = col + dc;
       if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc].flagged) flagCount++;
     }
     if (flagCount !== cell.adjacent) return;
-    for (const [dr, dc] of neighbors()) {
+    for (const [dr, dc] of NEIGHBORS) {
       const nr = row + dr, nc = col + dc;
       if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) revealCell(nr, nc);
     }
@@ -242,7 +241,9 @@
     statusEl.textContent = state.statusMessage;
     statusWrapEl.dataset.tone = state.statusTone;
     modeBtns.forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.action === state.touchMode);
+      const active = btn.dataset.action === state.touchMode;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', String(active));
     });
   }
 
@@ -267,18 +268,19 @@
   }
 
   function draw() {
-    const { rows, cols, board, gameOver } = state;
+    const { rows, cols } = state;
     const cs = getCellSize();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        drawCell(r, c, cs, gameOver);
+        drawCell(r, c, cs);
       }
     }
   }
 
-  function drawCell(r, c, cs, gameOver) {
+  function drawCell(r, c, cs) {
+    const { gameOver, won } = state;
     const cell = state.board[r][c];
     const x = c * cs;
     const y = r * cs;
@@ -287,7 +289,7 @@
       if (cell.mine) {
         ctx.fillStyle = COLOR_MINE_BG;
         ctx.fillRect(x, y, cs, cs);
-        drawMine(x, y, cs, gameOver && !state.won ? '#dc2626' : '#6b7280');
+        drawMine(x, y, cs, gameOver && !won ? '#dc2626' : '#6b7280');
       } else {
         ctx.fillStyle = (r + c) % 2 === 0 ? COLOR_REVEALED : COLOR_REVEALED_DARK;
         ctx.fillRect(x, y, cs, cs);
@@ -305,8 +307,10 @@
       if (cell.flagged) {
         if (gameOver && !cell.mine) {
           drawWrongFlag(x, y, cs);
+        } else if (gameOver && cell.mine) {
+          drawFlag(x, y, cs, COLOR_CORRECT_FLAG);
         } else {
-          drawFlag(x, y, cs);
+          drawFlag(x, y, cs, COLOR_FLAG);
         }
       }
     }
@@ -330,19 +334,19 @@
     ctx.fill();
   }
 
-  function drawFlag(x, y, cs) {
+  function drawFlag(x, y, cs, color = COLOR_FLAG) {
     const px = x + cs * 0.3;
     const py = y + cs * 0.2;
     const fw = cs * 0.35;
     const fh = cs * 0.3;
-    ctx.fillStyle = COLOR_FLAG;
+    ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(px, py);
     ctx.lineTo(px + fw, py + fh / 2);
     ctx.lineTo(px, py + fh);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = COLOR_FLAG;
+    ctx.strokeStyle = color;
     ctx.lineWidth = cs * 0.08;
     ctx.beginPath();
     ctx.moveTo(px, py);
@@ -505,8 +509,7 @@
       if (typeof next.statusTone !== 'string')         next.statusTone = 'normal';
       if (typeof next.statusMessageTimer !== 'number') next.statusMessageTimer = 0;
       state = next;
-      canvas.width = state.cols * Math.floor(Math.min(460, window.innerWidth - 32) / Math.max(state.rows, state.cols));
-      canvas.height = state.rows * Math.floor(Math.min(460, window.innerWidth - 32) / Math.max(state.rows, state.cols));
+      resizeCanvas();
       updateDiffButtons();
       updateHud();
       draw();

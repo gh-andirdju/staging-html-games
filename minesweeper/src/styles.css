@@ -171,6 +171,9 @@ body {
   border-color: rgba(var(--accent-rgb), 0.28);
   border-radius: 10px;
   opacity: 0.7;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .diff-btn.active {
