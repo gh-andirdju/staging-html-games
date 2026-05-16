@@ -37,10 +37,10 @@ jobs:
         run: |
           rsync -a \
             --exclude='.git/' \
+            --exclude='.github/' \
             --exclude='_site/' \
             --exclude='node_modules/' \
             --exclude='tests/' \
-            --exclude='*.spec.js' \
             --exclude='playwright.config.js' \
             --exclude='server.js' \
             --exclude='package.json' \
