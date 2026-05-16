@@ -131,25 +131,32 @@ body {
   box-shadow: none;
 }
 
-.drag-lane {
+.paddle-btns {
+  display: flex;
+  gap: 8px;
   width: 100%;
-  min-height: 68px;
-  border: 1px dashed rgba(var(--accent-rgb), 0.55);
-  border-radius: 999px;
+}
+
+.paddle-btn {
+  flex: 1;
+  min-height: 72px;
+  border: 1px solid rgba(var(--accent-rgb), 0.45);
+  border-radius: 16px;
   background:
-    linear-gradient(90deg, rgba(73, 30, 0, 0.66), rgba(59, 28, 0, 0.92)),
-    radial-gradient(circle at center, rgba(var(--accent-rgb), 0.12), transparent 58%);
-  display: grid;
-  place-items: center;
-  padding: 0 18px;
-  text-align: center;
+    linear-gradient(180deg, rgba(73, 30, 0, 0.82), rgba(40, 16, 0, 0.96));
   color: #fef3c7;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: ns-resize;
+  font-size: 28px;
+  cursor: pointer;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.paddle-btn:active {
+  background:
+    linear-gradient(180deg, rgba(120, 50, 0, 0.9), rgba(73, 30, 0, 0.98));
+  border-color: rgba(var(--accent-rgb), 0.8);
 }
 
 .action-zone {
