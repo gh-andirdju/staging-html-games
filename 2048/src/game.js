@@ -209,8 +209,9 @@
     guideNextEl.textContent = guideStep === GUIDE_TOTAL_STEPS - 1 ? 'Start Playing' : 'Next';
     guideOverlayEl.setAttribute('aria-labelledby', `guide-title-${guideStep}`);
     if (guideLiveEl) {
+      const title = guideStepEls[guideStep]?.querySelector('.guide-title')?.textContent ?? '';
       guideLiveEl.textContent = '';
-      guideLiveEl.textContent = guideStepEls[guideStep]?.querySelector('.guide-title')?.textContent ?? '';
+      setTimeout(() => { guideLiveEl.textContent = title; }, 0);
     }
   }
 
