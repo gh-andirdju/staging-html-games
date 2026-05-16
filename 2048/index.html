@@ -39,21 +39,21 @@
       </section>
     </main>
     <div id="guide-overlay" class="guide-overlay" role="dialog" aria-modal="true"
-         aria-label="How to play 2048" hidden>
+         aria-labelledby="guide-dialog-title" hidden>
       <div class="guide-card">
         <button id="guide-close" class="guide-close" aria-label="Skip guide">Skip</button>
 
         <div class="guide-steps">
           <div class="guide-step" data-step="0">
             <div class="guide-icon">🎯</div>
-            <h2 class="guide-title">Welcome to 2048!</h2>
+            <h2 class="guide-title" id="guide-title-0">Welcome to 2048!</h2>
             <p class="guide-body">Slide tiles on the board to combine matching numbers. Your goal: create a tile that reaches <strong>2048</strong>.</p>
           </div>
           <div class="guide-step" data-step="1" hidden>
             <div class="guide-icon guide-arrows">
               <span>↑</span><span>←</span><span>↓</span><span>→</span>
             </div>
-            <h2 class="guide-title">How to move</h2>
+            <h2 class="guide-title" id="guide-title-1">How to move</h2>
             <p class="guide-body">Press the <strong>arrow keys</strong> on desktop, or <strong>swipe</strong> on mobile. Every tile on the board shifts in that direction at once.</p>
           </div>
           <div class="guide-step" data-step="2" hidden>
@@ -63,12 +63,12 @@
               <span class="guide-plus">→</span>
               <span class="guide-tile" data-v="4">4</span>
             </div>
-            <h2 class="guide-title">Tiles merge!</h2>
+            <h2 class="guide-title" id="guide-title-2">Tiles merge!</h2>
             <p class="guide-body">When two tiles with the <strong>same number</strong> collide, they combine into their sum. Keep merging to reach higher values.</p>
           </div>
           <div class="guide-step" data-step="3" hidden>
             <div class="guide-icon">💡</div>
-            <h2 class="guide-title">Think ahead</h2>
+            <h2 class="guide-title" id="guide-title-3">Think ahead</h2>
             <p class="guide-body">A new tile appears after every move. The board fills up fast — keep your highest tile in a corner and plan your next move!</p>
           </div>
         </div>

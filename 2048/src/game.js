@@ -202,8 +202,7 @@
     guideDotEls.forEach((el, i) => el.classList.toggle('active', i === guideStep));
     guidePrevEl.hidden = guideStep === 0;
     guideNextEl.textContent = guideStep === GUIDE_TOTAL_STEPS - 1 ? 'Start Playing' : 'Next';
-    const heading = guideStepEls[guideStep]?.querySelector('.guide-title');
-    if (heading) guideOverlayEl.setAttribute('aria-label', heading.textContent);
+    guideOverlayEl.setAttribute('aria-labelledby', `guide-title-${guideStep}`);
   }
 
   function showGuide(step) {
@@ -238,6 +237,29 @@
   });
   guideCloseEl.addEventListener('click', hideGuide);
   guideHelpEl.addEventListener('click', () => showGuide(0));
+
+  guideOverlayEl.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      hideGuide();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(guideOverlayEl.querySelectorAll('button:not([hidden])'));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey) {
+      if (document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  });
 
   function restartGame() {
     rngSeed = (Math.random() * 4294967296) >>> 0;

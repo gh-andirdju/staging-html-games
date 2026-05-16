@@ -654,6 +654,23 @@ test.describe('beginner guide', () => {
     expect(after.grid).toEqual(before.grid);
     expect(after.score).toBe(before.score);
   });
+
+  test('Escape closes guide', async ({ page }) => {
+    await openGameFresh(page);
+    await page.keyboard.press('Escape');
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
+  });
+
+  test('Tab cycles focus within guide card', async ({ page }) => {
+    await openGameFresh(page);
+    // Focus is on #guide-next after open; Tab should wrap to #guide-close (first visible button)
+    const focusedId = await page.evaluate(() => document.activeElement?.id);
+    expect(focusedId).toBe('guide-next');
+    await page.keyboard.press('Tab');
+    const afterTab = await page.evaluate(() => document.activeElement?.id);
+    expect(afterTab).toBe('guide-close');
+  });
 });
 
 // Screenshot tests
