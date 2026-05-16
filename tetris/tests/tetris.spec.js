@@ -849,7 +849,7 @@ test('hold is silently ignored during an active clear animation', async ({ page 
     ...state,
     heldPiece: null,
     holdUsed: false,
-    clearAnimation: { rows: [19], frame: 0, totalFrames: 30, blinkInterval: 6 }
+    clearAnimation: { rows: [19], frame: 0, totalFrames: 18, blinkInterval: 2 }
   });
 
   await page.keyboard.press('c');
@@ -913,6 +913,39 @@ test('swap hold resets gravityTick so swapped piece gets a full gravity cycle', 
 
   // Without the fix, the swapped piece inherits gravityTick=47 and drops on the first frame.
   expect(afterY).toBe(beforeY);
+});
+
+test('soft-drop lock with line clear gives new piece a full gravity cycle', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Fill row 19 except column 4; O-piece at y=17 will drop into col 4-5 and complete rows 18-19
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  board[19] = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1]; // row 19 missing col 4
+  board[18] = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1]; // row 18 missing col 4
+
+  // Set gravityTick near max so the inherited value would cause an immediate drop
+  await setState(page, {
+    ...state,
+    board,
+    current: { type: 'O', index: 2, x: 3, y: 17, rotation: 0 },
+    gravityTick: 45, gravityFrames: 48, lockTimer: 0
+  });
+
+  // Soft-drop the piece to the floor and let lockTimer reach LOCK_DELAY_FRAMES (30)
+  const softBtn = page.locator('[data-action="soft-drop"]');
+  await softBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 70); // enough frames for lockTimer to hit 30 and lines to clear
+  await softBtn.dispatchEvent('pointerup');
+
+  const afterClear = await getState(page);
+  expect(afterClear.lines).toBeGreaterThanOrEqual(1);
+
+  // Advance one more frame; new piece should NOT have dropped yet (gravityTick was reset to 0)
+  const spawnY = afterClear.current?.y ?? 0;
+  await advanceFrames(page, 1);
+  const afterOneFrame = await getState(page);
+  expect(afterOneFrame.current?.y ?? spawnY).toBe(spawnY);
 });
 
 test('natural gravity fires and locks piece at floor without rendering error', async ({ page }) => {

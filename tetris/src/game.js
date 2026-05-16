@@ -114,6 +114,7 @@
   function spawnPiece() {
     state.current = nextPiece();
     state.lockTimer = 0;
+    state.gravityTick = 0;
     state.holdUsed = false;
     if (!isValidPosition(state.current)) {
       state.gameOver = true;
