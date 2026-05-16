@@ -396,6 +396,10 @@
             state.enemies[e].y += ENEMY_DROP_PX;
           }
         }
+        // Keep dive bomber return targets in sync with the dropped formation
+        for (var di = 0; di < state.diveBombers.length; di++) {
+          state.diveBombers[di].originY += ENEMY_DROP_PX;
+        }
         state.enemyDir = -state.enemyDir;
         state.enemyDropPending = false;
       } else {
@@ -407,6 +411,10 @@
             if (state.enemyDir > 0 && state.enemies[e].x + ENEMY_W >= WIDTH) hitWall = true;
             if (state.enemyDir < 0 && state.enemies[e].x <= 0) hitWall = true;
           }
+        }
+        // Keep dive bomber return targets in sync with horizontal formation drift
+        for (var di = 0; di < state.diveBombers.length; di++) {
+          state.diveBombers[di].originX += dx;
         }
         if (hitWall) state.enemyDropPending = true;
       }
@@ -509,7 +517,7 @@
         var b = state.bullets[bi];
         if (rectOverlap(b.x, b.y, BULLET_W, BULLET_H,
                         state.ufo.x, state.ufo.y, UFO_W, UFO_H)) {
-          state.score += state.ufo.pointValue;
+          state.score += state.ufo.pointValue * scoreMultiplier;
           state.ufo = null;
           state.bullets.splice(bi, 1);
           break;
@@ -527,7 +535,7 @@
           state.bullets.splice(bi, 1);
           if (state.boss.hp <= 0) {
             state.boss.alive = false;
-            state.score += BOSS_SCORE;
+            state.score += BOSS_SCORE * scoreMultiplier;
           } else {
             state.boss.flashTimer = 20;
           }
