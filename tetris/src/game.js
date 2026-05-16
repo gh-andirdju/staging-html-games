@@ -139,6 +139,7 @@
       state.heldPiece = currentType;
       state.current = swapped;
       state.lockTimer = 0;
+      state.gravityTick = 0;
     }
     state.holdUsed = true;
     setStatusMessage(`Hold: ${currentType}`);

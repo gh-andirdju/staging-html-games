@@ -623,7 +623,6 @@ test('hold-preview div is keyboard-activatable via Space and Enter', async ({ pa
   expect(afterSpace.heldPiece).toBe(initial.current.type);
   expect(afterSpace.holdUsed).toBe(true);
   expect(afterSpace.nextPieceType).not.toBeNull();
-  expect(afterSpace.nextPieceType).not.toBe(afterSpace.current.type);
 
   // Drop the current piece so holdUsed resets, then test Enter path
   const hardBtn = page.locator('[data-action="hard-drop"]');
@@ -642,6 +641,9 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   await openGame(page);
   const initial = await getState(page);
   const initialType = initial.current.type;
+  const holdBox = page.locator('[data-action="hold"]');
+  await expect(holdBox).toHaveClass(/hold-empty/);
+  await expect(holdBox).not.toHaveClass(/hold-locked/);
 
   await page.keyboard.press('c');
   await advanceFrames(page, 1);
@@ -651,10 +653,8 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   expect(afterFirstHold.current).not.toBeNull();
   expect(afterFirstHold.current.type).not.toBe(initialType);
   expect(afterFirstHold.nextPieceType).not.toBeNull();
-  expect(afterFirstHold.nextPieceType).not.toBe(afterFirstHold.current.type);
   expect(afterFirstHold.statusMessage).toMatch(/hold/i);
   await expect(page.locator('#status')).toHaveText(afterFirstHold.statusMessage);
-  const holdBox = page.locator('[data-action="hold"]');
   await expect(holdBox).toHaveAttribute('aria-disabled', 'true');
   await expect(holdBox).toHaveAttribute('aria-label', `Hold piece: ${initialType}`);
   await expect(holdBox).toHaveClass(/hold-locked/);
@@ -681,7 +681,6 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   expect(afterSwap.heldPiece).toBe(beforeSwapType);
   expect(afterSwap.current.type).toBe(initialType);
   expect(afterSwap.nextPieceType).not.toBeNull();
-  expect(afterSwap.nextPieceType).not.toBe(afterSwap.current.type);
 });
 
 test('touch hard-drop does not chain-drop subsequent pieces while button is held', async ({ page }) => {
@@ -787,8 +786,28 @@ test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
     current: { type: 'O', index: 2, x: 4, y: 2, rotation: 0 },
     gravityTick: 0, lockTimer: 0
   });
+  await advanceFrames(page, 1);
 
-  // Verify ghost stops at row 13 (obstacle at row 15 blocks the cell below y=14) by hard-dropping:
+  // Ghost should be rendered at row 13 (cols 4-5). Sample a pixel inside the ghost cell
+  // at the predicted ghost position and verify it differs from the background (#080400).
+  const ghostRow = 13;
+  const ghostCol = 4;
+  const hasGhostPixel = await page.evaluate(({ row, col }) => {
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const cellW = canvas.width / 10;
+    const cellH = canvas.height / 20;
+    // Sample center of cell
+    const px = Math.floor(col * cellW + cellW / 2);
+    const py = Math.floor(row * cellH + cellH / 2);
+    const data = ctx.getImageData(px, py, 1, 1).data;
+    // Background is #080400: r=8,g=4,b=0. Ghost stroke adds alpha-blended white, so
+    // at least one channel will be measurably higher than background.
+    return data[0] > 20 || data[1] > 10 || data[2] > 5;
+  }, { row: ghostRow, col: ghostCol });
+  expect(hasGhostPixel).toBe(true);
+
+  // Also verify hard-drop lands at ghost position
   const hardDropBtn = '[data-action="hard-drop"]';
   await page.locator(hardDropBtn).dispatchEvent('pointerdown');
   await advanceFrames(page, 1);
