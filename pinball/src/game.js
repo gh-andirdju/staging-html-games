@@ -30,7 +30,7 @@
   var FLIPPER_PIVOT_RX = 290;
   var FUNNEL_TOP_Y = 490;
   var LANE_X = 332;
-  var LANE_TOP_Y = 237;
+  var LANE_TOP_Y = 255;
   var DEFLECTOR_X = 290;
   var DEFLECTOR_Y = 160;
   var DEFLECTOR_END_Y = 216;
@@ -45,7 +45,7 @@
   var DIVIDER_RESTITUTION = 0.6;
   var DEFLECTOR_RESTITUTION = 0.85;
   var DRAG = 0.99;
-  var LAUNCH_MIN_POWER = 0.85;
+  var LAUNCH_MIN_POWER = 0.93;
   var BUMPER_SCORE = 50;
   var LANE_SCORE = 150;
   var WALL_LEFT = 30;

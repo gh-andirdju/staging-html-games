@@ -123,6 +123,28 @@ test('ball launches when plunger is compressed and released', async ({ page }) =
   expect(after.ball.y).toBeCloseTo(600, 0);
 });
 
+test('minimum-power launch still reaches the playfield', async ({ page }) => {
+  await openGame(page);
+
+  await page.evaluate(() => {
+    window.__pinballTest.setState({ status: 'ready', plunger: { compressed: 0.001 } });
+  });
+
+  await page.keyboard.up(' ');
+  await advanceFrames(page, 1);
+
+  // A launch that drains straight down the right gutter never leaves x~360.
+  // Reaching the playfield means the lane deflector caught the ball.
+  let minX = 999;
+  for (let i = 0; i < 120; i += 1) {
+    await advanceFrames(page, 2);
+    const state = await getState(page);
+    minX = Math.min(minX, state.ball.x);
+    if (state.status !== 'playing') break;
+  }
+  expect(minX).toBeLessThan(300);
+});
+
 test('bumper collision increments score', async ({ page }) => {
   await openGame(page);
   const s = await getState(page);
