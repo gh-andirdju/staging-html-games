@@ -278,6 +278,7 @@ test('left flipper boost launches ball upward', async ({ page }) => {
   await page.evaluate(() => {
     window.__pinballTest.setState({
       status: 'playing',
+      // ball just above the left flipper arm (pivot y=540) so the activating flipper sweeps it upward
       ball: { x: 196, y: 552, vx: 0, vy: 50, radius: 10, launched: true }
     });
   });
@@ -293,6 +294,7 @@ test('right flipper boost launches ball upward', async ({ page }) => {
   await page.evaluate(() => {
     window.__pinballTest.setState({
       status: 'playing',
+      // ball above pivot y=540, in path of right flipper active sweep
       ball: { x: 200, y: 525, vx: 0, vy: 50, radius: 10, launched: true }
     });
   });
