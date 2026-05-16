@@ -162,7 +162,7 @@
       status: 'playing',
       enemyDir: 1,
       enemyDropPending: false,
-      enemyMoveTimer: 0,
+      enemyMoveTimer: 60,
       bulletCooldown: 0,
       enemyFireTimer: 80,
       rngSeed: 12345,
