@@ -302,7 +302,7 @@
       state.lockTimer = 0;
       return true;
     }
-    const kicks = [-1, 1, -2, 2];
+    const kicks = [1, -1, 2, -2];
     for (const kick of kicks) {
       const kicked = { ...next, x: next.x + kick };
       if (isValidPosition(kicked)) {
@@ -668,7 +668,7 @@
   }
 
   function onTouchButtonDown(action) {
-    if (action === 'rotate' || action === 'rotate-cw') rotatePiece();
+    if (action === 'rotate-cw') rotatePiece();
     else if (action === 'rotate-ccw') rotatePieceCcw();
     else if (action === 'hold') holdPiece();
     else setTouchHeld(action, true);
@@ -694,16 +694,14 @@
     button.addEventListener('pointerup', () => onTouchButtonUp(action));
     button.addEventListener('pointercancel', () => onTouchButtonUp(action));
     button.addEventListener('pointerleave', () => onTouchButtonUp(action));
-    if (button.tagName !== 'BUTTON') {
-      button.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          event.stopPropagation();
-          onTouchButtonDown(action);
-          onTouchButtonUp(action);
-        }
-      });
-    }
+    button.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        event.stopPropagation();
+        onTouchButtonDown(action);
+        onTouchButtonUp(action);
+      }
+    });
   }
 
   restartGame();

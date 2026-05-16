@@ -436,6 +436,23 @@ test('CCW rotation via z key rotates counterclockwise', async ({ page }) => {
   expect(afterCcw.current.rotation).toBe(initialRotation);
 });
 
+test('control deck buttons are keyboard-activatable via Space', async ({ page }) => {
+  await openGame(page);
+  const initial = await getState(page);
+
+  // Tab to the rotate-cw button and press Space — should rotate CW
+  await page.locator('[data-action="rotate-cw"]').focus();
+  await page.keyboard.press('Space');
+  const afterRotate = await getState(page);
+  expect(afterRotate.current.rotation).toBe((initial.current.rotation + 1) % 4);
+
+  // Tab to the rotate-ccw button and press Space — should rotate back
+  await page.locator('[data-action="rotate-ccw"]').focus();
+  await page.keyboard.press('Space');
+  const afterCcw = await getState(page);
+  expect(afterCcw.current.rotation).toBe(initial.current.rotation);
+});
+
 test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   await openGame(page);
   const initial = await getState(page);
