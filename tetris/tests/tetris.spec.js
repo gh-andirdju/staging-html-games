@@ -656,6 +656,11 @@ test('hold-preview div is keyboard-activatable via Space and Enter', async ({ pa
   await hardBtn.dispatchEvent('pointerup');
   await advanceFrames(page, 2);
 
+  // Verify the new piece has spawned and holdUsed was reset before proceeding
+  const afterDrop = await getState(page);
+  expect(afterDrop.holdUsed).toBe(false);
+  expect(afterDrop.current).not.toBeNull();
+
   await page.locator('[data-action="hold"]').focus();
   await page.keyboard.press('Enter');
   const afterEnter = await getState(page);
@@ -824,6 +829,39 @@ test('first hold resets gravityTick so new piece gets a full gravity cycle', asy
   expect(afterY).toBe(beforeY);
 });
 
+test('swap hold resets gravityTick so swapped piece gets a full gravity cycle', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // First hold to populate heldPiece, then set gravityTick near fire
+  await page.keyboard.press('c');
+  await advanceFrames(page, 1);
+  const afterFirstHold = await getState(page);
+  const heldType = afterFirstHold.heldPiece;
+
+  await page.keyboard.press('Space'); // hard-drop to reset holdUsed
+  await advanceFrames(page, 1);
+
+  // Set gravityTick to 47 — one frame from firing at gravityFrames=48
+  const mid = await getState(page);
+  await setState(page, {
+    ...mid,
+    heldPiece: heldType,
+    holdUsed: false,
+    gravityTick: 47,
+    gravityFrames: 48,
+    lockTimer: 0
+  });
+  const beforeY = (await getState(page)).current.y;
+
+  await page.keyboard.press('c'); // swap hold
+  await advanceFrames(page, 1);  // one gravity tick on swapped piece
+  const afterY = (await getState(page)).current.y;
+
+  // Without the fix, the swapped piece inherits gravityTick=47 and drops on the first frame.
+  expect(afterY).toBe(beforeY);
+});
+
 test('natural gravity fires and locks piece at floor without rendering error', async ({ page }) => {
   await openGame(page);
   const state = await getState(page);
@@ -866,13 +904,16 @@ test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const cellSize = canvas.width / 10; // 30px
-    // Sample the left stroke edge of the ghost cell (strokeRect draws 2px inside the cell).
-    // Ghost is rgba(255,255,255,0.22) over the background (#020617, r=2): r blends to ~58.
-    const px = col * cellSize + 2;          // left stroke edge x
-    const py = Math.floor(row * cellSize + cellSize / 2); // vertical midpoint
-    const data = ctx.getImageData(px, py, 1, 1).data;
-    // Background red channel = 2; ghost white stroke at 22% alpha raises it to ~58.
-    return data[0] > 20;
+    // Sample a 3-pixel horizontal strip along the left stroke edge of the ghost cell.
+    // strokeRect draws 2px inside, lineWidth=1.5: strip at x=[col*30+1, col*30+3].
+    // Ghost is rgba(255,255,255,0.22) over background (#020617, r=2): r blends to ~58.
+    // Checking multiple pixels guards against sub-pixel antialiasing variation.
+    const py = Math.floor(row * cellSize + cellSize / 2);
+    for (let dx = 1; dx <= 3; dx++) {
+      const data = ctx.getImageData(col * cellSize + dx, py, 1, 1).data;
+      if (data[0] > 20) return true; // background red channel = 2; ghost raises it to ~58
+    }
+    return false;
   }, { row: ghostRow, col: ghostCol });
   expect(hasGhostPixel).toBe(true);
 

@@ -146,6 +146,7 @@
     // already false. Either way, lock it now to block a second hold until the next piece spawns.
     state.holdUsed = true;
     setStatusMessage(`Hold: ${currentType}`);
+    // DOM (CSS classes, aria attrs) refreshes on the next oneFrame() render call.
   }
 
   function mergePiece() {
@@ -336,8 +337,12 @@
       if (rewardSoftDrop) applySoftDropPoint(1);
       return true;
     }
-    state.lockTimer += 1;
-    if (state.lockTimer >= LOCK_DELAY_FRAMES || !rewardSoftDrop) lockPiece();
+    if (rewardSoftDrop) {
+      state.lockTimer += 1;
+      if (state.lockTimer >= LOCK_DELAY_FRAMES) lockPiece();
+    } else {
+      lockPiece();
+    }
     return false;
   }
 
@@ -399,6 +404,7 @@
     if (typeof state.statusMessage !== 'string') state.statusMessage = '';
     if (typeof state.statusTone !== 'string') state.statusTone = 'normal';
     if (typeof state.statusMessageTimer !== 'number') state.statusMessageTimer = 0;
+    if (typeof state.frame !== 'number') state.frame = 0;
     if (!('heldPiece' in state)) state.heldPiece = null;
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
@@ -575,7 +581,7 @@
 
   function oneFrame() {
     if (!state.gameOver) {
-      if (state.statusMessageTimer > 0) {
+      if (state.statusMessageTimer > 0 && !state.clearAnimation) {
         state.statusMessageTimer -= 1;
         if (state.statusMessageTimer === 0) syncStatusMessage({ forceFallback: true });
       }
