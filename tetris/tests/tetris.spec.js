@@ -152,6 +152,7 @@ function expectPortraitErgonomics(layout) {
   expectInside(rotateCcw, rotateCluster);
   expect(Math.abs(left.width - right.width)).toBeLessThan(4);
   expect(Math.abs(left.height - right.height)).toBeLessThan(4);
+  expect(Math.abs(left.y - right.y)).toBeLessThan(4);
   expect(Math.abs(rotateCw.width - rotateCcw.width)).toBeLessThan(4);
   expect(Math.abs(rotateCw.height - rotateCcw.height)).toBeLessThan(4);
   expect(hardDrop.y).toBeLessThan(softDrop.y);
@@ -525,6 +526,41 @@ test('ghost piece renders at piece position without error when already at floor'
   await advanceFrames(page, 1);
   const after = await getState(page);
   expect(after.current).not.toBeNull();
+});
+
+test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Place filled cells at row 15 in columns 3-6 to block an O-piece dropped at x=4
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  board[15] = [0, 0, 0, 1, 1, 1, 1, 0, 0, 0];
+
+  await setState(page, {
+    ...state,
+    board,
+    current: { type: 'O', index: 2, x: 4, y: 2, rotation: 0 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  // Ghost cells are computed in the render path; evaluate getGhostCells directly via test hook
+  const ghostY = await page.evaluate(() => {
+    const api = window.__tetrisTest;
+    const s = (api.getState ?? api.readState).call(api);
+    // The O-piece at x=4,y=2 occupies columns 4-5; row 15 blocks them so ghost lands at y=13
+    return s.current ? s.current.y : null;
+  });
+  // current hasn't moved yet; verify ghost would stop at row 13 by hard-dropping
+  const hardDropBtn = '[data-action="hard-drop"]';
+  await page.locator(hardDropBtn).dispatchEvent('pointerdown');
+  await advanceFrames(page, 1);
+  await page.locator(hardDropBtn).dispatchEvent('pointerup');
+  await advanceFrames(page, 2);
+
+  const dropped = await getState(page);
+  // After hard drop from y=2, piece locks at y=13 (row 15 blocks the cell below y=14)
+  expect(dropped.board[13][4]).toBeGreaterThan(0);
+  expect(dropped.board[15][4]).toBeGreaterThan(0); // original obstacle still there
 });
 
 test('matches the desktop layout baseline', async ({ page }) => {

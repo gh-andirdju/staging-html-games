@@ -154,6 +154,11 @@ body {
   filter: brightness(1.15);
 }
 
+.hold-preview:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .hold-preview.hold-empty {
   opacity: 0.55;
 }
@@ -444,11 +449,12 @@ body {
   }
 
   .dpad-right {
-    left: 74px;
+    top: 37px;
+    left: 73px;
   }
 
   .dpad-down {
-    top: 74px;
+    top: 73px;
     left: 37px;
   }
 

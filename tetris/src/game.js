@@ -140,6 +140,7 @@
       state.lockTimer = 0;
     }
     state.holdUsed = true;
+    setStatusMessage(`Hold: ${currentType}`);
   }
 
   function mergePiece() {
@@ -685,6 +686,9 @@
     const action = button.dataset.action;
     button.addEventListener('pointerdown', (event) => {
       event.preventDefault();
+      if (action === 'left' || action === 'right' || action === 'soft-drop') {
+        try { button.setPointerCapture(event.pointerId); } catch (_) { /* synthetic event */ }
+      }
       onTouchButtonDown(action);
     });
     button.addEventListener('pointerup', () => onTouchButtonUp(action));
