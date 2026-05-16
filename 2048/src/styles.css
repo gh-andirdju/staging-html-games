@@ -207,8 +207,8 @@ body {
   100% { transform: scale(1); }
 }
 
-.tile-new    { animation: tile-pop   0.15s ease; }
-.tile-merged { animation: tile-merge 0.2s  ease; }
+.tile-new    { animation: tile-pop   0.15s ease; animation-fill-mode: none; }
+.tile-merged { animation: tile-merge 0.2s  ease; animation-fill-mode: none; }
 
 .cell[data-value="4096"],
 .cell[data-value="8192"],
