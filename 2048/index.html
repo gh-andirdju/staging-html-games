@@ -13,6 +13,7 @@
           <span class="eyebrow">Slide &amp; Merge</span>
           <strong class="title">2048</strong>
         </div>
+        <button id="guide-help" type="button" aria-label="How to play">?</button>
         <button id="restart" type="button">New Game</button>
       </header>
 
@@ -37,6 +38,57 @@
         </div>
       </section>
     </main>
+    <div id="guide-overlay" class="guide-overlay" role="dialog" aria-modal="true"
+         aria-labelledby="guide-title-0" hidden>
+      <div class="guide-card">
+        <button id="guide-close" class="guide-close" type="button">Skip</button>
+
+        <div id="guide-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+        <div class="guide-steps">
+          <div class="guide-step" data-step="0">
+            <div class="guide-icon">🎯</div>
+            <h2 class="guide-title" id="guide-title-0">Welcome to 2048!</h2>
+            <p class="guide-body">Slide tiles on the board to combine matching numbers. Your goal: create a tile that reaches <strong>2048</strong>.</p>
+          </div>
+          <div class="guide-step" data-step="1" hidden>
+            <div class="guide-icon guide-arrows" aria-hidden="true">
+              <span></span><span>↑</span><span></span>
+              <span>←</span><span>↓</span><span>→</span>
+            </div>
+            <h2 class="guide-title" id="guide-title-1">How to move</h2>
+            <p class="guide-body">Press the <strong>arrow keys</strong> on desktop, or <strong>swipe</strong> on mobile. Every tile on the board shifts in that direction at once.</p>
+          </div>
+          <div class="guide-step" data-step="2" hidden>
+            <div class="guide-merge-demo" aria-hidden="true">
+              <span class="guide-tile" data-v="2">2</span>
+              <span class="guide-tile" data-v="2">2</span>
+              <span class="guide-plus">→</span>
+              <span class="guide-tile" data-v="4">4</span>
+            </div>
+            <h2 class="guide-title" id="guide-title-2">Tiles merge!</h2>
+            <p class="guide-body">When two tiles with the <strong>same number</strong> collide, they combine into their sum. Keep merging to reach higher values.</p>
+          </div>
+          <div class="guide-step" data-step="3" hidden>
+            <div class="guide-icon">💡</div>
+            <h2 class="guide-title" id="guide-title-3">Think ahead</h2>
+            <p class="guide-body">A new tile appears after every move. The board fills up fast — keep your highest tile in a corner and plan your next move!</p>
+          </div>
+        </div>
+
+        <div class="guide-footer">
+          <div class="guide-dots" aria-hidden="true">
+            <span class="guide-dot active"></span>
+            <span class="guide-dot"></span>
+            <span class="guide-dot"></span>
+            <span class="guide-dot"></span>
+          </div>
+          <div class="guide-nav">
+            <button id="guide-prev" type="button" hidden>Back</button>
+            <button id="guide-next" type="button">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <script src="src/game.js"></script>
   </body>
 </html>

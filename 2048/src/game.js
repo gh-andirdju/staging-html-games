@@ -2,6 +2,8 @@
   const GRID_SIZE = 4;
   const WIN_VALUE = 2048;
   const BEST_STORAGE_KEY = '2048-best';
+  const GUIDE_STORAGE_KEY = '2048-guide-seen';
+  const GUIDE_TOTAL_STEPS = 4;
 
   const gridEl = document.getElementById('grid');
   const scoreEl = document.getElementById('score');
@@ -9,6 +11,14 @@
   const statusEl = document.getElementById('status');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl = document.getElementById('restart');
+  const guideOverlayEl = document.getElementById('guide-overlay');
+  const guideNextEl = document.getElementById('guide-next');
+  const guidePrevEl = document.getElementById('guide-prev');
+  const guideCloseEl = document.getElementById('guide-close');
+  const guideHelpEl = document.getElementById('guide-help');
+  const guideLiveEl = document.getElementById('guide-live');
+  const guideStepEls = Array.from(document.querySelectorAll('.guide-step'));
+  const guideDotEls = Array.from(document.querySelectorAll('.guide-dot'));
 
   const cells = Array.from({ length: GRID_SIZE * GRID_SIZE }, () => {
     const div = document.createElement('div');
@@ -71,6 +81,8 @@
   let state = null;
   let autoStep = true;
   let rafId = null;
+  let guideStep = -1;
+  let focusBeforeGuide = null;
 
   function slide(direction) {
     let grid = state.grid.map(row => row.slice());
@@ -186,6 +198,84 @@
     }
   }
 
+  const gameShellEl = document.querySelector('.game-shell');
+
+  function renderGuide() {
+    guideStepEls.forEach((el, i) => { el.hidden = i !== guideStep; });
+    guideDotEls.forEach((el, i) => el.classList.toggle('active', i === guideStep));
+    const backWasActive = document.activeElement === guidePrevEl;
+    guidePrevEl.hidden = guideStep === 0;
+    if (guidePrevEl.hidden && backWasActive) guideNextEl.focus();
+    guideNextEl.textContent = guideStep === GUIDE_TOTAL_STEPS - 1 ? 'Start Playing' : 'Next';
+    guideOverlayEl.setAttribute('aria-labelledby', `guide-title-${guideStep}`);
+    if (guideLiveEl) {
+      const title = guideStepEls[guideStep]?.querySelector('.guide-title')?.textContent ?? '';
+      const announcement = `${title} — Step ${guideStep + 1} of ${GUIDE_TOTAL_STEPS}`;
+      guideLiveEl.textContent = '';
+      setTimeout(() => { guideLiveEl.textContent = announcement; }, 0);
+    }
+  }
+
+  function showGuide(step) {
+    guideStep = Math.max(0, Math.min(GUIDE_TOTAL_STEPS - 1, step ?? 0));
+    if (guideOverlayEl.hidden) focusBeforeGuide = document.activeElement;
+    guideOverlayEl.hidden = false;
+    gameShellEl.setAttribute('inert', '');
+    renderGuide();
+    guideNextEl.focus();
+  }
+
+  function hideGuide() {
+    guideOverlayEl.hidden = true;
+    gameShellEl.removeAttribute('inert');
+    guideStep = -1;
+    try { localStorage.setItem(GUIDE_STORAGE_KEY, '1'); } catch {}
+    focusBeforeGuide?.focus();
+    focusBeforeGuide = null;
+  }
+
+  function hasSeenGuide() {
+    try { return Boolean(localStorage.getItem(GUIDE_STORAGE_KEY)); } catch { return false; }
+  }
+
+  guideNextEl.addEventListener('click', () => {
+    if (guideStep >= GUIDE_TOTAL_STEPS - 1) { hideGuide(); return; }
+    guideStep++;
+    renderGuide();
+  });
+  guidePrevEl.addEventListener('click', () => {
+    if (guideStep <= 0) return;
+    guideStep--;
+    renderGuide();
+    // renderGuide() moves focus to Next only when Back becomes hidden (step 0);
+    // otherwise focus naturally stays on guidePrevEl (the still-visible Back button)
+  });
+  guideCloseEl.addEventListener('click', hideGuide);
+  guideHelpEl.addEventListener('click', () => showGuide(0));
+
+  guideOverlayEl.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      hideGuide();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(guideOverlayEl.querySelectorAll('button:not([hidden])'));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey) {
+      if (document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  });
+
   function restartGame() {
     rngSeed = (Math.random() * 4294967296) >>> 0;
     state = {
@@ -202,7 +292,6 @@
   }
 
   function handleKey(event) {
-    if (state.gameOver) return;
     const directionMap = {
       ArrowLeft: 'left',
       ArrowRight: 'right',
@@ -212,6 +301,8 @@
     const direction = directionMap[event.key];
     if (!direction) return;
     event.preventDefault();
+    if (!guideOverlayEl.hidden) return;
+    if (state.gameOver) return;
     const moved = slide(direction);
     if (moved) {
       spawnTile();
@@ -226,6 +317,7 @@
   const SWIPE_THRESHOLD = 30;
 
   function handleTouchEnd(event) {
+    if (!guideOverlayEl.hidden) return;
     if (state.gameOver) return;
     const dx = event.changedTouches[0].clientX - touchStartX;
     const dy = event.changedTouches[0].clientY - touchStartY;
@@ -270,6 +362,7 @@
 
   restartGame();
   setAutoStep(true);
+  if (!hasSeenGuide()) showGuide(0);
 
   window.__2048Test = {
     isReady: true,
@@ -316,6 +409,10 @@
       checkWin();
       checkGameOver();
       render();
-    }
+    },
+    isGuideVisible() { return !guideOverlayEl.hidden; },
+    getGuideStep() { return guideStep; },
+    showGuide(step) { showGuide(step); },
+    dismissGuide() { hideGuide(); }
   };
 })();

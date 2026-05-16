@@ -17,7 +17,10 @@ test.afterEach(async ({ page }) => {
 
 async function openGame(page) {
   await page.goto('./');
-  await page.evaluate(() => window.localStorage.removeItem('2048-best'));
+  await page.evaluate(() => {
+    window.localStorage.removeItem('2048-best');
+    window.localStorage.setItem('2048-guide-seen', '1');
+  });
   await page.reload();
   await page.waitForFunction(() => {
     const api = window.__2048Test;
@@ -29,7 +32,12 @@ async function openGame(page) {
       typeof api.advanceFrames === 'function' &&
       typeof api.restart === 'function' &&
       typeof api.setAutoStep === 'function' &&
-      typeof api.spawnTile === 'function'
+      typeof api.spawnTile === 'function' &&
+      typeof api.isGuideVisible === 'function' &&
+      typeof api.getGuideStep === 'function' &&
+      typeof api.showGuide === 'function' &&
+      typeof api.dismissGuide === 'function' &&
+      api.isGuideVisible() === false
     );
   });
   await page.evaluate(() => window.__2048Test.setAutoStep(false));
@@ -510,6 +518,309 @@ test.describe('touch swipe controls', () => {
     });
     const after = await getState(page);
     expect(after.grid).toEqual(before.grid);
+  });
+});
+
+// Beginner guide
+
+test.describe('beginner guide', () => {
+  function guideApiReady(api) {
+    return (
+      api && api.isReady &&
+      typeof api.getState === 'function' &&
+      typeof api.setState === 'function' &&
+      typeof api.advanceFrames === 'function' &&
+      typeof api.restart === 'function' &&
+      typeof api.setAutoStep === 'function' &&
+      typeof api.spawnTile === 'function' &&
+      typeof api.isGuideVisible === 'function' &&
+      typeof api.getGuideStep === 'function' &&
+      typeof api.showGuide === 'function' &&
+      typeof api.dismissGuide === 'function'
+    );
+  }
+
+  async function openGameFresh(page) {
+    await page.goto('./');
+    await page.evaluate(() => {
+      window.localStorage.removeItem('2048-best');
+      window.localStorage.removeItem('2048-guide-seen');
+    });
+    await page.reload();
+    await page.waitForFunction(() => {
+      const api = window.__2048Test;
+      return (
+        api && api.isReady &&
+        typeof api.getState === 'function' &&
+        typeof api.setState === 'function' &&
+        typeof api.advanceFrames === 'function' &&
+        typeof api.restart === 'function' &&
+        typeof api.setAutoStep === 'function' &&
+        typeof api.spawnTile === 'function' &&
+        typeof api.isGuideVisible === 'function' &&
+        typeof api.getGuideStep === 'function' &&
+        typeof api.showGuide === 'function' &&
+        typeof api.dismissGuide === 'function' &&
+        api.isGuideVisible() === true
+      );
+    });
+    await page.evaluate(() => window.__2048Test.setAutoStep(false));
+  }
+
+  async function openGameSeen(page) {
+    await page.goto('./');
+    await page.evaluate(() => {
+      window.localStorage.removeItem('2048-best');
+      window.localStorage.setItem('2048-guide-seen', '1');
+    });
+    await page.reload();
+    await page.waitForFunction(() => {
+      const api = window.__2048Test;
+      return (
+        api && api.isReady &&
+        typeof api.getState === 'function' &&
+        typeof api.setState === 'function' &&
+        typeof api.advanceFrames === 'function' &&
+        typeof api.restart === 'function' &&
+        typeof api.setAutoStep === 'function' &&
+        typeof api.spawnTile === 'function' &&
+        typeof api.isGuideVisible === 'function' &&
+        typeof api.getGuideStep === 'function' &&
+        typeof api.showGuide === 'function' &&
+        typeof api.dismissGuide === 'function' &&
+        api.isGuideVisible() === false
+      );
+    });
+    await page.evaluate(() => window.__2048Test.setAutoStep(false));
+  }
+
+  test('shows on first visit', async ({ page }) => {
+    await openGameFresh(page);
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(true);
+  });
+
+  test('starts on step 0', async ({ page }) => {
+    await openGameFresh(page);
+    const step = await page.evaluate(() => window.__2048Test.getGuideStep());
+    expect(step).toBe(0);
+  });
+
+  test('Next advances to step 1', async ({ page }) => {
+    await openGameFresh(page);
+    await page.click('#guide-next');
+    const step = await page.evaluate(() => window.__2048Test.getGuideStep());
+    expect(step).toBe(1);
+  });
+
+  test('Back retreats step', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => window.__2048Test.showGuide(2));
+    await page.click('#guide-prev');
+    const step = await page.evaluate(() => window.__2048Test.getGuideStep());
+    expect(step).toBe(1);
+  });
+
+  test('guide DOM has 4 steps matching JS constant', async ({ page }) => {
+    await openGameFresh(page);
+    const domStepCount = await page.evaluate(() => document.querySelectorAll('.guide-step').length);
+    expect(domStepCount).toBe(4);
+  });
+
+  test('guide DOM has 4 dots matching JS constant', async ({ page }) => {
+    await openGameFresh(page);
+    const domDotCount = await page.evaluate(() => document.querySelectorAll('.guide-dot').length);
+    expect(domDotCount).toBe(4);
+  });
+
+  test('aria-labelledby updates as steps advance', async ({ page }) => {
+    await openGameFresh(page);
+    const label0 = await page.getAttribute('#guide-overlay', 'aria-labelledby');
+    expect(label0).toBe('guide-title-0');
+    await page.click('#guide-next');
+    const label1 = await page.getAttribute('#guide-overlay', 'aria-labelledby');
+    expect(label1).toBe('guide-title-1');
+    await page.click('#guide-next');
+    const label2 = await page.getAttribute('#guide-overlay', 'aria-labelledby');
+    expect(label2).toBe('guide-title-2');
+  });
+
+  test('guide-live announces step title and step count', async ({ page }) => {
+    await openGameFresh(page);
+    await page.waitForFunction(() => {
+      const el = document.getElementById('guide-live');
+      return el && el.textContent.includes('Step 1 of 4');
+    });
+    await page.click('#guide-next');
+    await page.waitForFunction(() => {
+      const el = document.getElementById('guide-live');
+      return el && el.textContent.includes('Step 2 of 4');
+    });
+    const text = await page.evaluate(() => document.getElementById('guide-live').textContent);
+    expect(text).toContain('Step 2 of 4');
+  });
+
+  test('Next on last step closes guide', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => window.__2048Test.showGuide(3));
+    const stepBefore = await page.evaluate(() => window.__2048Test.getGuideStep());
+    expect(stepBefore).toBe(3);
+    await page.click('#guide-next');
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
+  });
+
+  test('Skip button closes guide', async ({ page }) => {
+    await openGameFresh(page);
+    await page.click('#guide-close');
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
+  });
+
+  test('does not show if already seen', async ({ page }) => {
+    await openGameSeen(page);
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
+  });
+
+  test('help button reopens guide at step 0', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => window.__2048Test.dismissGuide());
+    await page.click('#guide-help');
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    const step = await page.evaluate(() => window.__2048Test.getGuideStep());
+    expect(visible).toBe(true);
+    expect(step).toBe(0);
+  });
+
+  test('guide does not reappear after restart', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => window.__2048Test.dismissGuide());
+    await page.click('#restart');
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
+  });
+
+  test('Back hidden on step 0', async ({ page }) => {
+    await openGameFresh(page);
+    const backHidden = await page.evaluate(() => document.getElementById('guide-prev').hidden);
+    expect(backHidden).toBe(true);
+  });
+
+  test('Next shows Start Playing on last step', async ({ page }) => {
+    await openGameFresh(page);
+    const lastStep = await page.evaluate(() => document.querySelectorAll('.guide-step').length - 1);
+    await page.evaluate((step) => window.__2048Test.showGuide(step), lastStep);
+    const text = await page.textContent('#guide-next');
+    expect(text).toBe('Start Playing');
+  });
+
+  test('arrow keys do not move tiles while guide is open', async ({ page }) => {
+    await openGameFresh(page);
+    const before = await page.evaluate(() => window.__2048Test.getState());
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowRight');
+    const after = await page.evaluate(() => window.__2048Test.getState());
+    expect(after.grid).toEqual(before.grid);
+    expect(after.score).toBe(before.score);
+  });
+
+  test('Escape closes guide', async ({ page }) => {
+    await openGameFresh(page);
+    await page.keyboard.press('Escape');
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
+  });
+
+  test('Tab wraps from last button to first', async ({ page }) => {
+    await openGameFresh(page);
+    const focusedId = await page.evaluate(() => document.activeElement?.id);
+    expect(focusedId).toBe('guide-next');
+    await page.keyboard.press('Tab');
+    const afterTab = await page.evaluate(() => document.activeElement?.id);
+    expect(afterTab).toBe('guide-close');
+  });
+
+  test('Shift+Tab wraps from first button to last', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => document.getElementById('guide-close').focus());
+    await page.keyboard.press('Shift+Tab');
+    const id = await page.evaluate(() => document.activeElement?.id);
+    expect(id).toBe('guide-next');
+  });
+
+  test('arrow keys do not scroll page while guide is open', async ({ page }) => {
+    await openGameFresh(page);
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowRight');
+    const scrollAfter = await page.evaluate(() => window.scrollY);
+    expect(scrollAfter).toBe(scrollBefore);
+  });
+
+  test('swipe does not move tiles while guide is open', async ({ page }) => {
+    await openGameFresh(page);
+    const before = await page.evaluate(() => window.__2048Test.getState());
+    await page.evaluate(() => {
+      const cx = 200, cy = 400;
+      document.dispatchEvent(new TouchEvent('touchstart', {
+        touches: [new Touch({ identifier: 1, target: document.body, clientX: cx, clientY: cy })],
+        bubbles: true, cancelable: true
+      }));
+      document.dispatchEvent(new TouchEvent('touchend', {
+        changedTouches: [new Touch({ identifier: 1, target: document.body, clientX: cx - 80, clientY: cy })],
+        bubbles: true, cancelable: true
+      }));
+    });
+    const after = await page.evaluate(() => window.__2048Test.getState());
+    expect(after.grid).toEqual(before.grid);
+    expect(after.score).toBe(before.score);
+  });
+
+  test('guide does not reshow after dismiss and page reload', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => window.__2048Test.dismissGuide());
+    await page.reload();
+    await page.waitForFunction(() => {
+      const api = window.__2048Test;
+      return (
+        api && api.isReady &&
+        typeof api.getState === 'function' &&
+        typeof api.setState === 'function' &&
+        typeof api.advanceFrames === 'function' &&
+        typeof api.restart === 'function' &&
+        typeof api.setAutoStep === 'function' &&
+        typeof api.spawnTile === 'function' &&
+        typeof api.isGuideVisible === 'function' &&
+        typeof api.getGuideStep === 'function' &&
+        typeof api.showGuide === 'function' &&
+        typeof api.dismissGuide === 'function' &&
+        api.isGuideVisible() === false
+      );
+    });
+    await page.evaluate(() => window.__2048Test.setAutoStep(false));
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
+  });
+
+  test('Tab cycles through all three buttons when Back is visible', async ({ page }) => {
+    await openGameFresh(page);
+    await page.click('#guide-next'); // advance to step 1, Back becomes visible
+    const step = await page.evaluate(() => window.__2048Test.getGuideStep());
+    expect(step).toBe(1);
+    // Verify full cycle: guide-next (last) → guide-close (first) → guide-prev → guide-next
+    await page.evaluate(() => document.getElementById('guide-next').focus());
+    await page.keyboard.press('Tab');
+    const afterFirst = await page.evaluate(() => document.activeElement?.id);
+    expect(afterFirst).toBe('guide-close');
+    await page.keyboard.press('Tab');
+    const afterSecond = await page.evaluate(() => document.activeElement?.id);
+    expect(afterSecond).toBe('guide-prev');
+    await page.keyboard.press('Tab');
+    const afterThird = await page.evaluate(() => document.activeElement?.id);
+    expect(afterThird).toBe('guide-next');
   });
 });
 
