@@ -619,7 +619,7 @@
       state.waveConfig = getWaveConfig(state.wave);
       state.enemies = buildEnemies(state.waveConfig.formation);
       state.diveBombers = [];
-      state.diveBomberCooldown = 0;
+      state.diveBomberCooldown = state.waveConfig.diveBomberCooldown;
       state.ufo = null;
       state.ufoSpawnTimer = 0;
       state.boss = state.waveConfig.hasBoss ? spawnBoss() : null;
