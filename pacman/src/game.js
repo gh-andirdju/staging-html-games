@@ -809,6 +809,10 @@
     }
   });
 
+  window.addEventListener("blur", function () {
+    pressedDirs = {};
+  });
+
   document.querySelectorAll(".dpad-btn[data-action]").forEach(function (btn) {
     btn.addEventListener("pointerdown", function (e) {
       var dir = btn.dataset.action;
