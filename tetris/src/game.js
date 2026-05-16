@@ -142,6 +142,7 @@
       state.lockTimer = 0;
       state.gravityTick = 0;
     }
+    // spawnPiece() resets holdUsed to false for the new piece; re-lock it here for this hold cycle.
     state.holdUsed = true;
     setStatusMessage(`Hold: ${currentType}`);
   }

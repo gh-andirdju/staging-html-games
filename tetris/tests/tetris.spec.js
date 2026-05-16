@@ -477,6 +477,25 @@ test('CW rotation kicks away from left wall when base rotation overflows', async
   expect(after.current.x).toBe(1);
 });
 
+test('CCW rotation kicks away from left wall when base rotation overflows', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // I-piece vertical (rot 3) at x=0: CCW to rot 2 would place a cell at column -1 (out of bounds)
+  // The kick sequence [1,-1,2,-2] picks offset +1 → x=1, fitting columns 0-3
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'I', index: 1, x: 0, y: 10, rotation: 3 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  await page.keyboard.press('z');
+  const after = await getState(page);
+  expect(after.current.rotation).toBe(2);
+  expect(after.current.x).toBe(1);
+});
+
 test('4-line Tetris clear awards correct score and status message', async ({ page }) => {
   await openGame(page);
   const state = await getState(page);
@@ -677,10 +696,13 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
 
   const beforeSwapType = afterDrop.current.type;
   await page.keyboard.press('c');
+  await advanceFrames(page, 1);
   const afterSwap = await getState(page);
   expect(afterSwap.heldPiece).toBe(beforeSwapType);
   expect(afterSwap.current.type).toBe(initialType);
   expect(afterSwap.nextPieceType).not.toBeNull();
+  expect(afterSwap.statusMessage).toMatch(/hold/i);
+  await expect(page.locator('#status')).toHaveText(afterSwap.statusMessage);
 });
 
 test('touch hard-drop does not chain-drop subsequent pieces while button is held', async ({ page }) => {
@@ -777,7 +799,7 @@ test('first hold resets gravityTick so new piece gets a full gravity cycle', asy
   expect(afterY).toBe(beforeY);
 });
 
-test('ghost piece renders at piece position without error when already at floor', async ({ page }) => {
+test('natural gravity fires and locks piece at floor without rendering error', async ({ page }) => {
   await openGame(page);
   const state = await getState(page);
 
