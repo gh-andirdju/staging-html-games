@@ -60,8 +60,7 @@
     rightDasTick: 0,
     leftArrTick: 0,
     rightArrTick: 0,
-    softTick: 0,
-    hardTick: 0
+    softTick: 0
   };
 
   function nextRandom() {
@@ -336,8 +335,8 @@
   }
 
   function hardDrop() {
-    if (state.gameOver || !state.current || state.clearAnimation) return;
     held.hardDrop = false;
+    if (state.gameOver || !state.current || state.clearAnimation) return;
     let distance = 0;
     while (true) {
       const next = { ...state.current, y: state.current.y + 1 };
@@ -380,7 +379,6 @@
     held.leftArrTick = 0;
     held.rightArrTick = 0;
     held.softTick = 0;
-    held.hardTick = 0;
     spawnPiece();
     syncStatusMessage({ forceFallback: true });
     render();
@@ -587,10 +585,7 @@
         held.softTick = 0;
       }
       if (held.hardDrop && state.current) {
-        held.hardTick += 1;
-        if (held.hardTick === 1 || held.hardTick % 10 === 0) hardDrop();
-      } else {
-        held.hardTick = 0;
+        hardDrop();
       }
 
       state.gravityTick += 1;
@@ -695,6 +690,16 @@
     button.addEventListener('pointerup', () => onTouchButtonUp(action));
     button.addEventListener('pointercancel', () => onTouchButtonUp(action));
     button.addEventListener('pointerleave', () => onTouchButtonUp(action));
+    if (button.tagName !== 'BUTTON') {
+      button.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          event.stopPropagation();
+          onTouchButtonDown(action);
+          onTouchButtonUp(action);
+        }
+      });
+    }
   }
 
   restartGame();
