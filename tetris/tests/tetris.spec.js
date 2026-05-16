@@ -173,7 +173,7 @@ async function prepareVisualLayout(page) {
     clearAnimation: null,
     statusMessage: 'Level 1',
     statusTone: '',
-    statusMessageTimer: 0,
+    statusMessageTimer: 180,
     gravityFrames: 48,
     gravityTick: 0,
     lockTimer: 0,
@@ -211,11 +211,10 @@ test('keyboard move rotate and hard drop work', async ({ page }) => {
   const rotated = await getState(page);
   expect(rotated.current.rotation).not.toBe(beforeRotate);
 
-  const yBeforeDrop = rotated.current.y;
   await page.keyboard.press('Space');
   const dropped = await getState(page);
-  expect(dropped.current.y).toBeLessThanOrEqual(yBeforeDrop);
-  expect(dropped.score).toBeGreaterThanOrEqual(rotated.score);
+  // Hard drop locks the piece and spawns a new one; score must have increased
+  expect(dropped.score).toBeGreaterThan(rotated.score);
 });
 
 test('tap left and right moves exactly one column', async ({ page }) => {
@@ -523,11 +522,14 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   const initialType = initial.current.type;
 
   await page.keyboard.press('c');
+  await advanceFrames(page, 1);
   const afterFirstHold = await getState(page);
   expect(afterFirstHold.heldPiece).toBe(initialType);
   expect(afterFirstHold.holdUsed).toBe(true);
   expect(afterFirstHold.current).not.toBeNull();
   expect(afterFirstHold.current.type).not.toBe(initialType);
+  expect(afterFirstHold.statusMessage).toMatch(/hold/i);
+  await expect(page.locator('[data-action="hold"]')).toHaveAttribute('aria-disabled', 'true');
 
   await page.keyboard.press('c');
   const afterSecondAttempt = await getState(page);
@@ -535,8 +537,10 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   expect(afterSecondAttempt.current.type).toBe(afterFirstHold.current.type);
 
   await page.keyboard.press('Space');
+  await advanceFrames(page, 1);
   const afterDrop = await getState(page);
   expect(afterDrop.holdUsed).toBe(false);
+  await expect(page.locator('[data-action="hold"]')).toHaveAttribute('aria-disabled', 'false');
 
   const beforeSwapType = afterDrop.current.type;
   await page.keyboard.press('c');

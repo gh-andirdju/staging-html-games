@@ -676,6 +676,7 @@
     if (action === 'rotate-cw') rotatePiece();
     else if (action === 'rotate-ccw') rotatePieceCcw();
     else if (action === 'hold') holdPiece();
+    else if (action === 'hard-drop') hardDrop();
     else setTouchHeld(action, true);
   }
 
