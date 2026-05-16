@@ -405,6 +405,9 @@
     if (typeof state.statusTone !== 'string') state.statusTone = 'normal';
     if (typeof state.statusMessageTimer !== 'number') state.statusMessageTimer = 0;
     if (typeof state.frame !== 'number') state.frame = 0;
+    if (typeof state.gravityFrames !== 'number') state.gravityFrames = BASE_GRAVITY_FRAMES;
+    if (typeof state.gravityTick !== 'number') state.gravityTick = 0;
+    if (typeof state.lockTimer !== 'number') state.lockTimer = 0;
     if (!('heldPiece' in state)) state.heldPiece = null;
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
@@ -595,7 +598,7 @@
       if (held.right) stepHorizontalHold('right', 1);
       if (held.softDrop && state.current) {
         held.softTick += 1;
-        if (held.softTick === 1 || held.softTick % DROP_REPEAT_FRAMES === 0) stepDown({ rewardSoftDrop: true });
+        if ((held.softTick - 1) % DROP_REPEAT_FRAMES === 0) stepDown({ rewardSoftDrop: true });
       } else {
         held.softTick = 0;
       }
@@ -606,7 +609,7 @@
       }
       state.frame += 1;
     } else {
-      syncStatusMessage();
+      if (state.statusMessage !== 'Game Over') syncStatusMessage();
     }
     render();
   }

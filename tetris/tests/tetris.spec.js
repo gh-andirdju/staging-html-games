@@ -450,7 +450,7 @@ test('CCW rotation kicks away from right wall when base rotation overflows', asy
   const state = await getState(page);
 
   // I-piece vertical (rot 1) at x=8: CCW to rot 0 puts a cell at col 10 (out of bounds)
-  // kick +1 is tried first (cols 8-11, fails); kick -1 lands at x=7 (cols 6-9, valid)
+  // kick +1 sets x=9 → cols 8-11 (cols 10-11 OOB, fails); kick -1 sets x=7 → cols 6-9 (valid)
   await setState(page, {
     ...state,
     board: Array.from({ length: 20 }, () => Array(10).fill(0)),
@@ -877,7 +877,9 @@ test('natural gravity fires and locks piece at floor without rendering error', a
   const after = await getState(page);
   // Gravity fired, piece was at floor → locked immediately, new piece spawned
   expect(after.current).not.toBeNull();
-  expect(after.board[18][4]).toBeGreaterThan(0); // O-piece locked at y=18, cols 4-5
+  // O-piece covers cols 4-5, rows 18-19; check both columns of the top row
+  expect(after.board[18][4]).toBeGreaterThan(0);
+  expect(after.board[18][5]).toBeGreaterThan(0);
 });
 
 test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
