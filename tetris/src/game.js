@@ -412,7 +412,9 @@
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
     if (!state.current && !state.gameOver && !state.clearAnimation) spawnPiece();
-    syncStatusMessage({ forceFallback: !state.statusMessage });
+    // Preserve an explicitly injected statusMessage; only sync the fallback when none was provided.
+    if (state.gameOver) syncStatusMessage();
+    else if (!state.statusMessage) syncStatusMessage({ forceFallback: true });
     render();
   }
 

@@ -262,6 +262,32 @@ test('hold left waits for DAS then repeats by ARR cadence', async ({ page }) => 
   await page.keyboard.up('ArrowLeft');
 });
 
+test('hold right waits for DAS then repeats by ARR cadence', async ({ page }) => {
+  await openGame(page);
+  const start = await getState(page);
+
+  await page.keyboard.down('ArrowRight');
+  const afterPress = await getState(page);
+  expect(afterPress.current.x).toBe(start.current.x + 1);
+
+  await advanceFrames(page, 15);
+  const beforeDas = await getState(page);
+  expect(beforeDas.current.x).toBe(afterPress.current.x);
+
+  await advanceFrames(page, 1);
+  const atDas = await getState(page);
+  expect(atDas.current.x).toBe(afterPress.current.x);
+
+  await advanceFrames(page, 6);
+  const firstRepeat = await getState(page);
+  expect(firstRepeat.current.x).toBe(atDas.current.x + 1);
+
+  await advanceFrames(page, 6);
+  const secondRepeat = await getState(page);
+  expect(secondRepeat.current.x).toBe(firstRepeat.current.x + 1);
+  await page.keyboard.up('ArrowRight');
+});
+
 test('line clear animates before lines and score update', async ({ page }) => {
   await openGame(page);
   const state = await getState(page);
@@ -602,6 +628,32 @@ test('NEXT and HOLD canvases render non-blank pixels after preview is set', asyn
   expect(hasPixels.hold).toBe(true);
 });
 
+test('soft-drop lockTimer accumulates and locks piece after LOCK_DELAY_FRAMES fires', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Place O-piece at floor; it cannot move down further
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+    gravityTick: 0, lockTimer: 0, gravityFrames: 48
+  });
+
+  // Each soft-drop fire that fails to move the piece increments lockTimer by 1.
+  // With DROP_REPEAT_FRAMES=2 and cadence (tick-1)%2===0, fires at ticks 1,3,5,...,59 (30 fires).
+  // After 30 lockTimer increments the piece locks (LOCK_DELAY_FRAMES=30).
+  const softBtn = page.locator('[data-action="soft-drop"]');
+  await softBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 60);
+  await softBtn.dispatchEvent('pointerup');
+
+  const after = await getState(page);
+  expect(after.board[18][4]).toBeGreaterThan(0); // O-piece locked at row 18
+  expect(after.board[18][5]).toBeGreaterThan(0);
+  expect(after.gameOver).toBe(false);
+});
+
 test('natural gravity locks piece immediately with no extra delay', async ({ page }) => {
   await openGame(page);
   const state = await getState(page);
@@ -615,6 +667,7 @@ test('natural gravity locks piece immediately with no extra delay', async ({ pag
   await advanceFrames(page, 1);
   const after = await getState(page);
   // Gravity fires and immediately locks (no LOCK_DELAY_FRAMES buffer on gravity drops)
+  expect(after.gameOver).toBe(false);
   expect(after.board[18][4]).toBeGreaterThan(0);
   expect(after.current).not.toBeNull();
 });
