@@ -249,7 +249,9 @@
 
   function updateDiffButtons() {
     diffBtns.forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.difficulty === state.difficulty);
+      const active = btn.dataset.difficulty === state.difficulty;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-current', active ? 'true' : 'false');
     });
   }
 
@@ -355,7 +357,7 @@
   }
 
   function drawWrongFlag(x, y, cs) {
-    ctx.strokeStyle = '#dc2626';
+    ctx.strokeStyle = COLOR_MINE;
     ctx.lineWidth = cs * 0.1;
     const pad = cs * 0.25;
     ctx.beginPath();
