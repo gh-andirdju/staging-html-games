@@ -304,7 +304,7 @@
 
       if (db.phase === 'dive') {
         var targetX = state.player.x + PLAYER_WIDTH / 2 - ENEMY_W / 2;
-        var targetY = PLAYER_Y - ENEMY_H;
+        var targetY = PLAYER_Y - 1;
         var dx = targetX - db.x;
         var dy = targetY - db.y;
         var dist = Math.sqrt(dx * dx + dy * dy);
