@@ -32,7 +32,11 @@ async function openGame(page) {
       typeof api.advanceFrames === 'function' &&
       typeof api.restart === 'function' &&
       typeof api.setAutoStep === 'function' &&
-      typeof api.spawnTile === 'function'
+      typeof api.spawnTile === 'function' &&
+      typeof api.isGuideVisible === 'function' &&
+      typeof api.getGuideStep === 'function' &&
+      typeof api.showGuide === 'function' &&
+      typeof api.dismissGuide === 'function'
     );
   });
   await page.evaluate(() => window.__2048Test.setAutoStep(false));
@@ -724,15 +728,22 @@ test.describe('beginner guide', () => {
     expect(visible).toBe(false);
   });
 
-  test('Tab wraps within all three buttons when Back is visible', async ({ page }) => {
+  test('Tab cycles through all three buttons when Back is visible', async ({ page }) => {
     await openGameFresh(page);
     await page.click('#guide-next'); // advance to step 1, Back becomes visible
     const step = await page.evaluate(() => window.__2048Test.getGuideStep());
     expect(step).toBe(1);
+    // Verify full cycle: guide-next (last) → guide-close (first) → guide-prev → guide-next
     await page.evaluate(() => document.getElementById('guide-next').focus());
     await page.keyboard.press('Tab');
-    const afterTab = await page.evaluate(() => document.activeElement?.id);
-    expect(afterTab).toBe('guide-close');
+    const afterFirst = await page.evaluate(() => document.activeElement?.id);
+    expect(afterFirst).toBe('guide-close');
+    await page.keyboard.press('Tab');
+    const afterSecond = await page.evaluate(() => document.activeElement?.id);
+    expect(afterSecond).toBe('guide-prev');
+    await page.keyboard.press('Tab');
+    const afterThird = await page.evaluate(() => document.activeElement?.id);
+    expect(afterThird).toBe('guide-next');
   });
 });
 

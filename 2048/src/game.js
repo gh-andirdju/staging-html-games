@@ -209,6 +209,7 @@
     guideNextEl.textContent = guideStep === GUIDE_TOTAL_STEPS - 1 ? 'Start Playing' : 'Next';
     guideOverlayEl.setAttribute('aria-labelledby', `guide-title-${guideStep}`);
     if (guideLiveEl) {
+      guideLiveEl.textContent = '';
       guideLiveEl.textContent = guideStepEls[guideStep]?.querySelector('.guide-title')?.textContent ?? '';
     }
   }
