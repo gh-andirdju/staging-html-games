@@ -130,7 +130,6 @@ test('minimum-power launch still reaches the playfield', async ({ page }) => {
     window.__pinballTest.setState({ status: 'ready', plunger: { compressed: 0.001 } });
   });
 
-  await page.keyboard.up(' ');
   await advanceFrames(page, 1);
 
   // A launch that drains straight down the right gutter never leaves x~360.

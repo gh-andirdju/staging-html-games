@@ -264,6 +264,7 @@
         ball.launched = true;
         state.plunger.compressed = 0;
         state.status = "playing";
+        state.frame += 1;
         return;
       }
       ball.x = LAUNCH_X;
