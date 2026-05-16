@@ -172,7 +172,7 @@ async function prepareVisualLayout(page) {
     gameOver: false,
     clearAnimation: null,
     statusMessage: 'Level 1',
-    statusTone: '',
+    statusTone: 'normal',
     statusMessageTimer: 180,
     gravityFrames: 48,
     gravityTick: 0,
@@ -458,6 +458,25 @@ test('CCW rotation kicks away from right wall when base rotation overflows', asy
   expect(after.current.x).toBe(7);
 });
 
+test('CW rotation kicks away from left wall when base rotation overflows', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // I-piece vertical (rot 3) at x=0: CW to rot 0 would place a cell at column -1 (out of bounds)
+  // The kick sequence [-1,1,-2,2] must pick offset +1 → x=1, which fits in columns 1-4
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'I', index: 1, x: 0, y: 10, rotation: 3 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  await page.keyboard.press('ArrowUp');
+  const after = await getState(page);
+  expect(after.current.rotation).toBe(0);
+  expect(after.current.x).toBe(1);
+});
+
 test('4-line Tetris clear awards correct score and status message', async ({ page }) => {
   await openGame(page);
   const state = await getState(page);
@@ -536,6 +555,7 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   expect(afterFirstHold.nextPieceType).not.toBeNull();
   expect(afterFirstHold.nextPieceType).not.toBe(afterFirstHold.current.type);
   expect(afterFirstHold.statusMessage).toMatch(/hold/i);
+  await expect(page.locator('#status')).toHaveText(afterFirstHold.statusMessage);
   await expect(page.locator('[data-action="hold"]')).toHaveAttribute('aria-disabled', 'true');
 
   await page.keyboard.press('c');
