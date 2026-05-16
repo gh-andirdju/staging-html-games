@@ -289,7 +289,7 @@
       if (cell.mine) {
         ctx.fillStyle = COLOR_MINE_BG;
         ctx.fillRect(x, y, cs, cs);
-        drawMine(x, y, cs, gameOver && !won ? '#dc2626' : '#6b7280');
+        drawMine(x, y, cs, gameOver && !won ? COLOR_MINE : '#6b7280');
       } else {
         ctx.fillStyle = (r + c) % 2 === 0 ? COLOR_REVEALED : COLOR_REVEALED_DARK;
         ctx.fillRect(x, y, cs, cs);
