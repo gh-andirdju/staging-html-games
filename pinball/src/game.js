@@ -25,7 +25,7 @@
   var FLIPPER_REST_ANGLE_R = Math.PI - Math.PI * 0.28;
   var FLIPPER_ACTIVE_ANGLE_R = Math.PI + Math.PI * 0.1;
   var FLIPPER_SPEED = Math.PI * 14;
-  var FLIPPER_PIVOT_Y = HEIGHT - 90;
+  var FLIPPER_PIVOT_Y = HEIGHT - 160;
   var FLIPPER_PIVOT_LX = WIDTH / 2 - 34;
   var FLIPPER_PIVOT_RX = WIDTH / 2 + 34;
   var BUMPER_RADIUS = 22;
@@ -54,7 +54,7 @@
     return {
       ball: {
         x: LAUNCH_X,
-        y: HEIGHT - 130,
+        y: HEIGHT - 100,
         vx: 0,
         vy: 0,
         radius: BALL_RADIUS,
@@ -99,7 +99,7 @@
 
   function resetBallToLauncher() {
     state.ball.x = LAUNCH_X;
-    state.ball.y = HEIGHT - 130;
+    state.ball.y = HEIGHT - 100;
     state.ball.vx = 0;
     state.ball.vy = 0;
     state.ball.launched = false;
@@ -225,7 +225,7 @@
         state.status = "playing";
       }
       ball.x = LAUNCH_X;
-      ball.y = HEIGHT - 130;
+      ball.y = HEIGHT - 100;
       ball.vx = 0;
       return;
     }

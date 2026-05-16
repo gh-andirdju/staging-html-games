@@ -120,7 +120,7 @@ test('ball launches when plunger is compressed and released', async ({ page }) =
   expect(after.ball.launched).toBe(true);
   expect(after.ball.vy).toBeLessThan(0);
   expect(after.ball.x).toBeCloseTo(360, 0);
-  expect(after.ball.y).toBeCloseTo(570, 0);
+  expect(after.ball.y).toBeCloseTo(600, 0);
 });
 
 test('bumper collision increments score', async ({ page }) => {
@@ -278,7 +278,7 @@ test('left flipper boost launches ball upward', async ({ page }) => {
   await page.evaluate(() => {
     window.__pinballTest.setState({
       status: 'playing',
-      ball: { x: 196, y: 622, vx: 0, vy: 50, radius: 10, launched: true }
+      ball: { x: 196, y: 552, vx: 0, vy: 50, radius: 10, launched: true }
     });
   });
   await page.keyboard.down('z');
@@ -293,7 +293,7 @@ test('right flipper boost launches ball upward', async ({ page }) => {
   await page.evaluate(() => {
     window.__pinballTest.setState({
       status: 'playing',
-      ball: { x: 200, y: 595, vx: 0, vy: 50, radius: 10, launched: true }
+      ball: { x: 200, y: 525, vx: 0, vy: 50, radius: 10, launched: true }
     });
   });
   await page.keyboard.down('x');
@@ -402,7 +402,7 @@ test('ball speed is capped after flipper boost', async ({ page }) => {
   await page.evaluate(() => {
     window.__pinballTest.setState({
       status: 'playing',
-      ball: { x: 196, y: 622, vx: 0, vy: 50, radius: 10, launched: true }
+      ball: { x: 196, y: 552, vx: 0, vy: 50, radius: 10, launched: true }
     });
   });
   await page.keyboard.down('z');
