@@ -61,7 +61,448 @@
       '#  @  #',
       '#######',
     ],
+    // Level 7 — one box, wall forces detour (push left×1 then up×2)
+    [
+      '#######',
+      '#  .  #',
+      '#     #',
+      '#  $  #',
+      '#  #  #',
+      '#  @  #',
+      '#######',
+    ],
+    // Level 8 — one box, wall cluster, push left×3 then up×3
+    [
+      '########',
+      '#.     #',
+      '# ###  #',
+      '#      #',
+      '#   $  #',
+      '#   @  #',
+      '########',
+    ],
+    // Level 9 — one box, open board, push left×3 then up×2
+    [
+      '########',
+      '#      #',
+      '# .    #',
+      '#      #',
+      '#    $ #',
+      '#   @  #',
+      '########',
+    ],
+    // Level 10 — one box, push right×2 then up×3 then left×1
+    [
+      '#########',
+      '#       #',
+      '#  .    #',
+      '#       #',
+      '#       #',
+      '#  $    #',
+      '#  @ ## #',
+      '#########',
+    ],
+    // Level 11 — two boxes, push each up×2
+    [
+      '########',
+      '#      #',
+      '# ..   #',
+      '#      #',
+      '# $$   #',
+      '#  @   #',
+      '########',
+    ],
+    // Level 12 — two boxes, symmetric push up×2
+    [
+      '#########',
+      '#       #',
+      '#  . .  #',
+      '#       #',
+      '#  $ $  #',
+      '#   @   #',
+      '#########',
+    ],
+    // Level 13 — two boxes, targets spread wide
+    [
+      '#########',
+      '#       #',
+      '# .   . #',
+      '#       #',
+      '#  $ $  #',
+      '#   @   #',
+      '#########',
+    ],
+    // Level 14 — two boxes, targets in opposite corners
+    [
+      '##########',
+      '#        #',
+      '#.      .#',
+      '#        #',
+      '#  $ $   #',
+      '#        #',
+      '#    @   #',
+      '##########',
+    ],
+    // Level 15 — three boxes, push up×1
+    [
+      '#########',
+      '#       #',
+      '# . . . #',
+      '# $ $ $ #',
+      '#       #',
+      '#   @   #',
+      '#########',
+    ],
+    // Level 16 — three boxes, push up×2
+    [
+      '#########',
+      '#       #',
+      '# . . . #',
+      '#       #',
+      '# $ $ $ #',
+      '#       #',
+      '#   @   #',
+      '#########',
+    ],
+    // Level 17 — three boxes, push up×3
+    [
+      '##########',
+      '#        #',
+      '#  . . . #',
+      '#        #',
+      '#        #',
+      '#  $ $ $ #',
+      '#    @   #',
+      '##########',
+    ],
+    // Level 18 — four boxes, push up×2
+    [
+      '###########',
+      '#         #',
+      '# . . . . #',
+      '#         #',
+      '# $ $ $ $ #',
+      '#    @    #',
+      '###########',
+    ],
+    // Level 19 — four boxes, push up×3
+    [
+      '###########',
+      '#         #',
+      '# . . . . #',
+      '#         #',
+      '#         #',
+      '# $ $ $ $ #',
+      '#    @    #',
+      '###########',
+    ],
+    // Level 20 — four boxes, targets and boxes offset
+    [
+      '###########',
+      '#         #',
+      '#  . . .  #',
+      '#         #',
+      '#   . $   #',
+      '#   $ $   #',
+      '#   $ @   #',
+      '###########',
+    ],
+    // Level 21 — five boxes, push up×2
+    [
+      '############',
+      '#          #',
+      '# . . . . .#',
+      '#          #',
+      '# $ $ $ $ $#',
+      '#          #',
+      '#    @     #',
+      '############',
+    ],
+    // Level 22 — five boxes, push up×3
+    [
+      '############',
+      '#          #',
+      '#  . . . . #',
+      '#          #',
+      '#          #',
+      '#  $ $ $ $ #',
+      '#          #',
+      '#   . $    #',
+      '#    @     #',
+      '############',
+    ],
+    // Level 23 — five boxes, diagonal arrangement
+    [
+      '#############',
+      '#           #',
+      '#  .  .  .  #',
+      '#           #',
+      '#  $  .  $  #',
+      '#     $     #',
+      '#  $  @  $  #',
+      '#############',
+    ],
+    // Level 24 — mixed, requires reordering pushes
+    [
+      '##########',
+      '#        #',
+      '#  . .   #',
+      '#  # #   #',
+      '#  $ $   #',
+      '#        #',
+      '#  . .   #',
+      '#  # #   #',
+      '#  $ $   #',
+      '#   @    #',
+      '##########',
+    ],
+    // Level 25 — five boxes, internal obstacle, tight maneuvering
+    [
+      '###########',
+      '#         #',
+      '# . . . . #',
+      '#         #',
+      '#  #   #  #',
+      '#  $ $ $  #',
+      '#  .   $  #',
+      '#    @    #',
+      '###########',
+    ],
+    // Level 26 — six boxes, wide board
+    [
+      '#############',
+      '#           #',
+      '#  . . . .  #',
+      '#           #',
+      '#  $ $ $ $  #',
+      '#           #',
+      '#  . .      #',
+      '#  $ $  @   #',
+      '#############',
+    ],
   ];
+
+  // ── Seeded PRNG ──────────────────────────────────────────────────────────
+
+  function mulberry32(seed) {
+    return function () {
+      seed |= 0;
+      seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ── Procedural level generator (backward chaining) ───────────────────────
+
+  function generateLevel(levelIndex) {
+    const rng = mulberry32(levelIndex * 1103515245 + 12345);
+    const randInt = (lo, hi) => lo + Math.floor(rng() * (hi - lo + 1));
+
+    // Scale difficulty with level
+    const depth = levelIndex - LEVELS.length;
+    const rows = Math.min(6 + Math.floor(depth / 8), 13);
+    const cols = Math.min(7 + Math.floor(depth / 6), 15);
+    const nBoxes = Math.min(1 + Math.floor(depth / 8), 6);
+    const nPulls = Math.min(15 + depth * 3, 90);
+
+    // Build border-walled grid
+    const grid = [];
+    for (let r = 0; r < rows; r++) {
+      grid[r] = [];
+      for (let c = 0; c < cols; c++) {
+        grid[r][c] = (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) ? WALL : FLOOR;
+      }
+    }
+
+    // Add random interior walls (≈15% of interior cells), using flood-fill to
+    // ensure the interior remains one connected region.
+    const interiorCells = [];
+    for (let r = 1; r < rows - 1; r++) {
+      for (let c = 1; c < cols - 1; c++) {
+        interiorCells.push([r, c]);
+      }
+    }
+    shuffle(interiorCells, rng);
+    const wallCount = Math.floor(interiorCells.length * 0.15);
+    let added = 0;
+    for (const [r, c] of interiorCells) {
+      if (added >= wallCount) break;
+      grid[r][c] = WALL;
+      if (floodFillCount(grid, rows, cols) < interiorCells.length - added - 1) {
+        grid[r][c] = FLOOR; // would disconnect — revert
+      } else {
+        added++;
+      }
+    }
+
+    // Collect floor cells; pick targets avoiding dead-corner positions
+    const floors = [];
+    for (let r = 1; r < rows - 1; r++) {
+      for (let c = 1; c < cols - 1; c++) {
+        if (grid[r][c] === FLOOR && !isDeadCorner(grid, r, c)) {
+          floors.push([r, c]);
+        }
+      }
+    }
+    if (floors.length < nBoxes + 1) return generateLevel(levelIndex + 1); // degenerate grid, skip
+
+    shuffle(floors, rng);
+
+    // Place boxes on targets (solved state)
+    const targets = [];
+    const boxes = [];
+    for (let i = 0; i < nBoxes; i++) {
+      targets.push({ row: floors[i][0], col: floors[i][1] });
+      boxes.push({ row: floors[i][0], col: floors[i][1] });
+    }
+
+    // Place player on a floor cell that isn't a box
+    let playerPos = null;
+    for (let i = nBoxes; i < floors.length; i++) {
+      playerPos = { row: floors[i][0], col: floors[i][1] };
+      break;
+    }
+    if (!playerPos) return generateLevel(levelIndex + 1);
+
+    // Apply reverse pushes (backward chaining)
+    const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    let pullsDone = 0;
+    let attempts = 0;
+    while (pullsDone < nPulls && attempts < nPulls * 20) {
+      attempts++;
+      const bi = Math.floor(rng() * nBoxes);
+      const [dr, dc] = DIRS[Math.floor(rng() * 4)];
+      const box = boxes[bi];
+
+      // New box position after reverse push
+      const nbr = box.row + dr;
+      const nbc = box.col + dc;
+      if (nbr < 0 || nbr >= rows || nbc < 0 || nbc >= cols) continue;
+      if (grid[nbr][nbc] !== FLOOR) continue;
+      if (boxes.some((b, i) => i !== bi && b.row === nbr && b.col === nbc)) continue;
+
+      // Pull-from position (player must be reachable from here)
+      const pfr = box.row - dr;
+      const pfc = box.col - dc;
+      if (pfr < 0 || pfr >= rows || pfc < 0 || pfc >= cols) continue;
+      if (grid[pfr][pfc] !== FLOOR) continue;
+      if (boxes.some((b, i) => i !== bi && b.row === pfr && b.col === pfc)) continue;
+
+      // Check player can reach pull-from position without crossing current box position
+      const boxSet = new Set(boxes.map((b, i) => i === bi ? null : `${b.row},${b.col}`).filter(Boolean));
+      const reach = bfsReach(grid, rows, cols, playerPos.row, playerPos.col, boxSet);
+      if (!reach.has(`${pfr},${pfc}`)) continue;
+
+      // Apply the reverse push
+      box.row = nbr;
+      box.col = nbc;
+      playerPos = { row: box.row - dr, col: box.col - dc };
+      pullsDone++;
+    }
+
+    // Serialize to string array
+    return serializeLevel(grid, rows, cols, targets, boxes, playerPos);
+  }
+
+  function shuffle(arr, rng) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
+
+  function floodFillCount(grid, rows, cols) {
+    // Count reachable floor cells from the first floor cell found
+    let start = null;
+    outer: for (let r = 1; r < rows - 1; r++) {
+      for (let c = 1; c < cols - 1; c++) {
+        if (grid[r][c] === FLOOR) { start = [r, c]; break outer; }
+      }
+    }
+    if (!start) return 0;
+    const visited = new Set([`${start[0]},${start[1]}`]);
+    const queue = [start];
+    while (queue.length) {
+      const [r, c] = queue.shift();
+      for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nr = r + dr, nc = c + dc;
+        const key = `${nr},${nc}`;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === FLOOR && !visited.has(key)) {
+          visited.add(key);
+          queue.push([nr, nc]);
+        }
+      }
+    }
+    return visited.size;
+  }
+
+  function isDeadCorner(grid, r, c) {
+    // A cell where two adjacent walls share a corner — placing a target here
+    // risks creating an immediately unsolvable dead-end.
+    const wallN = grid[r - 1]?.[c] === WALL;
+    const wallS = grid[r + 1]?.[c] === WALL;
+    const wallW = grid[r]?.[c - 1] === WALL;
+    const wallE = grid[r]?.[c + 1] === WALL;
+    return (wallN && wallW) || (wallN && wallE) || (wallS && wallW) || (wallS && wallE);
+  }
+
+  function bfsReach(grid, rows, cols, sr, sc, boxSet) {
+    const visited = new Set([`${sr},${sc}`]);
+    const queue = [[sr, sc]];
+    while (queue.length) {
+      const [r, c] = queue.shift();
+      for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nr = r + dr, nc = c + dc;
+        const key = `${nr},${nc}`;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols &&
+            grid[nr][nc] !== WALL && !boxSet.has(key) && !visited.has(key)) {
+          visited.add(key);
+          queue.push([nr, nc]);
+        }
+      }
+    }
+    return visited;
+  }
+
+  function serializeLevel(grid, rows, cols, targets, boxes, playerPos) {
+    const tSet = new Set(targets.map((t) => `${t.row},${t.col}`));
+    const bSet = new Set(boxes.map((b) => `${b.row},${b.col}`));
+    const result = [];
+    for (let r = 0; r < rows; r++) {
+      let row = '';
+      for (let c = 0; c < cols; c++) {
+        const isTarget = tSet.has(`${r},${c}`);
+        const isBox = bSet.has(`${r},${c}`);
+        const isPlayer = playerPos.row === r && playerPos.col === c;
+        if (grid[r][c] === WALL) {
+          row += WALL;
+        } else if (isBox && isTarget) {
+          row += '*';
+        } else if (isPlayer && isTarget) {
+          row += '+';
+        } else if (isBox) {
+          row += '$';
+        } else if (isPlayer) {
+          row += '@';
+        } else if (isTarget) {
+          row += '.';
+        } else {
+          row += FLOOR;
+        }
+      }
+      result.push(row);
+    }
+    return result;
+  }
+
+  function getLevel(index) {
+    if (index < LEVELS.length) return LEVELS[index];
+    return generateLevel(index);
+  }
+
+  // ── Canvas & DOM ─────────────────────────────────────────────────────────
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
@@ -78,7 +519,7 @@
   let winFrames = 0;
 
   function parseLevel(levelIndex) {
-    const rows = LEVELS[levelIndex];
+    const rows = getLevel(levelIndex);
     const numRows = rows.length;
     const numCols = Math.max(...rows.map((r) => r.length));
 
@@ -223,15 +664,7 @@
     if (state.status === 'won') {
       winFrames++;
       if (winFrames >= WIN_HOLD_FRAMES) {
-        const nextLevel = state.level + 1;
-        if (nextLevel < LEVELS.length) {
-          loadLevel(nextLevel);
-        } else {
-          // All levels done — stay on won state, re-render
-          winFrames = WIN_HOLD_FRAMES; // clamp so it doesn't overflow
-          render();
-          updateHud();
-        }
+        loadLevel(state.level + 1);
       }
     }
   }
@@ -372,13 +805,11 @@
       ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      const isLast = state.level >= LEVELS.length - 1;
-      const msg = isLast ? 'You Win!' : 'Level Complete!';
       ctx.fillStyle = '#f59e0b';
       ctx.font = `bold ${Math.round(CELL_SIZE * 0.7)}px "Trebuchet MS", sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(msg, canvas.width / 2, canvas.height / 2);
+      ctx.fillText('Level Complete!', canvas.width / 2, canvas.height / 2);
     }
   }
 
@@ -388,8 +819,7 @@
     pushesEl.textContent = state.pushes;
 
     if (state.status === 'won') {
-      const isLast = state.level >= LEVELS.length - 1;
-      statusEl.textContent = isLast ? 'You Win!' : 'Level Complete!';
+      statusEl.textContent = 'Level Complete!';
       statusWrapEl.dataset.tone = 'win';
     } else {
       statusEl.textContent = 'Playing';
