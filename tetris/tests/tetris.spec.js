@@ -173,6 +173,7 @@ async function prepareVisualLayout(page) {
     statusMessage: 'Level 1',
     statusTone: '',
     statusMessageTimer: 0,
+    gravityFrames: 48,
     gravityTick: 0,
     lockTimer: 0,
     heldPiece: 'S',
@@ -462,6 +463,28 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   expect(afterSwap.current.type).toBe(initialType);
 });
 
+test('touch hard-drop does not chain-drop subsequent pieces while button is held', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    gravityFrames: 48, gravityTick: 0, lockTimer: 0, score: 0
+  });
+
+  const hardDropBtn = page.locator('[data-action="hard-drop"]');
+  await hardDropBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 100);
+  await hardDropBtn.dispatchEvent('pointerup');
+
+  const after = await getState(page);
+  // Without the fix, held.hardDrop stays true and every frame hard-drops a new piece;
+  // on an empty board 100 consecutive hard-drops fills the board and causes game over.
+  // With the fix, held.hardDrop is cleared on the first call so only one piece drops.
+  expect(after.gameOver).toBe(false);
+  expect(after.current).not.toBeNull();
+});
+
 test('hold swap cancelled without state corruption when spawn is blocked', async ({ page }) => {
   await openGame(page);
 
@@ -598,6 +621,40 @@ test.describe('mobile touch controls', () => {
 
     const layout = await getPortraitLayout(page);
     expectPortraitErgonomics(layout);
+  });
+
+  test('touch hold button saves and swaps pieces', async ({ page }) => {
+    await openGame(page);
+    const initial = await getState(page);
+    expect(initial.heldPiece).toBeNull();
+    const firstType = initial.current.type;
+
+    // First hold: saves current piece and spawns next
+    const holdEl = page.locator('[data-action="hold"]');
+    await holdEl.dispatchEvent('pointerdown');
+    await holdEl.dispatchEvent('pointerup');
+    const afterFirst = await getState(page);
+    expect(afterFirst.heldPiece).toBe(firstType);
+    expect(afterFirst.holdUsed).toBe(true);
+
+    // Hard-drop the new piece to get a fresh spawn with holdUsed reset.
+    // Must advance frames between pointerdown and pointerup so the frame loop fires.
+    const hardBtn = page.locator('[data-action="hard-drop"]');
+    await hardBtn.dispatchEvent('pointerdown');
+    await advanceFrames(page, 1);
+    await hardBtn.dispatchEvent('pointerup');
+    await advanceFrames(page, 2);
+    const fresh = await getState(page);
+    expect(fresh.holdUsed).toBe(false);
+
+    // Second hold: swaps held piece with current piece
+    const heldBefore = fresh.heldPiece;
+    const currentBefore = fresh.current.type;
+    await holdEl.dispatchEvent('pointerdown');
+    await holdEl.dispatchEvent('pointerup');
+    const afterSwap = await getState(page);
+    expect(afterSwap.heldPiece).toBe(currentBefore);
+    expect(afterSwap.current.type).toBe(heldBefore);
   });
 
   test('matches the portrait layout baseline', async ({ page }) => {
