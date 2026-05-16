@@ -573,6 +573,7 @@
         }
         state.deathTimer = DEATH_TIMER_FRAMES;
         state.bullets = [];
+        break;
       }
     }
 
@@ -608,6 +609,7 @@
         }
         state.deathTimer = DEATH_TIMER_FRAMES;
         state.bullets = [];
+        break;
       }
     }
 
