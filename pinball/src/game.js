@@ -284,9 +284,10 @@
       ball.vy -= (1 + PEG_RESTITUTION) * vn * ny;
       ball.vx += nx * PEG_REPEL_SPEED;
       ball.vy += ny * PEG_REPEL_SPEED;
+      peg.hitTimer = PEG_FLASH_FRAMES;
+      return true;
     }
-    peg.hitTimer = PEG_FLASH_FRAMES;
-    return true;
+    return false;
   }
 
   function resolveSlingshot(ball, sling) {
@@ -313,11 +314,12 @@
     if (vn < 0) {
       ball.vx -= (1 + SLING_RESTITUTION) * vn * nx;
       ball.vy -= (1 + SLING_RESTITUTION) * vn * ny;
-      ball.vx += sling.nx * SLING_KICK_SPEED;
-      ball.vy += sling.ny * SLING_KICK_SPEED;
+      ball.vx += nx * SLING_KICK_SPEED;
+      ball.vy += ny * SLING_KICK_SPEED;
+      sling.hitTimer = SLING_FLASH_FRAMES;
+      return true;
     }
-    sling.hitTimer = SLING_FLASH_FRAMES;
-    return true;
+    return false;
   }
 
   function resolveRollover(ball, ro) {
@@ -541,6 +543,11 @@
       if (state.balls <= 0) {
         state.balls = 0;
         state.status = "game_over";
+        if (state.rollovers) {
+          for (var gori = 0; gori < state.rollovers.length; gori += 1) {
+            state.rollovers[gori].lit = false;
+          }
+        }
       } else {
         resetBallToLauncher();
         state.status = "ready";

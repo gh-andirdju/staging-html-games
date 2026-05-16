@@ -548,11 +548,13 @@ test('ball reflects off curved top wall', async ({ page }) => {
 
 test('slingshot kick sends ball upward and scores', async ({ page }) => {
   await openGame(page);
+  // Ball on the play-field side of the left slingshot face (70,472)-(96,516),
+  // moving left toward the face so vn < 0 and the kick fires.
   await page.evaluate(() => {
     window.__pinballTest.setState({
       status: 'playing',
       score: 0,
-      ball: { x: 83, y: 494, vx: -20, vy: 30, radius: 10, launched: true }
+      ball: { x: 96, y: 490, vx: -50, vy: 20, radius: 10, launched: true }
     });
   });
   await advanceFrames(page, 3);
