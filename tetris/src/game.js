@@ -34,17 +34,14 @@
   const statusEl = document.getElementById('status');
   const restartEl = document.getElementById('restart');
   const statusWrapEl = statusEl.closest('.status-wrap');
-  const touchControlsEl = document.querySelector('.touch-controls');
-  const handednessToggleEl = document.getElementById('handedness-toggle');
-  const touchButtons = Array.from(document.querySelectorAll('.touch-controls [data-action]'));
-  const HANDEDNESS_STORAGE_KEY = 'tetris-handedness';
+  const nextCanvasEl = document.getElementById('next-canvas');
+  const nextCtx = nextCanvasEl ? nextCanvasEl.getContext('2d') : null;
+  const holdCanvasEl = document.getElementById('hold-canvas');
+  const holdCtx = holdCanvasEl ? holdCanvasEl.getContext('2d') : null;
+  const touchButtons = Array.from(document.querySelectorAll('[data-action]'));
 
   function createBoard() {
     return Array.from({ length: BOARD_HEIGHT }, () => Array(BOARD_WIDTH).fill(0));
-  }
-
-  function clonePiece(piece) {
-    return { ...piece };
   }
 
   let state = null;
@@ -66,49 +63,6 @@
     softTick: 0,
     hardTick: 0
   };
-  let controlHandedness = 'right';
-
-  function normalizeHandedness(value) {
-    return value === 'left' ? 'left' : 'right';
-  }
-
-  function readStoredHandedness() {
-    try {
-      return normalizeHandedness(window.localStorage.getItem(HANDEDNESS_STORAGE_KEY));
-    } catch {
-      return 'right';
-    }
-  }
-
-  function writeStoredHandedness(value) {
-    try {
-      window.localStorage.setItem(HANDEDNESS_STORAGE_KEY, value);
-    } catch {
-      // Ignore storage failures so touch controls still work in restricted contexts.
-    }
-  }
-
-  function syncHandednessUi() {
-    if (!touchControlsEl || !handednessToggleEl) return;
-    touchControlsEl.dataset.handedness = controlHandedness;
-    const isLeft = controlHandedness === 'left';
-    handednessToggleEl.textContent = isLeft ? 'Left-handed' : 'Right-handed';
-    handednessToggleEl.setAttribute('aria-pressed', String(isLeft));
-    handednessToggleEl.setAttribute(
-      'aria-label',
-      isLeft ? 'Switch to right-handed controls' : 'Switch to left-handed controls'
-    );
-  }
-
-  function setControlHandedness(value, { persist = true } = {}) {
-    controlHandedness = normalizeHandedness(value);
-    syncHandednessUi();
-    if (persist) writeStoredHandedness(controlHandedness);
-  }
-
-  function toggleControlHandedness() {
-    setControlHandedness(controlHandedness === 'left' ? 'right' : 'left');
-  }
 
   function nextRandom() {
     seededValue = (seededValue * 1664525 + 1013904223) >>> 0;
@@ -126,9 +80,15 @@
     return order;
   }
 
+  function peekNextPieceType() {
+    if (bag.length === 0) bag = shuffleBag();
+    return PIECES[bag[0]].type;
+  }
+
   function nextPiece() {
     if (bag.length === 0) bag = shuffleBag();
     const pieceDef = PIECES[bag.shift()];
+    if (state) state.nextPieceType = peekNextPieceType();
     return {
       type: pieceDef.type,
       index: pieceDef.index,
@@ -156,10 +116,30 @@
   function spawnPiece() {
     state.current = nextPiece();
     state.lockTimer = 0;
+    state.holdUsed = false;
     if (!isValidPosition(state.current)) {
       state.gameOver = true;
       syncStatusMessage();
     }
+  }
+
+  function holdPiece() {
+    if (state.holdUsed || !state.current || state.clearAnimation || state.gameOver) return;
+    const currentType = state.current.type;
+    if (state.heldPiece === null) {
+      state.heldPiece = currentType;
+      state.current = null;
+      spawnPiece();
+    } else {
+      const swappedType = state.heldPiece;
+      state.heldPiece = currentType;
+      const pieceDef = PIECES.find((p) => p.type === swappedType);
+      const swapped = { type: pieceDef.type, index: pieceDef.index, x: 4, y: 0, rotation: 0 };
+      if (!isValidPosition(swapped)) return;
+      state.current = swapped;
+      state.lockTimer = 0;
+    }
+    state.holdUsed = true;
   }
 
   function mergePiece() {
@@ -234,23 +214,6 @@
       return;
     }
     syncStatusMessage({ forceFallback: true });
-  }
-
-  function clearLines() {
-    let cleared = 0;
-    for (let row = BOARD_HEIGHT - 1; row >= 0; row -= 1) {
-      if (state.board[row].every((value) => value !== 0)) {
-        state.board.splice(row, 1);
-        state.board.unshift(Array(BOARD_WIDTH).fill(0));
-        cleared += 1;
-        row += 1;
-      }
-    }
-    if (cleared > 0) {
-      state.lines += cleared;
-      state.score += CLEAR_SCORES[cleared] * state.level;
-      onLinesResolved(cleared);
-    }
   }
 
   function findFullRows() {
@@ -330,6 +293,26 @@
     return false;
   }
 
+  function rotatePieceCcw() {
+    if (state.gameOver || !state.current || state.clearAnimation) return false;
+    const next = { ...state.current, rotation: (state.current.rotation - 1 + 4) % 4 };
+    if (isValidPosition(next)) {
+      state.current = next;
+      state.lockTimer = 0;
+      return true;
+    }
+    const kicks = [-1, 1, -2, 2];
+    for (const kick of kicks) {
+      const kicked = { ...next, x: next.x + kick };
+      if (isValidPosition(kicked)) {
+        state.current = kicked;
+        state.lockTimer = 0;
+        return true;
+      }
+    }
+    return false;
+  }
+
   function applySoftDropPoint(steps) {
     state.score += steps;
   }
@@ -370,6 +353,9 @@
     state = {
       board: createBoard(),
       current: null,
+      heldPiece: null,
+      holdUsed: false,
+      nextPieceType: null,
       score: 0,
       lines: 0,
       level: 1,
@@ -408,9 +394,24 @@
     if (typeof state.statusMessage !== 'string') state.statusMessage = '';
     if (typeof state.statusTone !== 'string') state.statusTone = 'normal';
     if (typeof state.statusMessageTimer !== 'number') state.statusMessageTimer = 0;
+    if (!('heldPiece' in state)) state.heldPiece = null;
+    if (!('holdUsed' in state)) state.holdUsed = false;
+    if (!('nextPieceType' in state)) state.nextPieceType = null;
     if (!state.current && !state.gameOver && !state.clearAnimation) spawnPiece();
     syncStatusMessage({ forceFallback: !state.statusMessage });
     render();
+  }
+
+  function getGhostCells(piece) {
+    if (!piece) return [];
+    let ghost = { ...piece };
+    while (true) {
+      const next = { ...ghost, y: ghost.y + 1 };
+      if (!isValidPosition(next)) break;
+      ghost = next;
+    }
+    if (ghost.y === piece.y) return [];
+    return pieceCells(ghost);
   }
 
   function drawCell(x, y, index) {
@@ -428,6 +429,26 @@
     const clearRowSet = clearAnimation ? new Set(clearAnimation.rows) : null;
     ctx.fillStyle = '#020617';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (state.current && !state.clearAnimation) {
+      const ghostCells = getGhostCells(state.current);
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      for (const cell of ghostCells) {
+        if (cell.y >= 0) {
+          ctx.strokeRect(
+            cell.x * CELL_SIZE + 2,
+            cell.y * CELL_SIZE + 2,
+            CELL_SIZE - 4,
+            CELL_SIZE - 4
+          );
+        }
+      }
+      ctx.restore();
+    }
+
     for (let y = 0; y < BOARD_HEIGHT; y += 1) {
       for (let x = 0; x < BOARD_WIDTH; x += 1) {
         if (clearRowSet && clearRowSet.has(y) && !shouldShowBlinkRows) continue;
@@ -442,12 +463,55 @@
     }
   }
 
+  function drawPiecePreview(canvasEl, context, type) {
+    if (!canvasEl || !context) return;
+    const w = canvasEl.width;
+    const h = canvasEl.height;
+    context.clearRect(0, 0, w, h);
+    if (!type) return;
+
+    const pieceDef = PIECES.find((p) => p.type === type);
+    if (!pieceDef) return;
+
+    const cells = pieceDef.rotations[0];
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const [dx, dy] of cells) {
+      if (dx < minX) minX = dx;
+      if (dx > maxX) maxX = dx;
+      if (dy < minY) minY = dy;
+      if (dy > maxY) maxY = dy;
+    }
+    const cols = maxX - minX + 1;
+    const rows = maxY - minY + 1;
+    const cellSize = Math.floor(Math.min((w - 4) / cols, (h - 4) / rows));
+    const pieceW = cols * cellSize;
+    const pieceH = rows * cellSize;
+    const offsetX = Math.floor((w - pieceW) / 2) - minX * cellSize;
+    const offsetY = Math.floor((h - pieceH) / 2) - minY * cellSize;
+
+    const color = COLORS[pieceDef.index];
+    for (const [dx, dy] of cells) {
+      const px = offsetX + dx * cellSize;
+      const py = offsetY + dy * cellSize;
+      context.fillStyle = color;
+      context.fillRect(px, py, cellSize, cellSize);
+      context.strokeStyle = '#0f172a';
+      context.lineWidth = 0.5;
+      context.strokeRect(px + 0.5, py + 0.5, cellSize - 1, cellSize - 1);
+    }
+  }
+
   function updateHud() {
     scoreEl.textContent = String(state.score);
     linesEl.textContent = String(state.lines);
     levelEl.textContent = String(state.level);
     statusEl.textContent = state.statusMessage;
-    statusWrapEl.dataset.tone = state.statusTone;
+    if (statusWrapEl) statusWrapEl.dataset.tone = state.statusTone;
+    drawPiecePreview(nextCanvasEl, nextCtx, state.nextPieceType ?? null);
+    drawPiecePreview(holdCanvasEl, holdCtx, state.heldPiece ?? null);
+    if (holdCanvasEl) {
+      holdCanvasEl.closest('.preview-box')?.classList.toggle('hold-empty', state.heldPiece === null);
+    }
   }
 
   function render() {
@@ -585,6 +649,8 @@
     }
     else if (event.key === 'ArrowDown') held.softDrop = true;
     else if (event.key === 'ArrowUp') rotatePiece();
+    else if (event.key === 'z' || event.key === 'Z') rotatePieceCcw();
+    else if (event.key === 'c' || event.key === 'C') holdPiece();
     else if (event.code === 'Space') {
       event.preventDefault();
       hardDrop();
@@ -605,7 +671,9 @@
   }
 
   function onTouchButtonDown(action) {
-    if (action === 'rotate') rotatePiece();
+    if (action === 'rotate' || action === 'rotate-cw') rotatePiece();
+    else if (action === 'rotate-ccw') rotatePieceCcw();
+    else if (action === 'hold') holdPiece();
     else setTouchHeld(action, true);
   }
 
@@ -614,7 +682,6 @@
   }
 
   restartEl.addEventListener('click', restartGame);
-  handednessToggleEl?.addEventListener('click', toggleControlHandedness);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
 
@@ -629,7 +696,6 @@
     button.addEventListener('pointerleave', () => onTouchButtonUp(action));
   }
 
-  setControlHandedness(readStoredHandedness(), { persist: false });
   restartGame();
   setAutoStep(true);
 
@@ -648,10 +714,10 @@
       setAutoStep(enabled);
     },
     getControlsState: () => ({
-      handedness: controlHandedness
+      handedness: 'right'
     }),
-    setHandedness: (value) => {
-      setControlHandedness(value);
+    setHandedness: (_value) => {
+      // no-op stub for test API compatibility
     }
   };
 })();

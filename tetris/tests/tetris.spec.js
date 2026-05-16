@@ -34,7 +34,7 @@ async function openGame(page) {
     );
   });
   await page.evaluate(() => window.__tetrisTest.setAutoStep(false));
-  await expect(page.locator('canvas')).toBeVisible();
+  await expect(page.locator('canvas#game')).toBeVisible();
 }
 
 async function getState(page) {
@@ -84,17 +84,16 @@ async function getPortraitLayout(page) {
       },
       scrollHeight: document.scrollingElement.scrollHeight,
       board: readBox('#game'),
-      controls: readBox('.touch-controls'),
-      playfield: readBox('.playfield'),
-      status: readBox('.status-wrap'),
-      moveZone: readBox('.move-zone'),
-      actionZone: readBox('.action-zone'),
-      toggle: readBox('#handedness-toggle'),
+      controlDeck: readBox('.control-deck'),
+      gameArea: readBox('.game-area'),
+      dpadCluster: readBox('.dpad-cluster'),
+      rotateCluster: readBox('.rotate-cluster'),
       left: readBox('[data-action="left"]'),
       right: readBox('[data-action="right"]'),
       softDrop: readBox('[data-action="soft-drop"]'),
-      rotate: readBox('[data-action="rotate"]'),
-      hardDrop: readBox('[data-action="hard-drop"]')
+      hardDrop: readBox('[data-action="hard-drop"]'),
+      rotateCw: readBox('[data-action="rotate-cw"]'),
+      rotateCcw: readBox('[data-action="rotate-ccw"]')
     };
   });
 }
@@ -119,60 +118,44 @@ function centerY(box) {
   return box.y + box.height / 2;
 }
 
-function expectRightHandedErgonomics(layout) {
+function expectPortraitErgonomics(layout) {
   const {
     viewport,
     scrollHeight,
     board,
-    controls,
-    playfield,
-    status,
-    moveZone,
-    actionZone,
-    toggle,
+    controlDeck,
+    gameArea,
+    dpadCluster,
+    rotateCluster,
     left,
     right,
     softDrop,
-    rotate,
-    hardDrop
+    hardDrop,
+    rotateCw,
+    rotateCcw
   } = layout;
 
-  for (const box of [board, controls, playfield, status, moveZone, actionZone, toggle, left, right, softDrop, rotate, hardDrop]) {
+  for (const box of [board, controlDeck, gameArea, dpadCluster, rotateCluster,
+    left, right, softDrop, hardDrop, rotateCw, rotateCcw]) {
     expect(box).not.toBeNull();
     expectVisibleInViewport(box, viewport);
   }
 
   expect(scrollHeight).toBeLessThanOrEqual(viewport.height + 1);
-  expect(board.height).toBeGreaterThan(status.height * 5);
-  expect(playfield.height).toBeGreaterThan(controls.height * 2.5);
-  expect(controls.y).toBeGreaterThanOrEqual(board.bottom - 1);
-  expect(controls.height).toBeLessThanOrEqual(viewport.height * 0.26);
-  expect(Math.abs(centerX(toggle) - centerX(controls))).toBeLessThan(4);
-  expect(moveZone.x).toBeLessThan(actionZone.x);
-  expect(moveZone.right).toBeLessThanOrEqual(actionZone.x + 4);
-  expect(Math.abs(moveZone.width - actionZone.width)).toBeLessThan(2);
-  expect(Math.abs(moveZone.height - actionZone.height)).toBeLessThan(2);
-  expect(Math.abs(moveZone.y - actionZone.y)).toBeLessThan(2);
-  expect(Math.abs(moveZone.bottom - actionZone.bottom)).toBeLessThan(2);
-  expect(toggle.bottom).toBeLessThanOrEqual(moveZone.y + 4);
-  expectInside(left, moveZone);
-  expectInside(right, moveZone);
-  expectInside(softDrop, moveZone);
-  expectInside(rotate, actionZone);
-  expectInside(hardDrop, actionZone);
-  expect(Math.abs(left.width - right.width)).toBeLessThan(2);
-  expect(Math.abs(left.width - softDrop.width)).toBeLessThan(2);
-  expect(Math.abs(left.height - right.height)).toBeLessThan(2);
-  expect(Math.abs(left.height - softDrop.height)).toBeLessThan(2);
-  expect(Math.abs(centerY(left) - centerY(right))).toBeLessThan(2);
-  expect(softDrop.y).toBeGreaterThan(left.y);
-  expect(centerX(softDrop)).toBeGreaterThan(centerX(left));
-  expect(centerX(softDrop)).toBeLessThan(centerX(right));
-  expect(rotate.height).toBeGreaterThan(hardDrop.height);
-  expect(Math.abs(rotate.width - rotate.height)).toBeLessThan(2);
-  expect(Math.abs(hardDrop.width - hardDrop.height)).toBeLessThan(2);
-  expect(centerX(rotate)).toBeGreaterThan(centerX(hardDrop));
-  expect(centerY(hardDrop)).toBeGreaterThanOrEqual(centerY(rotate));
+  expect(controlDeck.y).toBeGreaterThanOrEqual(board.bottom - 2);
+  expect(controlDeck.height).toBeLessThanOrEqual(viewport.height * 0.30);
+  expect(centerX(dpadCluster)).toBeLessThan(centerX(rotateCluster));
+  expectInside(left, dpadCluster);
+  expectInside(right, dpadCluster);
+  expectInside(softDrop, dpadCluster);
+  expectInside(hardDrop, dpadCluster);
+  expectInside(rotateCw, rotateCluster);
+  expectInside(rotateCcw, rotateCluster);
+  expect(Math.abs(left.width - right.width)).toBeLessThan(4);
+  expect(Math.abs(left.height - right.height)).toBeLessThan(4);
+  expect(Math.abs(rotateCw.width - rotateCcw.width)).toBeLessThan(4);
+  expect(Math.abs(rotateCw.height - rotateCcw.height)).toBeLessThan(4);
+  expect(hardDrop.y).toBeLessThan(softDrop.y);
 }
 
 async function prepareVisualLayout(page) {
@@ -190,14 +173,17 @@ async function prepareVisualLayout(page) {
     clearAnimation: null,
     statusMessage: 'Level 1',
     statusTone: '',
-    statusMessageTimer: 0
+    statusMessageTimer: 0,
+    heldPiece: 'S',
+    holdUsed: false,
+    nextPieceType: 'I'
   });
 }
 
 test('renders and exposes ready test API', async ({ page }) => {
   await openGame(page);
   await expect.poll(async () => {
-    return page.locator('canvas').evaluate((canvas) => {
+    return page.locator('canvas#game').evaluate((canvas) => {
       const context = canvas.getContext('2d');
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
       let colored = 0;
@@ -432,6 +418,49 @@ test('game over on spawn collision then restart recovers', async ({ page }) => {
   expect(restarted.score).toBe(0);
 });
 
+test('CCW rotation via z key rotates counterclockwise', async ({ page }) => {
+  await openGame(page);
+  const initial = await getState(page);
+  const initialRotation = initial.current.rotation;
+
+  await page.keyboard.press('ArrowUp');
+  const afterCw = await getState(page);
+  const cwRotation = (initialRotation + 1) % 4;
+  expect(afterCw.current.rotation).toBe(cwRotation);
+
+  await page.keyboard.press('z');
+  const afterCcw = await getState(page);
+  expect(afterCcw.current.rotation).toBe(initialRotation);
+});
+
+test('hold piece mechanic saves and swaps piece', async ({ page }) => {
+  await openGame(page);
+  const initial = await getState(page);
+  const initialType = initial.current.type;
+
+  await page.keyboard.press('c');
+  const afterFirstHold = await getState(page);
+  expect(afterFirstHold.heldPiece).toBe(initialType);
+  expect(afterFirstHold.holdUsed).toBe(true);
+  expect(afterFirstHold.current).not.toBeNull();
+  expect(afterFirstHold.current.type).not.toBe(initialType);
+
+  await page.keyboard.press('c');
+  const afterSecondAttempt = await getState(page);
+  expect(afterSecondAttempt.heldPiece).toBe(initialType);
+  expect(afterSecondAttempt.current.type).toBe(afterFirstHold.current.type);
+
+  await page.keyboard.press('Space');
+  const afterDrop = await getState(page);
+  expect(afterDrop.holdUsed).toBe(false);
+
+  const beforeSwapType = afterDrop.current.type;
+  await page.keyboard.press('c');
+  const afterSwap = await getState(page);
+  expect(afterSwap.heldPiece).toBe(beforeSwapType);
+  expect(afterSwap.current.type).toBe(initialType);
+});
+
 test('matches the desktop layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);
@@ -455,20 +484,21 @@ test.describe('mobile touch controls', () => {
     await openGame(page);
     const start = await getState(page);
 
-    const right = page.getByRole('button', { name: 'Right' });
+    const right = page.locator('[data-action="right"]');
     await right.dispatchEvent('pointerdown');
     await advanceFrames(page, 22);
     await right.dispatchEvent('pointerup');
     const moved = await getState(page);
     expect(moved.current.x).toBeGreaterThan(start.current.x);
 
-    const rotate = page.getByRole('button', { name: 'Rotate' });
+    const rotateCw = page.locator('[data-action="rotate-cw"]');
     const beforeRotate = moved.current.rotation;
-    await rotate.click();
+    await rotateCw.dispatchEvent('pointerdown');
+    await rotateCw.dispatchEvent('pointerup');
     const rotated = await getState(page);
     expect(rotated.current.rotation).not.toBe(beforeRotate);
 
-    const soft = page.getByRole('button', { name: 'Soft Drop' });
+    const soft = page.locator('[data-action="soft-drop"]');
     const beforeSoftY = rotated.current.y;
     await soft.dispatchEvent('pointerdown');
     await advanceFrames(page, 6);
@@ -476,9 +506,10 @@ test.describe('mobile touch controls', () => {
     const softened = await getState(page);
     expect(softened.current.y).toBeGreaterThan(beforeSoftY);
 
-    const hard = page.getByRole('button', { name: 'Hard Drop' });
+    const hard = page.locator('[data-action="hard-drop"]');
     const scoreBeforeHard = softened.score;
-    await hard.click();
+    await hard.dispatchEvent('pointerdown');
+    await hard.dispatchEvent('pointerup');
     const hardened = await getState(page);
     expect(hardened.score).toBeGreaterThanOrEqual(scoreBeforeHard);
   });
@@ -495,7 +526,7 @@ test.describe('mobile touch controls', () => {
       };
     });
 
-    expectRightHandedErgonomics(layout);
+    expectPortraitErgonomics(layout);
     expect(restartStyles.borderTopColor).not.toBe('rgb(51, 65, 85)');
     expect(restartStyles.backgroundImage).toContain('gradient');
   });
@@ -505,45 +536,7 @@ test.describe('mobile touch controls', () => {
     await openGame(page);
 
     const layout = await getPortraitLayout(page);
-    expectRightHandedErgonomics(layout);
-  });
-
-  test('handedness toggle swaps zones and persists after reload', async ({ page }) => {
-    await openGame(page);
-
-    await expect(page.locator('#handedness-toggle')).toHaveText('Right-handed');
-    await expect.poll(async () => {
-      const state = await getControlsState(page);
-      return state.handedness;
-    }).toBe('right');
-
-    const beforeMoveBox = await page.locator('.move-zone').boundingBox();
-    const beforeActionBox = await page.locator('.action-zone').boundingBox();
-    expect(beforeMoveBox).not.toBeNull();
-    expect(beforeActionBox).not.toBeNull();
-    expect(beforeMoveBox.x).toBeLessThan(beforeActionBox.x);
-
-    await page.locator('#handedness-toggle').tap();
-    await expect(page.locator('#handedness-toggle')).toHaveText('Left-handed');
-    await expect.poll(async () => {
-      const state = await getControlsState(page);
-      return state.handedness;
-    }).toBe('left');
-
-    const afterMoveBox = await page.locator('.move-zone').boundingBox();
-    const afterActionBox = await page.locator('.action-zone').boundingBox();
-    expect(afterMoveBox).not.toBeNull();
-    expect(afterActionBox).not.toBeNull();
-    expect(afterMoveBox.x).toBeGreaterThan(afterActionBox.x);
-
-    await page.reload();
-    await page.waitForFunction(() => window.__tetrisTest?.isReady === true);
-    await page.evaluate(() => window.__tetrisTest.setAutoStep(false));
-    await expect(page.locator('#handedness-toggle')).toHaveText('Left-handed');
-    await expect.poll(async () => {
-      const state = await getControlsState(page);
-      return state.handedness;
-    }).toBe('left');
+    expectPortraitErgonomics(layout);
   });
 
   test('matches the portrait layout baseline', async ({ page }) => {
@@ -551,7 +544,7 @@ test.describe('mobile touch controls', () => {
     await prepareVisualLayout(page);
 
     const layout = await getPortraitLayout(page);
-    expectRightHandedErgonomics(layout);
+    expectPortraitErgonomics(layout);
 
     await expect(page).toHaveScreenshot('tetris-portrait-layout.png', {
       animations: 'disabled',
