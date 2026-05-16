@@ -163,6 +163,11 @@ body {
   opacity: 0.55;
 }
 
+.hold-preview.hold-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .preview-label,
 .stat-label {
   display: block;
@@ -348,9 +353,14 @@ body {
   padding: 0;
 }
 
-.rotate-btn:hover,
+.rotate-btn:hover {
+  filter: brightness(1.14);
+}
+
 .rotate-btn:focus-visible {
   filter: brightness(1.14);
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .rotate-btn:active {

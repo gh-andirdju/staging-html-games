@@ -436,6 +436,58 @@ test('CCW rotation via z key rotates counterclockwise', async ({ page }) => {
   expect(afterCcw.current.rotation).toBe(initialRotation);
 });
 
+test('CCW rotation kicks away from right wall when base rotation overflows', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // I-piece vertical (rot 1) at x=8: CCW to rot 0 would place a cell at column 10 (out of bounds)
+  // The kick sequence [1,-1,2,-2] must pick offset -1 → x=7, which fits in columns 6-9
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'I', index: 1, x: 8, y: 10, rotation: 1 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  await page.keyboard.press('z');
+  const after = await getState(page);
+  expect(after.current.rotation).toBe(0);
+  expect(after.current.x).toBe(7);
+});
+
+test('4-line Tetris clear awards correct score and status message', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Rows 16-19 complete except column 5; I-piece vertical (rot 3) at x=5 fills the gap
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  for (let row = 16; row <= 19; row++) {
+    board[row] = [1, 1, 1, 1, 1, 0, 1, 1, 1, 1];
+  }
+
+  await setState(page, {
+    ...state,
+    board,
+    score: 0,
+    lines: 0,
+    level: 1,
+    current: { type: 'I', index: 1, x: 5, y: 2, rotation: 3 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  const hardBtn = page.locator('[data-action="hard-drop"]');
+  await hardBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 1);
+  await hardBtn.dispatchEvent('pointerup');
+  // Advance through clear animation (18 frames) plus extra
+  await advanceFrames(page, 25);
+
+  const after = await getState(page);
+  expect(after.lines).toBe(4);
+  expect(after.score).toBeGreaterThanOrEqual(800); // 800 (Tetris) + hard-drop bonus
+  expect(after.statusMessage).toMatch(/tetris clear/i);
+});
+
 test('control deck buttons are keyboard-activatable via Space', async ({ page }) => {
   await openGame(page);
   const initial = await getState(page);
@@ -574,12 +626,14 @@ test('ghost piece renders at piece position without error when already at floor'
     ...state,
     board: Array.from({ length: 20 }, () => Array(10).fill(0)),
     current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
-    gravityTick: 0, lockTimer: 0
+    gravityTick: 47, lockTimer: 0
   });
 
   await advanceFrames(page, 1);
   const after = await getState(page);
+  // Gravity fired, piece was at floor → locked immediately, new piece spawned
   expect(after.current).not.toBeNull();
+  expect(after.board[18][4]).toBeGreaterThan(0); // O-piece locked at y=18, cols 4-5
 });
 
 test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
@@ -658,9 +712,10 @@ test.describe('mobile touch controls', () => {
     const hard = page.locator('[data-action="hard-drop"]');
     const scoreBeforeHard = softened.score;
     await hard.dispatchEvent('pointerdown');
+    await advanceFrames(page, 1);
     await hard.dispatchEvent('pointerup');
     const hardened = await getState(page);
-    expect(hardened.score).toBeGreaterThanOrEqual(scoreBeforeHard);
+    expect(hardened.score).toBeGreaterThan(scoreBeforeHard);
   });
 
   test('CCW touch button rotates counterclockwise', async ({ page }) => {

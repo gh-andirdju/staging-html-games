@@ -511,7 +511,10 @@
     drawPiecePreview(nextCanvasEl, nextCtx, state.nextPieceType ?? null);
     drawPiecePreview(holdCanvasEl, holdCtx, state.heldPiece ?? null);
     if (holdCanvasEl) {
-      holdCanvasEl.closest('.preview-box')?.classList.toggle('hold-empty', state.heldPiece === null);
+      const holdBox = holdCanvasEl.closest('.preview-box');
+      holdBox?.classList.toggle('hold-empty', state.heldPiece === null);
+      holdBox?.classList.toggle('hold-locked', !!state.holdUsed);
+      holdBox?.setAttribute('aria-disabled', state.holdUsed ? 'true' : 'false');
     }
   }
 
