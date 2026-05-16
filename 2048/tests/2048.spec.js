@@ -712,9 +712,27 @@ test.describe('beginner guide', () => {
     await openGameFresh(page);
     await page.evaluate(() => window.__2048Test.dismissGuide());
     await page.reload();
-    await page.waitForFunction(() => window.__2048Test?.isReady === true);
+    await page.waitForFunction(() => {
+      const api = window.__2048Test;
+      return (
+        api && api.isReady &&
+        typeof api.isGuideVisible === 'function' &&
+        typeof api.getGuideStep === 'function'
+      );
+    });
     const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
     expect(visible).toBe(false);
+  });
+
+  test('Tab wraps within all three buttons when Back is visible', async ({ page }) => {
+    await openGameFresh(page);
+    await page.click('#guide-next'); // advance to step 1, Back becomes visible
+    const step = await page.evaluate(() => window.__2048Test.getGuideStep());
+    expect(step).toBe(1);
+    await page.evaluate(() => document.getElementById('guide-next').focus());
+    await page.keyboard.press('Tab');
+    const afterTab = await page.evaluate(() => document.activeElement?.id);
+    expect(afterTab).toBe('guide-close');
   });
 });
 

@@ -16,6 +16,7 @@
   const guidePrevEl = document.getElementById('guide-prev');
   const guideCloseEl = document.getElementById('guide-close');
   const guideHelpEl = document.getElementById('guide-help');
+  const guideLiveEl = document.getElementById('guide-live');
   const guideStepEls = Array.from(document.querySelectorAll('.guide-step'));
   const guideDotEls = Array.from(document.querySelectorAll('.guide-dot'));
 
@@ -207,6 +208,9 @@
     if (guidePrevEl.hidden && backWasActive) guideNextEl.focus();
     guideNextEl.textContent = guideStep === GUIDE_TOTAL_STEPS - 1 ? 'Start Playing' : 'Next';
     guideOverlayEl.setAttribute('aria-labelledby', `guide-title-${guideStep}`);
+    if (guideLiveEl) {
+      guideLiveEl.textContent = guideStepEls[guideStep]?.querySelector('.guide-title')?.textContent ?? '';
+    }
   }
 
   function showGuide(step) {
@@ -240,7 +244,8 @@
     if (guideStep <= 0) return;
     guideStep--;
     renderGuide();
-    guideNextEl.focus();
+    // renderGuide() moves focus to Next only when Back becomes hidden (step 0);
+    // otherwise focus naturally stays on guidePrevEl (the still-visible Back button)
   });
   guideCloseEl.addEventListener('click', hideGuide);
   guideHelpEl.addEventListener('click', () => showGuide(0));
@@ -292,8 +297,8 @@
     };
     const direction = directionMap[event.key];
     if (!direction) return;
-    event.preventDefault();
     if (!guideOverlayEl.hidden) return;
+    event.preventDefault();
     if (state.gameOver) return;
     const moved = slide(direction);
     if (moved) {
