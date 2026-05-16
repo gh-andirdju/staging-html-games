@@ -24,7 +24,7 @@
         <aside class="side-rail" aria-label="Game status">
           <div class="preview-box next-preview">
             <span class="preview-label">NEXT</span>
-            <canvas id="next-canvas" width="50" height="34" aria-label="Next piece preview"></canvas>
+            <canvas id="next-canvas" width="50" height="34" role="img" aria-label="Next piece preview"></canvas>
           </div>
           <div class="stat-block">
             <span class="stat-label">SCORE</span>
@@ -40,7 +40,7 @@
           </div>
           <div class="preview-box hold-preview" data-action="hold" role="button" tabindex="0" aria-label="Hold piece">
             <span class="preview-label">HOLD</span>
-            <canvas id="hold-canvas" width="50" height="34" aria-label="Held piece preview"></canvas>
+            <canvas id="hold-canvas" width="50" height="34" role="img" aria-label="Held piece preview"></canvas>
           </div>
           <div class="status-wrap" role="status" aria-live="polite">
             <strong id="status"></strong>
@@ -48,7 +48,7 @@
         </aside>
       </div>
 
-      <div class="control-deck" aria-label="Touch controls">
+      <div class="control-deck" role="group" aria-label="Touch controls">
         <div class="dpad-cluster">
           <div class="dpad" aria-label="Directional pad">
             <div class="dpad-v-bar"></div>

@@ -203,8 +203,7 @@ body {
   color: var(--accent);
 }
 
-.status-wrap[data-tone="warn"] #status,
-.status-wrap[data-tone="gameover"] #status {
+.status-wrap[data-tone="warning"] #status {
   color: var(--tone-warn);
 }
 

@@ -453,6 +453,18 @@ test('control deck buttons are keyboard-activatable via Space', async ({ page })
   expect(afterCcw.current.rotation).toBe(initial.current.rotation);
 });
 
+test('hold-preview div is keyboard-activatable via Space', async ({ page }) => {
+  await openGame(page);
+  const initial = await getState(page);
+  expect(initial.heldPiece).toBeNull();
+
+  await page.locator('[data-action="hold"]').focus();
+  await page.keyboard.press('Space');
+  const after = await getState(page);
+  expect(after.heldPiece).toBe(initial.current.type);
+  expect(after.holdUsed).toBe(true);
+});
+
 test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   await openGame(page);
   const initial = await getState(page);
@@ -560,14 +572,7 @@ test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
     gravityTick: 0, lockTimer: 0
   });
 
-  // Ghost cells are computed in the render path; evaluate getGhostCells directly via test hook
-  const ghostY = await page.evaluate(() => {
-    const api = window.__tetrisTest;
-    const s = (api.getState ?? api.readState).call(api);
-    // The O-piece at x=4,y=2 occupies columns 4-5; row 15 blocks them so ghost lands at y=13
-    return s.current ? s.current.y : null;
-  });
-  // current hasn't moved yet; verify ghost would stop at row 13 by hard-dropping
+  // Verify ghost stops at row 13 (obstacle at row 15 blocks the cell below y=14) by hard-dropping:
   const hardDropBtn = '[data-action="hard-drop"]';
   await page.locator(hardDropBtn).dispatchEvent('pointerdown');
   await advanceFrames(page, 1);
