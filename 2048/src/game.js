@@ -197,24 +197,30 @@
     }
   }
 
+  const gameShellEl = document.querySelector('.game-shell');
+
   function renderGuide() {
     guideStepEls.forEach((el, i) => { el.hidden = i !== guideStep; });
     guideDotEls.forEach((el, i) => el.classList.toggle('active', i === guideStep));
+    const backWasActive = document.activeElement === guidePrevEl;
     guidePrevEl.hidden = guideStep === 0;
+    if (guidePrevEl.hidden && backWasActive) guideNextEl.focus();
     guideNextEl.textContent = guideStep === GUIDE_TOTAL_STEPS - 1 ? 'Start Playing' : 'Next';
     guideOverlayEl.setAttribute('aria-labelledby', `guide-title-${guideStep}`);
   }
 
   function showGuide(step) {
     guideStep = Math.max(0, Math.min(GUIDE_TOTAL_STEPS - 1, step ?? 0));
-    focusBeforeGuide = document.activeElement;
+    if (guideOverlayEl.hidden) focusBeforeGuide = document.activeElement;
     guideOverlayEl.hidden = false;
+    gameShellEl.setAttribute('inert', '');
     renderGuide();
     guideNextEl.focus();
   }
 
   function hideGuide() {
     guideOverlayEl.hidden = true;
+    gameShellEl.removeAttribute('inert');
     guideStep = -1;
     try { localStorage.setItem(GUIDE_STORAGE_KEY, '1'); } catch {}
     focusBeforeGuide?.focus();
@@ -277,8 +283,6 @@
   }
 
   function handleKey(event) {
-    if (!guideOverlayEl.hidden) return;
-    if (state.gameOver) return;
     const directionMap = {
       ArrowLeft: 'left',
       ArrowRight: 'right',
@@ -288,6 +292,8 @@
     const direction = directionMap[event.key];
     if (!direction) return;
     event.preventDefault();
+    if (!guideOverlayEl.hidden) return;
+    if (state.gameOver) return;
     const moved = slide(direction);
     if (moved) {
       spawnTile();

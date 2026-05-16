@@ -241,6 +241,8 @@ body {
 
 .guide-card {
   width: min(92vw, 380px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 20px;

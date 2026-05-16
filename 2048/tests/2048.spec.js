@@ -588,13 +588,11 @@ test.describe('beginner guide', () => {
 
   test('Next on last step closes guide', async ({ page }) => {
     await openGameFresh(page);
-    const lastStep = await page.evaluate(() => {
-      const steps = document.querySelectorAll('.guide-step');
-      return steps.length - 1;
-    });
-    await page.evaluate((step) => window.__2048Test.showGuide(step), lastStep);
+    const domStepCount = await page.evaluate(() => document.querySelectorAll('.guide-step').length);
+    expect(domStepCount).toBe(4);
+    await page.evaluate(() => window.__2048Test.showGuide(3));
     const stepBefore = await page.evaluate(() => window.__2048Test.getGuideStep());
-    expect(stepBefore).toBe(lastStep);
+    expect(stepBefore).toBe(3);
     await page.click('#guide-next');
     const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
     expect(visible).toBe(false);
@@ -662,14 +660,30 @@ test.describe('beginner guide', () => {
     expect(visible).toBe(false);
   });
 
-  test('Tab cycles focus within guide card', async ({ page }) => {
+  test('Tab wraps from last button to first', async ({ page }) => {
     await openGameFresh(page);
-    // Focus is on #guide-next after open; Tab should wrap to #guide-close (first visible button)
     const focusedId = await page.evaluate(() => document.activeElement?.id);
     expect(focusedId).toBe('guide-next');
     await page.keyboard.press('Tab');
     const afterTab = await page.evaluate(() => document.activeElement?.id);
     expect(afterTab).toBe('guide-close');
+  });
+
+  test('Shift+Tab wraps from first button to last', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => document.getElementById('guide-close').focus());
+    await page.keyboard.press('Shift+Tab');
+    const id = await page.evaluate(() => document.activeElement?.id);
+    expect(id).toBe('guide-next');
+  });
+
+  test('arrow keys do not scroll page while guide is open', async ({ page }) => {
+    await openGameFresh(page);
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowUp');
+    const scrollAfter = await page.evaluate(() => window.scrollY);
+    expect(scrollAfter).toBe(scrollBefore);
   });
 });
 
