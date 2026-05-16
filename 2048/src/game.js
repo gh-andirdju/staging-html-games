@@ -81,6 +81,7 @@
   let autoStep = true;
   let rafId = null;
   let guideStep = -1;
+  let focusBeforeGuide = null;
 
   function slide(direction) {
     let grid = state.grid.map(row => row.slice());
@@ -201,18 +202,24 @@
     guideDotEls.forEach((el, i) => el.classList.toggle('active', i === guideStep));
     guidePrevEl.hidden = guideStep === 0;
     guideNextEl.textContent = guideStep === GUIDE_TOTAL_STEPS - 1 ? 'Start Playing' : 'Next';
+    const heading = guideStepEls[guideStep]?.querySelector('.guide-title');
+    if (heading) guideOverlayEl.setAttribute('aria-label', heading.textContent);
   }
 
   function showGuide(step) {
-    guideStep = step ?? 0;
+    guideStep = Math.max(0, Math.min(GUIDE_TOTAL_STEPS - 1, step ?? 0));
+    focusBeforeGuide = document.activeElement;
     guideOverlayEl.hidden = false;
     renderGuide();
+    guideNextEl.focus();
   }
 
   function hideGuide() {
     guideOverlayEl.hidden = true;
     guideStep = -1;
     try { localStorage.setItem(GUIDE_STORAGE_KEY, '1'); } catch {}
+    focusBeforeGuide?.focus();
+    focusBeforeGuide = null;
   }
 
   function hasSeenGuide() {
@@ -248,6 +255,7 @@
   }
 
   function handleKey(event) {
+    if (!guideOverlayEl.hidden) return;
     if (state.gameOver) return;
     const directionMap = {
       ArrowLeft: 'left',
@@ -272,6 +280,7 @@
   const SWIPE_THRESHOLD = 30;
 
   function handleTouchEnd(event) {
+    if (!guideOverlayEl.hidden) return;
     if (state.gameOver) return;
     const dx = event.changedTouches[0].clientX - touchStartX;
     const dy = event.changedTouches[0].clientY - touchStartY;
