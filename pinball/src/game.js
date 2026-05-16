@@ -17,19 +17,29 @@
   var FIXED_DT = 1 / 60;
   var GRAVITY = 800;
   var BALL_RADIUS = 10;
-  var BALL_LAUNCH_SPEED = 650;
-  var FLIPPER_LENGTH = 68;
-  var FLIPPER_THICKNESS = 8;
-  var FLIPPER_REST_ANGLE_L = Math.PI * 0.28;
-  var FLIPPER_ACTIVE_ANGLE_L = -Math.PI * 0.1;
-  var FLIPPER_REST_ANGLE_R = Math.PI - Math.PI * 0.28;
-  var FLIPPER_ACTIVE_ANGLE_R = Math.PI + Math.PI * 0.1;
-  var FLIPPER_SPEED = Math.PI * 14;
+  var BALL_LAUNCH_SPEED = 1080;
+  var FLIPPER_LENGTH = 88;
+  var FLIPPER_THICKNESS = 9;
+  var FLIPPER_REST_ANGLE_L = 0.62;
+  var FLIPPER_ACTIVE_ANGLE_L = -0.42;
+  var FLIPPER_REST_ANGLE_R = Math.PI - 0.62;
+  var FLIPPER_ACTIVE_ANGLE_R = Math.PI + 0.42;
+  var FLIPPER_SPEED = Math.PI * 8;
   var FLIPPER_PIVOT_Y = HEIGHT - 160;
-  var FLIPPER_PIVOT_LX = WIDTH / 2 - 34;
-  var FLIPPER_PIVOT_RX = WIDTH / 2 + 34;
+  var FLIPPER_PIVOT_LX = 110;
+  var FLIPPER_PIVOT_RX = 290;
+  var FUNNEL_TOP_Y = 490;
+  var LANE_X = 332;
+  var LANE_TOP_Y = 237;
+  var DEFLECTOR_X = 290;
+  var DEFLECTOR_Y = 160;
+  var DEFLECTOR_END_Y = 216;
   var BUMPER_RADIUS = 22;
-  var BUMPER_REPEL_SPEED = 540;
+  var BUMPER_REPEL_SPEED = 170;
+  var WALL_RESTITUTION = 0.9;
+  var WALL_FRICTION = 0.97;
+  var ARC_RESTITUTION = 0.86;
+  var DRAG = 0.99;
   var BUMPER_SCORE = 50;
   var LANE_SCORE = 150;
   var WALL_LEFT = 30;
@@ -74,14 +84,14 @@
         pivotY: FLIPPER_PIVOT_Y
       },
       bumpers: [
-        { x: 120, y: 210, radius: BUMPER_RADIUS, hitTimer: 0 },
-        { x: 200, y: 155, radius: BUMPER_RADIUS, hitTimer: 0 },
-        { x: 280, y: 210, radius: BUMPER_RADIUS, hitTimer: 0 }
+        { x: 200, y: 292, radius: BUMPER_RADIUS, hitTimer: 0 },
+        { x: 120, y: 366, radius: BUMPER_RADIUS, hitTimer: 0 },
+        { x: 270, y: 366, radius: BUMPER_RADIUS, hitTimer: 0 }
       ],
       targets: [
-        { x: 52, y: 360, w: 56, h: 12, hit: false },
-        { x: 172, y: 320, w: 56, h: 12, hit: false },
-        { x: 292, y: 360, w: 56, h: 12, hit: false }
+        { x: 48, y: 436, w: 56, h: 12, hit: false },
+        { x: 166, y: 436, w: 56, h: 12, hit: false },
+        { x: 268, y: 436, w: 56, h: 12, hit: false }
       ],
       score: 0,
       balls: 3,
@@ -182,6 +192,29 @@
     }
   }
 
+  function resolveWallSegment(ball, ax, ay, bx, by, restitution) {
+    var cp = closestPointOnSegment(ax, ay, bx, by, ball.x, ball.y);
+    var dx = ball.x - cp.x;
+    var dy = ball.y - cp.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist >= ball.radius || dist < 0.001) {
+      return;
+    }
+    var nx = dx / dist;
+    var ny = dy / dist;
+    ball.x = cp.x + nx * (ball.radius + 0.5);
+    ball.y = cp.y + ny * (ball.radius + 0.5);
+    var vn = ball.vx * nx + ball.vy * ny;
+    if (vn < 0) {
+      var tx = -ny;
+      var ty = nx;
+      var vt = ball.vx * tx + ball.vy * ty;
+      vn = -vn * restitution;
+      ball.vx = nx * vn + tx * vt;
+      ball.vy = ny * vn + ty * vt;
+    }
+  }
+
   function circleHitsRect(bx, by, br, rx, ry, rw, rh) {
     var cx = clamp(bx, rx, rx + rw);
     var cy = clamp(by, ry, ry + rh);
@@ -219,36 +252,43 @@
       if (keys.launch) {
         state.plunger.compressed = Math.min(1, state.plunger.compressed + 0.03);
       } else if (state.plunger.compressed > 0) {
-        ball.vy = -BALL_LAUNCH_SPEED * state.plunger.compressed;
-        ball.launched = true;
+        ball.vy = -BALL_LAUNCH_SPEED * (0.85 + 0.15 * state.plunger.compressed);
         ball.vx = 0;
+        ball.launched = true;
         state.plunger.compressed = 0;
         state.status = "playing";
+        return;
       }
       ball.x = LAUNCH_X;
       ball.y = BALL_LAUNCH_Y;
       ball.vx = 0;
+      ball.vy = 0;
       return;
     }
 
     state.frame += 1;
     ball.vy += GRAVITY * dt;
+    ball.vx *= DRAG;
+    ball.vy *= DRAG;
     ball.x += ball.vx * dt;
     ball.y += ball.vy * dt;
 
     var wallHit = false;
     if (ball.x - ball.radius < WALL_LEFT) {
       ball.x = WALL_LEFT + ball.radius;
-      ball.vx = Math.abs(ball.vx);
+      ball.vx = Math.abs(ball.vx) * WALL_RESTITUTION;
+      ball.vy *= WALL_FRICTION;
       wallHit = true;
     } else if (ball.x + ball.radius > WALL_RIGHT) {
       ball.x = WALL_RIGHT - ball.radius;
-      ball.vx = -Math.abs(ball.vx);
+      ball.vx = -Math.abs(ball.vx) * WALL_RESTITUTION;
+      ball.vy *= WALL_FRICTION;
       wallHit = true;
     }
     if (ball.y - ball.radius < 10) {
       ball.y = ball.radius + 10;
-      ball.vy = Math.abs(ball.vy);
+      ball.vy = Math.abs(ball.vy) * WALL_RESTITUTION;
+      ball.vx *= WALL_FRICTION;
     }
 
     if (!wallHit && ball.y < WIDTH / 2 - WALL_LEFT + ball.radius) {
@@ -263,11 +303,22 @@
         var any = ady / adist;
         ball.x = arcCX + anx * (arcR - ball.radius);
         ball.y = arcCY + any * (arcR - ball.radius);
-        var adot = ball.vx * anx + ball.vy * any;
-        ball.vx -= 2 * adot * anx;
-        ball.vy -= 2 * adot * any;
+        var avn = ball.vx * anx + ball.vy * any;
+        if (avn > 0) {
+          var atx = -any;
+          var aty = anx;
+          var avt = ball.vx * atx + ball.vy * aty;
+          avn = -avn * ARC_RESTITUTION;
+          ball.vx = anx * avn + atx * avt;
+          ball.vy = any * avn + aty * avt;
+        }
       }
     }
+
+    resolveWallSegment(ball, WALL_LEFT, FUNNEL_TOP_Y, FLIPPER_PIVOT_LX, FLIPPER_PIVOT_Y, 0.45);
+    resolveWallSegment(ball, LANE_X, FUNNEL_TOP_Y, FLIPPER_PIVOT_RX, FLIPPER_PIVOT_Y, 0.45);
+    resolveWallSegment(ball, LANE_X, LANE_TOP_Y, LANE_X, FUNNEL_TOP_Y, 0.6);
+    resolveWallSegment(ball, DEFLECTOR_X, DEFLECTOR_Y, WALL_RIGHT, DEFLECTOR_END_Y, 0.85);
 
     for (var i = 0; i < state.bumpers.length; i += 1) {
       var bumper = state.bumpers[i];
@@ -284,10 +335,18 @@
         var bny = bdy / bdist;
         ball.x = bumper.x + bnx * (minBD + 1);
         ball.y = bumper.y + bny * (minBD + 1);
-        var inSpeed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
-        var outSpeed = Math.max(BUMPER_REPEL_SPEED, inSpeed);
-        ball.vx = bnx * outSpeed;
-        ball.vy = bny * outSpeed;
+        var bvn = ball.vx * bnx + ball.vy * bny;
+        if (bvn < 0) {
+          ball.vx -= 2 * bvn * bnx;
+          ball.vy -= 2 * bvn * bny;
+        }
+        ball.vx = ball.vx * 0.8 + bnx * BUMPER_REPEL_SPEED;
+        ball.vy = ball.vy * 0.8 + bny * BUMPER_REPEL_SPEED;
+        var bsp = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+        if (bsp > 620) {
+          ball.vx *= 620 / bsp;
+          ball.vy *= 620 / bsp;
+        }
         bumper.hitTimer = 14;
         state.score += BUMPER_SCORE * state.level;
       }
@@ -355,16 +414,23 @@
     ctx.lineTo(WALL_RIGHT, HEIGHT);
     ctx.stroke();
 
-    ctx.strokeStyle = "rgba(245, 158, 11, 0.22)";
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(245, 158, 11, 0.55)";
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(WALL_LEFT, HEIGHT - 30);
-    ctx.lineTo(FLIPPER_PIVOT_LX - 2, FLIPPER_PIVOT_Y + 20);
+    ctx.moveTo(WALL_LEFT, FUNNEL_TOP_Y);
+    ctx.lineTo(FLIPPER_PIVOT_LX, FLIPPER_PIVOT_Y);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(WALL_RIGHT, HEIGHT - 30);
-    ctx.lineTo(FLIPPER_PIVOT_RX + 2, FLIPPER_PIVOT_Y + 20);
+    ctx.moveTo(LANE_X, LANE_TOP_Y);
+    ctx.lineTo(LANE_X, FUNNEL_TOP_Y);
+    ctx.lineTo(FLIPPER_PIVOT_RX, FLIPPER_PIVOT_Y);
     ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(DEFLECTOR_X, DEFLECTOR_Y);
+    ctx.lineTo(WALL_RIGHT, DEFLECTOR_END_Y);
+    ctx.stroke();
+    ctx.lineCap = "butt";
   }
 
   function drawFlipper(flipper) {
