@@ -310,6 +310,18 @@
         var dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist < 10 || db.y >= targetY) {
+          // Check player contact at the moment of transition so the hit
+          // is not missed when the phase flips before the external contact loop
+          if (rectOverlap(db.x, db.y, ENEMY_W, ENEMY_H,
+                          state.player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT)) {
+            db.alive = false;
+            db.phase = 'return'; // keep consistent state before lives check
+            state.lives--;
+            if (state.lives <= 0) { state.lives = 0; state.status = 'gameover'; return; }
+            state.deathTimer = DEATH_TIMER_FRAMES;
+            state.bullets = [];
+            continue;
+          }
           db.phase = 'return';
         } else {
           var norm = DIVE_SPEED * dt / dist;
