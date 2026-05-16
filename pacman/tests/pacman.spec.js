@@ -123,9 +123,10 @@ test('ArrowUp key sets pacman nextDirection to up', async ({ page }) => {
 test('pacman position changes after advancing frames', async ({ page }) => {
   await openGame(page);
   const before = await getState(page);
-  // Set direction toward open path (row 20 has dots along it)
-  await page.keyboard.press('ArrowRight');
+  // Hold key for the duration of frame advancement so pressedDirs stays populated
+  await page.keyboard.down('ArrowRight');
   await advanceFrames(page, 60);
+  await page.keyboard.up('ArrowRight');
   const after = await getState(page);
   // Either x changed (moved horizontally) or it hit a wall and stayed
   // Either way, we verify state is consistent
@@ -295,6 +296,8 @@ test('eaten ghost returns to chase/scatter after travelling home', async ({ page
   await advanceFrames(page, 1);
   const eaten = await getState(page);
   expect(eaten.ghosts[0].mode).toBe('eaten');
+  // Move Pacman away from the ghost exit tile so the reviving ghost doesn't get re-eaten
+  await setState(page, { pacman: { tileRow: 20, tileCol: 1 } });
   // Advance enough frames for the ghost to travel home and exit
   await advanceFrames(page, 300);
   const revived = await getState(page);
