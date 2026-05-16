@@ -512,6 +512,7 @@
       holdBox?.classList.toggle('hold-empty', state.heldPiece === null);
       holdBox?.classList.toggle('hold-locked', !!state.holdUsed);
       holdBox?.setAttribute('aria-disabled', state.holdUsed ? 'true' : 'false');
+      holdBox?.setAttribute('aria-label', state.heldPiece ? `Hold piece: ${state.heldPiece}` : 'Hold piece');
     }
   }
 
@@ -691,6 +692,8 @@
     });
     button.addEventListener('pointerup', () => onTouchButtonUp(action));
     button.addEventListener('pointercancel', () => onTouchButtonUp(action));
+    // Only release on pointerleave when not captured; instant-action buttons (hold, rotate,
+    // hard-drop) never capture, but onTouchButtonUp is a no-op for them so this is safe.
     button.addEventListener('pointerleave', (event) => {
       if (!button.hasPointerCapture(event.pointerId)) onTouchButtonUp(action);
     });

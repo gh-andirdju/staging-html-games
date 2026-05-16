@@ -511,6 +511,56 @@ test('4-line Tetris clear awards correct score and status message', async ({ pag
   expect(after.statusTone).toBe('milestone');
 });
 
+test('control deck buttons are keyboard-activatable via Enter', async ({ page }) => {
+  await openGame(page);
+  const initial = await getState(page);
+
+  await page.locator('[data-action="rotate-cw"]').focus();
+  await page.keyboard.press('Enter');
+  const afterRotate = await getState(page);
+  expect(afterRotate.current.rotation).toBe((initial.current.rotation + 1) % 4);
+
+  await page.locator('[data-action="rotate-ccw"]').focus();
+  await page.keyboard.press('Enter');
+  const afterCcw = await getState(page);
+  expect(afterCcw.current.rotation).toBe(initial.current.rotation);
+});
+
+test('NEXT and HOLD canvases render non-blank pixels after preview is set', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, { ...state, heldPiece: 'S', nextPieceType: 'I' });
+  await advanceFrames(page, 1);
+
+  const hasPixels = await page.evaluate(() => {
+    function canvasHasContent(id) {
+      const canvas = document.getElementById(id);
+      const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      return Array.from(data).some((v, i) => i % 4 === 3 && v > 0);
+    }
+    return { next: canvasHasContent('next-canvas'), hold: canvasHasContent('hold-canvas') };
+  });
+  expect(hasPixels.next).toBe(true);
+  expect(hasPixels.hold).toBe(true);
+});
+
+test('natural gravity locks piece immediately with no extra delay', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+    gravityTick: 47, lockTimer: 0
+  });
+
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  // Gravity fires and immediately locks (no LOCK_DELAY_FRAMES buffer on gravity drops)
+  expect(after.board[18][4]).toBeGreaterThan(0);
+  expect(after.current).not.toBeNull();
+});
+
 test('control deck buttons are keyboard-activatable via Space', async ({ page }) => {
   await openGame(page);
   const initial = await getState(page);
@@ -538,6 +588,8 @@ test('hold-preview div is keyboard-activatable via Space', async ({ page }) => {
   const after = await getState(page);
   expect(after.heldPiece).toBe(initial.current.type);
   expect(after.holdUsed).toBe(true);
+  expect(after.nextPieceType).not.toBeNull();
+  expect(after.nextPieceType).not.toBe(after.current.type);
 });
 
 test('hold piece mechanic saves and swaps piece', async ({ page }) => {
