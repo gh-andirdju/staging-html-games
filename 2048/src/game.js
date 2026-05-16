@@ -61,11 +61,13 @@
   function slideRow(row) {
     const tiles = row.filter(v => v !== 0);
     const merged = [];
+    const mergeAt = [];
     let scoreGained = 0;
     let i = 0;
     while (i < tiles.length) {
       if (i + 1 < tiles.length && tiles[i] === tiles[i + 1]) {
         const val = tiles[i] * 2;
+        mergeAt.push(merged.length);
         merged.push(val);
         scoreGained += val;
         i += 2;
@@ -75,7 +77,7 @@
       }
     }
     while (merged.length < GRID_SIZE) merged.push(0);
-    return { row: merged, scoreGained };
+    return { row: merged, scoreGained, mergeAt };
   }
 
   let state = null;
@@ -84,10 +86,21 @@
   let guideStep = -1;
   let focusBeforeGuide = null;
 
+  function unmapPosition(direction, rowIdx, colIdx) {
+    if (direction === 'left') return [rowIdx, colIdx];
+    if (direction === 'right') return [rowIdx, GRID_SIZE - 1 - colIdx];
+    if (direction === 'up') return [colIdx, rowIdx];
+    return [GRID_SIZE - 1 - colIdx, rowIdx]; // down
+  }
+
   function slide(direction) {
+    state.newTilePos = null;
+    state.mergedCells = new Set();
+
     let grid = state.grid.map(row => row.slice());
     let scoreGained = 0;
     let moved = false;
+    const mergedCells = new Set();
 
     if (direction === 'right') {
       grid = grid.map(row => row.slice().reverse());
@@ -97,11 +110,15 @@
       grid = transpose(grid).map(row => row.slice().reverse());
     }
 
-    grid = grid.map(row => {
+    grid = grid.map((row, rowIdx) => {
       const before = row.join(',');
       const result = slideRow(row);
       scoreGained += result.scoreGained;
       if (result.row.join(',') !== before) moved = true;
+      result.mergeAt.forEach(colIdx => {
+        const [r, c] = unmapPosition(direction, rowIdx, colIdx);
+        mergedCells.add(`${r},${c}`);
+      });
       return result.row;
     });
 
@@ -117,6 +134,7 @@
     if (!moved) return false;
 
     state.grid = grid;
+    state.mergedCells = mergedCells;
     state.score += scoreGained;
     if (state.score > state.best) {
       state.best = state.score;
@@ -136,6 +154,7 @@
     if (empty.length === 0) return;
     const [row, col] = empty[Math.floor(nextRandom() * empty.length)];
     state.grid[row][col] = nextRandom() < 0.9 ? 2 : 4;
+    state.newTilePos = [row, col];
   }
 
   function checkWin() {
@@ -177,6 +196,7 @@
   }
 
   function render() {
+    cells.forEach(cell => cell.classList.remove('tile-new', 'tile-merged'));
     for (let r = 0; r < GRID_SIZE; r++) {
       for (let c = 0; c < GRID_SIZE; c++) {
         const idx = r * GRID_SIZE + c;
@@ -195,6 +215,17 @@
       statusWrapEl.dataset.tone = 'win';
     } else {
       delete statusWrapEl.dataset.tone;
+    }
+    void gridEl.offsetWidth;
+    if (state.newTilePos) {
+      const [r, c] = state.newTilePos;
+      cells[r * GRID_SIZE + c].classList.add('tile-new');
+    }
+    if (state.mergedCells) {
+      state.mergedCells.forEach(key => {
+        const [r, c] = key.split(',').map(Number);
+        cells[r * GRID_SIZE + c].classList.add('tile-merged');
+      });
     }
   }
 
@@ -284,10 +315,13 @@
       best: loadBest(),
       gameOver: false,
       won: false,
-      statusMessage: 'Playing'
+      statusMessage: 'Playing',
+      newTilePos: null,
+      mergedCells: new Set()
     };
     spawnTile();
     spawnTile();
+    state.newTilePos = null;
     render();
   }
 
@@ -390,6 +424,8 @@
       if (typeof nextState.won === 'boolean') state.won = nextState.won;
       if (typeof nextState.rngSeed === 'number') rngSeed = nextState.rngSeed;
       if (typeof nextState.statusMessage === 'string') state.statusMessage = nextState.statusMessage;
+      state.newTilePos = null;
+      state.mergedCells = new Set();
       render();
     },
     async advanceFrames(n) {
@@ -406,6 +442,8 @@
       if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return;
       if (typeof value !== 'number' || value <= 0) return;
       state.grid[row][col] = value;
+      state.newTilePos = [row, col];
+      state.mergedCells = new Set();
       checkWin();
       checkGameOver();
       render();
