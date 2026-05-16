@@ -194,6 +194,22 @@ body {
   font-size: clamp(11px, 3vw, 17px);
   box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
 }
+
+@keyframes tile-pop {
+  0%   { transform: scale(0); }
+  60%  { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes tile-merge {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.tile-new    { animation: tile-pop   0.15s ease; }
+.tile-merged { animation: tile-merge 0.2s  ease; }
+
 .cell[data-value="4096"],
 .cell[data-value="8192"],
 .cell[data-value="16384"],
