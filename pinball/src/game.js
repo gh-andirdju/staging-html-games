@@ -267,20 +267,24 @@
     var dy = ball.y - peg.y;
     var dist = Math.sqrt(dx * dx + dy * dy);
     var minD = ball.radius + peg.radius;
-    if (dist >= minD || dist < 0.001) {
+    if (dist >= minD) {
       return false;
     }
-    var nx = dx / dist;
-    var ny = dy / dist;
+    var nx, ny;
+    if (dist < 0.001) {
+      nx = 0; ny = -1;
+    } else {
+      nx = dx / dist; ny = dy / dist;
+    }
     ball.x = peg.x + nx * (minD + 0.5);
     ball.y = peg.y + ny * (minD + 0.5);
     var vn = ball.vx * nx + ball.vy * ny;
     if (vn < 0) {
       ball.vx -= (1 + PEG_RESTITUTION) * vn * nx;
       ball.vy -= (1 + PEG_RESTITUTION) * vn * ny;
+      ball.vx += nx * PEG_REPEL_SPEED;
+      ball.vy += ny * PEG_REPEL_SPEED;
     }
-    ball.vx += nx * PEG_REPEL_SPEED;
-    ball.vy += ny * PEG_REPEL_SPEED;
     peg.hitTimer = PEG_FLASH_FRAMES;
     return true;
   }
@@ -294,20 +298,24 @@
     var dy = ball.y - cp.y;
     var dist = Math.sqrt(dx * dx + dy * dy);
     var minD = ball.radius + SLING_THICKNESS / 2;
-    if (dist >= minD || dist < 0.001) {
+    if (dist >= minD) {
       return false;
     }
-    var nx = dx / dist;
-    var ny = dy / dist;
+    var nx, ny;
+    if (dist < 0.001) {
+      nx = sling.nx; ny = sling.ny;
+    } else {
+      nx = dx / dist; ny = dy / dist;
+    }
     ball.x = cp.x + nx * (minD + 0.5);
     ball.y = cp.y + ny * (minD + 0.5);
     var vn = ball.vx * nx + ball.vy * ny;
     if (vn < 0) {
       ball.vx -= (1 + SLING_RESTITUTION) * vn * nx;
       ball.vy -= (1 + SLING_RESTITUTION) * vn * ny;
+      ball.vx += sling.nx * SLING_KICK_SPEED;
+      ball.vy += sling.ny * SLING_KICK_SPEED;
     }
-    ball.vx += sling.nx * SLING_KICK_SPEED;
-    ball.vy += sling.ny * SLING_KICK_SPEED;
     sling.hitTimer = SLING_FLASH_FRAMES;
     return true;
   }

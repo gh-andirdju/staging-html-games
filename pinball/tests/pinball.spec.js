@@ -596,6 +596,30 @@ test('peg collision scores and sets hitTimer', async ({ page }) => {
   expect(after.pegs[2].hitTimer).toBeGreaterThan(0);
 });
 
+test('rollover re-arms after drain and resets on game restart', async ({ page }) => {
+  await openGame(page);
+  // Light a rollover, then drain to game_over and restart — rollovers must be unlit
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      balls: 1,
+      rollovers: [
+        { x: 150, y: 96, radius: 11, lit: true, hitTimer: 0 },
+        { x: 200, y: 84, radius: 11, lit: true, hitTimer: 0 },
+        { x: 250, y: 96, radius: 11, lit: true, hitTimer: 0 }
+      ],
+      ball: { x: 200, y: 720, vx: 0, vy: 200, radius: 10, launched: true }
+    });
+  });
+  await advanceFrames(page, 5);
+  const afterGameOver = await getState(page);
+  expect(afterGameOver.status).toBe('game_over');
+  // Restart — makeInitialState resets everything including rollovers
+  await page.evaluate(() => window.__pinballTest.restart());
+  const afterRestart = await getState(page);
+  expect(afterRestart.rollovers.every((ro) => !ro.lit)).toBe(true);
+});
+
 test('rollover lights up and scores once', async ({ page }) => {
   await openGame(page);
   await page.evaluate(() => {
