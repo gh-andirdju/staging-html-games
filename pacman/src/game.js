@@ -301,6 +301,14 @@
       pm.tileRow = pm.targetRow;
       pm.tileCol = ((pm.targetCol % COLS) + COLS) % COLS;
 
+      // Stop at tile boundary if no direction key is held
+      if (Object.keys(pressedDirs).length === 0) {
+        pm.targetRow = pm.tileRow;
+        pm.targetCol = pm.tileCol;
+        pm.moveProgress = 0;
+        break;
+      }
+
       // Try buffered direction first
       var nr = pm.tileRow + DIR_VECTORS[pm.nextDirection].dr;
       var nc = pm.tileCol + DIR_VECTORS[pm.nextDirection].dc;
@@ -783,13 +791,26 @@
     w: "up", s: "down", a: "left", d: "right",
     W: "up", S: "down", A: "left", D: "right"
   };
+  var pressedDirs = {};
 
   window.addEventListener("keydown", function (e) {
     var dir = KEY_DIR[e.key];
     if (dir) {
+      pressedDirs[dir] = true;
       state.pacman.nextDirection = dir;
       e.preventDefault();
     }
+  });
+
+  window.addEventListener("keyup", function (e) {
+    var dir = KEY_DIR[e.key];
+    if (dir) {
+      delete pressedDirs[dir];
+    }
+  });
+
+  window.addEventListener("blur", function () {
+    pressedDirs = {};
   });
 
   document.querySelectorAll(".dpad-btn[data-action]").forEach(function (btn) {
