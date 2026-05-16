@@ -538,6 +538,7 @@
           state.bullets.splice(bi, 1);
           if (state.boss.hp <= 0) {
             state.boss.alive = false;
+            if (state.boss.beam) state.boss.beam.active = false;
             state.score += BOSS_SCORE * scoreMultiplier;
           } else {
             state.boss.flashTimer = 20;
