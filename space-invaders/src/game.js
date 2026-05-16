@@ -142,6 +142,7 @@
       y: BOSS_Y,
       hp: 2,
       alive: true,
+      age: 0,
       flashTimer: 0,
       beamTimer: BOSS_BEAM_INTERVAL,
       beam: null
@@ -321,8 +322,9 @@
     var boss = state.boss;
     if (!boss || !boss.alive) return;
 
-    // Slow horizontal oscillation
-    boss.x += Math.sin(state.enemyMoveTimer * 0.05) * 0.8;
+    // Slow horizontal oscillation using a dedicated monotonic age counter
+    boss.age++;
+    boss.x += Math.sin(boss.age * 0.05) * 0.8;
     boss.x = Math.max(0, Math.min(WIDTH - BOSS_W, boss.x));
 
     if (boss.flashTimer > 0) boss.flashTimer--;
@@ -654,7 +656,7 @@
       ctx.font = 'bold 18px monospace';
       ctx.fillStyle = '#facc15';
       ctx.textAlign = 'center';
-      ctx.fillText('★ CHALLENGE STAGE — 2× POINTS ★', WIDTH / 2, 12);
+      ctx.fillText('★ CHALLENGE STAGE — 2× POINTS ★', WIDTH / 2, 22);
     }
 
     // Draw shields
