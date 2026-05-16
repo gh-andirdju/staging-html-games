@@ -238,6 +238,68 @@ test('four equal tiles in a row produce two merged pairs not one chain', async (
   expect(tileCount).toBe(3);
 });
 
+// Animation classes
+
+test('tile-merged class applied to merged cell when sliding left', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [[2,2,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
+    score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('#grid .cell').nth(0)).toHaveClass(/tile-merged/);
+});
+
+test('tile-merged class applied to merged cell when sliding right', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [[0,0,2,2],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
+    score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#grid .cell').nth(3)).toHaveClass(/tile-merged/);
+});
+
+test('tile-merged class applied to merged cell when sliding up', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [[2,0,0,0],[2,0,0,0],[0,0,0,0],[0,0,0,0]],
+    score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+  await page.keyboard.press('ArrowUp');
+  await expect(page.locator('#grid .cell').nth(0)).toHaveClass(/tile-merged/);
+});
+
+test('tile-merged class applied to merged cell when sliding down', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [[0,0,0,0],[0,0,0,0],[2,0,0,0],[2,0,0,0]],
+    score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#grid .cell').nth(12)).toHaveClass(/tile-merged/);
+});
+
+test('exactly one tile gets tile-new class after a valid slide', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [[2,2,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
+    score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('#grid .cell.tile-new')).toHaveCount(1);
+});
+
+test('spawnTile API triggers tile-new animation on the placed cell', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
+    score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+  await page.evaluate(() => window.__2048Test.spawnTile(512, 2, 2));
+  await expect(page.locator('#grid .cell').nth(10)).toHaveClass(/tile-new/);
+});
+
 // No-move case
 
 test('slide in direction with no valid moves does not change state', async ({ page }) => {
