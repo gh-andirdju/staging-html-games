@@ -260,10 +260,15 @@
     var cfg = state.waveConfig;
     if (!cfg || cfg.diveBombers === 0) return;
 
-    // Launch new dive bomber if conditions allow
+    // Launch new dive bomber if conditions allow.
+    // Count only alive bombers — dead ones awaiting splice must not block a launch.
+    var liveDivers = 0;
+    for (var j = 0; j < state.diveBombers.length; j++) {
+      if (state.diveBombers[j].alive) liveDivers++;
+    }
     if (state.diveBomberCooldown > 0) {
       state.diveBomberCooldown--;
-    } else if (state.diveBombers.length < cfg.diveBombers) {
+    } else if (liveDivers < cfg.diveBombers) {
       // Candidates: alive row-0 enemies
       var candidates = [];
       for (var i = 0; i < ENEMY_COLS; i++) {
@@ -639,7 +644,7 @@
       state.enemyDropPending = false;
       state.enemyMoveTimer = 60;
       var initScale = (state.waveConfig && state.waveConfig.fireRateScale) || 1.0;
-      state.enemyFireTimer = Math.round(80 / initScale);
+      state.enemyFireTimer = Math.round(FIRE_COOLDOWN_MIN / initScale);
       state.bullets = [];
       state.enemyBullets = [];
     }
