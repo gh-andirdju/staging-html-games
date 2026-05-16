@@ -142,7 +142,8 @@
       state.lockTimer = 0;
       state.gravityTick = 0;
     }
-    // spawnPiece() resets holdUsed to false for the new piece; re-lock it here for this hold cycle.
+    // After first-hold, spawnPiece() cleared holdUsed for the spawned piece; after a swap it was
+    // already false. Either way, lock it now to block a second hold until the next piece spawns.
     state.holdUsed = true;
     setStatusMessage(`Hold: ${currentType}`);
   }

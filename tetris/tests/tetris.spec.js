@@ -198,6 +198,12 @@ test('renders and exposes ready test API', async ({ page }) => {
   }).toBeGreaterThan(500);
 });
 
+test('getControlsState returns handedness stub', async ({ page }) => {
+  await openGame(page);
+  const controls = await getControlsState(page);
+  expect(controls).toEqual({ handedness: 'right' });
+});
+
 test('keyboard move rotate and hard drop work', async ({ page }) => {
   await openGame(page);
   const start = await getState(page);
@@ -443,8 +449,8 @@ test('CCW rotation kicks away from right wall when base rotation overflows', asy
   await openGame(page);
   const state = await getState(page);
 
-  // I-piece vertical (rot 1) at x=8: CCW to rot 0 would place a cell at column 10 (out of bounds)
-  // The kick sequence [1,-1,2,-2] must pick offset -1 → x=7, which fits in columns 6-9
+  // I-piece vertical (rot 1) at x=8: CCW to rot 0 puts a cell at col 10 (out of bounds)
+  // kick +1 is tried first (cols 8-11, fails); kick -1 lands at x=7 (cols 6-9, valid)
   await setState(page, {
     ...state,
     board: Array.from({ length: 20 }, () => Array(10).fill(0)),
@@ -774,6 +780,25 @@ test('hold swap cancelled without state corruption when spawn is blocked', async
   expect(after.current.type).toBe('T');
   expect(after.heldPiece).toBe('I');
   expect(after.holdUsed).toBe(false);
+});
+
+test('hold is silently ignored during an active clear animation', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Inject an active clear animation directly into state
+  await setState(page, {
+    ...state,
+    heldPiece: null,
+    holdUsed: false,
+    clearAnimation: { rows: [19], frame: 0, totalFrames: 30, blinkInterval: 6 }
+  });
+
+  await page.keyboard.press('c');
+  const after = await getState(page);
+  expect(after.heldPiece).toBeNull();
+  expect(after.holdUsed).toBe(false);
+  expect(after.clearAnimation).not.toBeNull(); // animation still running
 });
 
 test('first hold resets gravityTick so new piece gets a full gravity cycle', async ({ page }) => {
