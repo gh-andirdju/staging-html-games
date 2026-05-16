@@ -204,7 +204,8 @@
     updateLevelAndSpeed();
     if (cleared === 4) {
       const linesToNextLevel = (10 - (state.lines % 10)) || 10;
-      setStatusMessage(`Tetris clear: ${linesToNextLevel} lines to next level`, 'milestone');
+      const levelTag = state.level > previousLevel ? ` · Level ${state.level}!` : '';
+      setStatusMessage(`Tetris clear: ${linesToNextLevel} lines to next level${levelTag}`, 'milestone');
       return;
     }
     if (state.level > previousLevel) {
@@ -686,6 +687,8 @@
     const action = button.dataset.action;
     button.addEventListener('pointerdown', (event) => {
       event.preventDefault();
+      // preventDefault() blocks focus transfer for non-button elements; restore it manually.
+      if (button.tagName !== 'BUTTON') button.focus();
       if (action === 'left' || action === 'right' || action === 'soft-drop') {
         try { button.setPointerCapture(event.pointerId); } catch (_) { /* synthetic event */ }
       }

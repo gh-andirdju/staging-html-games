@@ -611,18 +611,31 @@ test('control deck buttons are keyboard-activatable via Space', async ({ page })
   expect(afterCcw.current.rotation).toBe(initial.current.rotation);
 });
 
-test('hold-preview div is keyboard-activatable via Space', async ({ page }) => {
+test('hold-preview div is keyboard-activatable via Space and Enter', async ({ page }) => {
   await openGame(page);
   const initial = await getState(page);
   expect(initial.heldPiece).toBeNull();
 
+  // Space path
   await page.locator('[data-action="hold"]').focus();
   await page.keyboard.press('Space');
-  const after = await getState(page);
-  expect(after.heldPiece).toBe(initial.current.type);
-  expect(after.holdUsed).toBe(true);
-  expect(after.nextPieceType).not.toBeNull();
-  expect(after.nextPieceType).not.toBe(after.current.type);
+  const afterSpace = await getState(page);
+  expect(afterSpace.heldPiece).toBe(initial.current.type);
+  expect(afterSpace.holdUsed).toBe(true);
+  expect(afterSpace.nextPieceType).not.toBeNull();
+  expect(afterSpace.nextPieceType).not.toBe(afterSpace.current.type);
+
+  // Drop the current piece so holdUsed resets, then test Enter path
+  const hardBtn = page.locator('[data-action="hard-drop"]');
+  await hardBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 1);
+  await hardBtn.dispatchEvent('pointerup');
+  await advanceFrames(page, 2);
+
+  await page.locator('[data-action="hold"]').focus();
+  await page.keyboard.press('Enter');
+  const afterEnter = await getState(page);
+  expect(afterEnter.holdUsed).toBe(true);
 });
 
 test('hold piece mechanic saves and swaps piece', async ({ page }) => {
@@ -641,18 +654,26 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   expect(afterFirstHold.nextPieceType).not.toBe(afterFirstHold.current.type);
   expect(afterFirstHold.statusMessage).toMatch(/hold/i);
   await expect(page.locator('#status')).toHaveText(afterFirstHold.statusMessage);
-  await expect(page.locator('[data-action="hold"]')).toHaveAttribute('aria-disabled', 'true');
+  const holdBox = page.locator('[data-action="hold"]');
+  await expect(holdBox).toHaveAttribute('aria-disabled', 'true');
+  await expect(holdBox).toHaveAttribute('aria-label', `Hold piece: ${initialType}`);
+  await expect(holdBox).toHaveClass(/hold-locked/);
+  await expect(holdBox).not.toHaveClass(/hold-empty/);
 
   await page.keyboard.press('c');
+  await advanceFrames(page, 1);
   const afterSecondAttempt = await getState(page);
   expect(afterSecondAttempt.heldPiece).toBe(initialType);
   expect(afterSecondAttempt.current.type).toBe(afterFirstHold.current.type);
+  expect(afterSecondAttempt.statusMessage).toBe('Hold not available');
+  await expect(page.locator('#status')).toHaveText('Hold not available');
 
   await page.keyboard.press('Space');
   await advanceFrames(page, 1);
   const afterDrop = await getState(page);
   expect(afterDrop.holdUsed).toBe(false);
-  await expect(page.locator('[data-action="hold"]')).toHaveAttribute('aria-disabled', 'false');
+  await expect(holdBox).toHaveAttribute('aria-disabled', 'false');
+  await expect(holdBox).not.toHaveClass(/hold-locked/);
 
   const beforeSwapType = afterDrop.current.type;
   await page.keyboard.press('c');
