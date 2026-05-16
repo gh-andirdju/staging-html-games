@@ -524,6 +524,22 @@ test.describe('touch swipe controls', () => {
 // Beginner guide
 
 test.describe('beginner guide', () => {
+  function guideApiReady(api) {
+    return (
+      api && api.isReady &&
+      typeof api.getState === 'function' &&
+      typeof api.setState === 'function' &&
+      typeof api.advanceFrames === 'function' &&
+      typeof api.restart === 'function' &&
+      typeof api.setAutoStep === 'function' &&
+      typeof api.spawnTile === 'function' &&
+      typeof api.isGuideVisible === 'function' &&
+      typeof api.getGuideStep === 'function' &&
+      typeof api.showGuide === 'function' &&
+      typeof api.dismissGuide === 'function'
+    );
+  }
+
   async function openGameFresh(page) {
     await page.goto('./');
     await page.evaluate(() => {
@@ -535,6 +551,12 @@ test.describe('beginner guide', () => {
       const api = window.__2048Test;
       return (
         api && api.isReady &&
+        typeof api.getState === 'function' &&
+        typeof api.setState === 'function' &&
+        typeof api.advanceFrames === 'function' &&
+        typeof api.restart === 'function' &&
+        typeof api.setAutoStep === 'function' &&
+        typeof api.spawnTile === 'function' &&
         typeof api.isGuideVisible === 'function' &&
         typeof api.getGuideStep === 'function' &&
         typeof api.showGuide === 'function' &&
@@ -556,6 +578,12 @@ test.describe('beginner guide', () => {
       const api = window.__2048Test;
       return (
         api && api.isReady &&
+        typeof api.getState === 'function' &&
+        typeof api.setState === 'function' &&
+        typeof api.advanceFrames === 'function' &&
+        typeof api.restart === 'function' &&
+        typeof api.setAutoStep === 'function' &&
+        typeof api.spawnTile === 'function' &&
         typeof api.isGuideVisible === 'function' &&
         typeof api.getGuideStep === 'function' &&
         typeof api.showGuide === 'function' &&
@@ -597,6 +625,39 @@ test.describe('beginner guide', () => {
     await openGameFresh(page);
     const domStepCount = await page.evaluate(() => document.querySelectorAll('.guide-step').length);
     expect(domStepCount).toBe(4);
+  });
+
+  test('guide DOM has 4 dots matching JS constant', async ({ page }) => {
+    await openGameFresh(page);
+    const domDotCount = await page.evaluate(() => document.querySelectorAll('.guide-dot').length);
+    expect(domDotCount).toBe(4);
+  });
+
+  test('aria-labelledby updates as steps advance', async ({ page }) => {
+    await openGameFresh(page);
+    const label0 = await page.getAttribute('#guide-overlay', 'aria-labelledby');
+    expect(label0).toBe('guide-title-0');
+    await page.click('#guide-next');
+    const label1 = await page.getAttribute('#guide-overlay', 'aria-labelledby');
+    expect(label1).toBe('guide-title-1');
+    await page.click('#guide-next');
+    const label2 = await page.getAttribute('#guide-overlay', 'aria-labelledby');
+    expect(label2).toBe('guide-title-2');
+  });
+
+  test('guide-live announces step title and step count', async ({ page }) => {
+    await openGameFresh(page);
+    await page.waitForFunction(() => {
+      const el = document.getElementById('guide-live');
+      return el && el.textContent.includes('Step 1 of 4');
+    });
+    await page.click('#guide-next');
+    await page.waitForFunction(() => {
+      const el = document.getElementById('guide-live');
+      return el && el.textContent.includes('Step 2 of 4');
+    });
+    const text = await page.evaluate(() => document.getElementById('guide-live').textContent);
+    expect(text).toContain('Step 2 of 4');
   });
 
   test('Next on last step closes guide', async ({ page }) => {
