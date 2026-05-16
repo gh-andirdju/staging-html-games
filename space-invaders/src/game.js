@@ -644,7 +644,8 @@
       state.enemyDropPending = false;
       state.enemyMoveTimer = 60;
       var initScale = (state.waveConfig && state.waveConfig.fireRateScale) || 1.0;
-      state.enemyFireTimer = Math.round(FIRE_COOLDOWN_MIN / initScale);
+      state.enemyFireTimer = Math.round(FIRE_COOLDOWN_MIN / initScale)
+        + Math.floor(rng() * Math.round(FIRE_COOLDOWN_RANGE / initScale));
       state.bullets = [];
       state.enemyBullets = [];
     }
