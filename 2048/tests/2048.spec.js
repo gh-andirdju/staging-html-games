@@ -17,7 +17,10 @@ test.afterEach(async ({ page }) => {
 
 async function openGame(page) {
   await page.goto('./');
-  await page.evaluate(() => window.localStorage.removeItem('2048-best'));
+  await page.evaluate(() => {
+    window.localStorage.removeItem('2048-best');
+    window.localStorage.setItem('2048-guide-seen', '1');
+  });
   await page.reload();
   await page.waitForFunction(() => {
     const api = window.__2048Test;
@@ -510,6 +513,117 @@ test.describe('touch swipe controls', () => {
     });
     const after = await getState(page);
     expect(after.grid).toEqual(before.grid);
+  });
+});
+
+// Beginner guide
+
+test.describe('beginner guide', () => {
+  async function openGameFresh(page) {
+    await page.goto('./');
+    await page.evaluate(() => {
+      window.localStorage.removeItem('2048-best');
+      window.localStorage.removeItem('2048-guide-seen');
+    });
+    await page.reload();
+    await page.waitForFunction(() => {
+      const api = window.__2048Test;
+      return api && api.isReady && typeof api.isGuideVisible === 'function';
+    });
+    await page.evaluate(() => window.__2048Test.setAutoStep(false));
+  }
+
+  async function openGameSeen(page) {
+    await page.goto('./');
+    await page.evaluate(() => {
+      window.localStorage.removeItem('2048-best');
+      window.localStorage.setItem('2048-guide-seen', '1');
+    });
+    await page.reload();
+    await page.waitForFunction(() => {
+      const api = window.__2048Test;
+      return api && api.isReady && typeof api.isGuideVisible === 'function';
+    });
+    await page.evaluate(() => window.__2048Test.setAutoStep(false));
+  }
+
+  test('shows on first visit', async ({ page }) => {
+    await openGameFresh(page);
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(true);
+  });
+
+  test('starts on step 0', async ({ page }) => {
+    await openGameFresh(page);
+    const step = await page.evaluate(() => window.__2048Test.getGuideStep());
+    expect(step).toBe(0);
+  });
+
+  test('Next advances to step 1', async ({ page }) => {
+    await openGameFresh(page);
+    await page.click('#guide-next');
+    const step = await page.evaluate(() => window.__2048Test.getGuideStep());
+    expect(step).toBe(1);
+  });
+
+  test('Back retreats step', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => window.__2048Test.showGuide(2));
+    await page.click('#guide-prev');
+    const step = await page.evaluate(() => window.__2048Test.getGuideStep());
+    expect(step).toBe(1);
+  });
+
+  test('Next on last step closes guide', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => window.__2048Test.showGuide(3));
+    await page.click('#guide-next');
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
+  });
+
+  test('Skip button closes guide', async ({ page }) => {
+    await openGameFresh(page);
+    await page.click('#guide-close');
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
+  });
+
+  test('does not show if already seen', async ({ page }) => {
+    await openGameSeen(page);
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
+  });
+
+  test('help button reopens guide at step 0', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => window.__2048Test.dismissGuide());
+    await page.click('#guide-help');
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    const step = await page.evaluate(() => window.__2048Test.getGuideStep());
+    expect(visible).toBe(true);
+    expect(step).toBe(0);
+  });
+
+  test('guide does not reappear after restart', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => window.__2048Test.dismissGuide());
+    await page.click('#restart');
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
+  });
+
+  test('Back hidden on step 0', async ({ page }) => {
+    await openGameFresh(page);
+    const backHidden = await page.evaluate(() => document.getElementById('guide-prev').hidden);
+    expect(backHidden).toBe(true);
+  });
+
+  test('Next shows Start Playing on last step', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => window.__2048Test.showGuide(3));
+    const text = await page.textContent('#guide-next');
+    expect(text).toBe('Start Playing');
   });
 });
 

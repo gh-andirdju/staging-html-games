@@ -2,6 +2,8 @@
   const GRID_SIZE = 4;
   const WIN_VALUE = 2048;
   const BEST_STORAGE_KEY = '2048-best';
+  const GUIDE_STORAGE_KEY = '2048-guide-seen';
+  const GUIDE_TOTAL_STEPS = 4;
 
   const gridEl = document.getElementById('grid');
   const scoreEl = document.getElementById('score');
@@ -9,6 +11,13 @@
   const statusEl = document.getElementById('status');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl = document.getElementById('restart');
+  const guideOverlayEl = document.getElementById('guide-overlay');
+  const guideNextEl = document.getElementById('guide-next');
+  const guidePrevEl = document.getElementById('guide-prev');
+  const guideCloseEl = document.getElementById('guide-close');
+  const guideHelpEl = document.getElementById('guide-help');
+  const guideStepEls = Array.from(document.querySelectorAll('.guide-step'));
+  const guideDotEls = Array.from(document.querySelectorAll('.guide-dot'));
 
   const cells = Array.from({ length: GRID_SIZE * GRID_SIZE }, () => {
     const div = document.createElement('div');
@@ -71,6 +80,7 @@
   let state = null;
   let autoStep = true;
   let rafId = null;
+  let guideStep = -1;
 
   function slide(direction) {
     let grid = state.grid.map(row => row.slice());
@@ -186,6 +196,42 @@
     }
   }
 
+  function renderGuide() {
+    guideStepEls.forEach((el, i) => { el.hidden = i !== guideStep; });
+    guideDotEls.forEach((el, i) => el.classList.toggle('active', i === guideStep));
+    guidePrevEl.hidden = guideStep === 0;
+    guideNextEl.textContent = guideStep === GUIDE_TOTAL_STEPS - 1 ? 'Start Playing' : 'Next';
+  }
+
+  function showGuide(step) {
+    guideStep = step ?? 0;
+    guideOverlayEl.hidden = false;
+    renderGuide();
+  }
+
+  function hideGuide() {
+    guideOverlayEl.hidden = true;
+    guideStep = -1;
+    try { localStorage.setItem(GUIDE_STORAGE_KEY, '1'); } catch {}
+  }
+
+  function hasSeenGuide() {
+    try { return Boolean(localStorage.getItem(GUIDE_STORAGE_KEY)); } catch { return false; }
+  }
+
+  guideNextEl.addEventListener('click', () => {
+    if (guideStep >= GUIDE_TOTAL_STEPS - 1) { hideGuide(); return; }
+    guideStep++;
+    renderGuide();
+  });
+  guidePrevEl.addEventListener('click', () => {
+    if (guideStep <= 0) return;
+    guideStep--;
+    renderGuide();
+  });
+  guideCloseEl.addEventListener('click', hideGuide);
+  guideHelpEl.addEventListener('click', () => showGuide(0));
+
   function restartGame() {
     rngSeed = (Math.random() * 4294967296) >>> 0;
     state = {
@@ -270,6 +316,7 @@
 
   restartGame();
   setAutoStep(true);
+  if (!hasSeenGuide()) showGuide(0);
 
   window.__2048Test = {
     isReady: true,
@@ -316,6 +363,10 @@
       checkWin();
       checkGameOver();
       render();
-    }
+    },
+    isGuideVisible() { return !guideOverlayEl.hidden; },
+    getGuideStep() { return guideStep; },
+    showGuide(step) { showGuide(step); },
+    dismissGuide() { hideGuide(); }
   };
 })();
