@@ -605,10 +605,12 @@
       }
     }
 
-    // Boss beam vs player
+    // Boss beam vs shields then player
     if (state.boss && state.boss.alive && state.boss.beam && state.boss.beam.active) {
       var beam = state.boss.beam;
-      if (rectOverlap(beam.x, beam.y, BOSS_BEAM_W, 40,
+      if (bulletHitsShield(beam.x, beam.y, BOSS_BEAM_W, 40)) {
+        beam.active = false;
+      } else if (rectOverlap(beam.x, beam.y, BOSS_BEAM_W, 40,
                       state.player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT)) {
         beam.active = false;
         state.lives--;
