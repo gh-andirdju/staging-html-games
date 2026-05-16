@@ -240,6 +240,7 @@
     if (guideStep <= 0) return;
     guideStep--;
     renderGuide();
+    guideNextEl.focus();
   });
   guideCloseEl.addEventListener('click', hideGuide);
   guideHelpEl.addEventListener('click', () => showGuide(0));

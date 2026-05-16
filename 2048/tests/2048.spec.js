@@ -533,7 +533,8 @@ test.describe('beginner guide', () => {
         typeof api.isGuideVisible === 'function' &&
         typeof api.getGuideStep === 'function' &&
         typeof api.showGuide === 'function' &&
-        typeof api.dismissGuide === 'function'
+        typeof api.dismissGuide === 'function' &&
+        api.isGuideVisible() === true
       );
     });
     await page.evaluate(() => window.__2048Test.setAutoStep(false));
@@ -682,8 +683,38 @@ test.describe('beginner guide', () => {
     const scrollBefore = await page.evaluate(() => window.scrollY);
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowRight');
     const scrollAfter = await page.evaluate(() => window.scrollY);
     expect(scrollAfter).toBe(scrollBefore);
+  });
+
+  test('swipe does not move tiles while guide is open', async ({ page }) => {
+    await openGameFresh(page);
+    const before = await page.evaluate(() => window.__2048Test.getState());
+    await page.evaluate(() => {
+      const cx = 200, cy = 400;
+      document.dispatchEvent(new TouchEvent('touchstart', {
+        touches: [new Touch({ identifier: 1, target: document.body, clientX: cx, clientY: cy })],
+        bubbles: true, cancelable: true
+      }));
+      document.dispatchEvent(new TouchEvent('touchend', {
+        changedTouches: [new Touch({ identifier: 1, target: document.body, clientX: cx - 80, clientY: cy })],
+        bubbles: true, cancelable: true
+      }));
+    });
+    const after = await page.evaluate(() => window.__2048Test.getState());
+    expect(after.grid).toEqual(before.grid);
+    expect(after.score).toBe(before.score);
+  });
+
+  test('guide does not reshow after dismiss and page reload', async ({ page }) => {
+    await openGameFresh(page);
+    await page.evaluate(() => window.__2048Test.dismissGuide());
+    await page.reload();
+    await page.waitForFunction(() => window.__2048Test?.isReady === true);
+    const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
+    expect(visible).toBe(false);
   });
 });
 
