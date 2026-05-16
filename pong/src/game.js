@@ -309,6 +309,7 @@
     isReady: false,
     getState: publicState,
     readState: publicState,
+    getDifficulty: getDifficulty,
     setState: function (nextState) {
       if (nextState.ball) Object.assign(state.ball, nextState.ball);
       if (nextState.playerPaddle) Object.assign(state.playerPaddle, nextState.playerPaddle);
