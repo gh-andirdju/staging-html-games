@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "bun server.js",
     "dev:pages": "BASE_PATH=/html-games/ bun server.js",
+    "test": "PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers ./node_modules/.bin/playwright test",
     "test:brickbreaker": "cd brickbreaker && bun run test",
     "test:tetris": "cd tetris && bun run test",
     "test:2048": "cd 2048 && bun run test",
@@ -12,6 +13,9 @@
     "test:asteroids": "cd asteroids && bun run test",
     "test:pinball": "cd pinball && bun run test",
     "test:space-invaders": "cd space-invaders && bun run test",
-    "test:all": "cd brickbreaker && bun run test && cd ../tetris && bun run test && cd ../2048 && bun run test && cd ../snake && bun run test && cd ../asteroids && bun run test && cd ../pinball && bun run test && cd ../space-invaders && bun run test"
+    "test:all": "bun run test && cd brickbreaker && bun run test && cd ../tetris && bun run test && cd ../2048 && bun run test && cd ../snake && bun run test && cd ../asteroids && bun run test && cd ../pinball && bun run test && cd ../space-invaders && bun run test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
   }
 }
