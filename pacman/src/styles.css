@@ -1,0 +1,219 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --bg-top: #0a0a1a;
+  --bg-bottom: #04040e;
+  --accent: #ffff00;
+  --accent-rgb: 255, 255, 0;
+  --panel-border: rgba(var(--accent-rgb), 0.22);
+  --text-main: #fef9f0;
+  --shadow: 0 14px 36px rgba(4, 4, 14, 0.6);
+  --button-bg: rgba(30, 30, 80, 0.9);
+  --button-hover: rgba(50, 50, 120, 0.95);
+  --chip-bg: rgba(10, 10, 40, 0.85);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(var(--accent-rgb), 0.08), transparent 30%),
+    linear-gradient(180deg, var(--bg-top), var(--bg-bottom) 62%);
+  color: var(--text-main);
+  font-family: "Trebuchet MS", "Arial Narrow", Arial, sans-serif;
+  display: grid;
+  place-items: start center;
+}
+
+.game-shell {
+  width: min(100vw, 840px);
+  padding: 16px 8px 24px;
+  display: grid;
+  gap: 12px;
+  align-items: start;
+  justify-items: center;
+}
+
+/* ── HUD ─────────────────────────────────────────────── */
+
+.hud {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 18px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: var(--chip-bg);
+  box-shadow: var(--shadow);
+  min-width: 80px;
+}
+
+.stat-chip .label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(var(--accent-rgb), 0.7);
+}
+
+.stat-chip strong {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+/* ── Canvas ──────────────────────────────────────────── */
+
+canvas {
+  display: block;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 0 32px rgba(var(--accent-rgb), 0.08), var(--shadow);
+  max-width: 100%;
+  height: auto;
+}
+
+/* ── Touch controls ──────────────────────────────────── */
+
+.touch-controls {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.thumb-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  background: rgba(10, 10, 30, 0.7);
+}
+
+.control-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(var(--accent-rgb), 0.5);
+}
+
+/* D-pad grid */
+.dpad {
+  display: grid;
+  grid-template-areas:
+    ". up ."
+    "left . right"
+    ". down .";
+  grid-template-columns: repeat(3, 52px);
+  grid-template-rows: repeat(3, 52px);
+  gap: 4px;
+}
+
+.dpad-btn {
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--button-bg);
+  color: var(--text-main);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, transform 0.08s;
+}
+
+.dpad-btn:active {
+  background: var(--button-hover);
+  transform: scale(0.93);
+}
+
+.dpad-btn[data-action="up"]    { grid-area: up; }
+.dpad-btn[data-action="left"]  { grid-area: left; }
+.dpad-btn[data-action="down"]  { grid-area: down; }
+.dpad-btn[data-action="right"] { grid-area: right; }
+
+/* Action zone */
+.action-zone {
+  min-width: 80px;
+}
+
+.action-button {
+  padding: 12px 18px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--button-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: background 0.1s, transform 0.08s;
+  white-space: nowrap;
+}
+
+.action-button:active {
+  background: var(--button-hover);
+  transform: scale(0.95);
+}
+
+/* ── Responsive — portrait (mobile) ─────────────────── */
+
+@media (max-width: 600px) {
+  .game-shell {
+    padding: 10px 6px 16px;
+    gap: 8px;
+  }
+
+  canvas {
+    width: 100%;
+    height: auto;
+  }
+
+  .touch-controls {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .dpad {
+    grid-template-columns: repeat(3, 46px);
+    grid-template-rows: repeat(3, 46px);
+  }
+
+  .dpad-btn {
+    font-size: 16px;
+    border-radius: 10px;
+  }
+
+  .stat-chip {
+    padding: 5px 12px;
+    min-width: 64px;
+  }
+
+  .stat-chip strong {
+    font-size: 16px;
+  }
+}
