@@ -304,7 +304,7 @@
     }
     var nx, ny;
     if (dist < 0.001) {
-      nx = sling.nx; ny = sling.ny;
+      nx = 0; ny = -1;
     } else {
       nx = dx / dist; ny = dy / dist;
     }
@@ -327,15 +327,16 @@
       ro.hitTimer -= 1;
     }
     if (ro.lit) {
-      return;
+      return false;
     }
     var dx = ball.x - ro.x;
     var dy = ball.y - ro.y;
     if (dx * dx + dy * dy <= (ball.radius + ro.radius) * (ball.radius + ro.radius)) {
       ro.lit = true;
       ro.hitTimer = ROLLOVER_FLASH_FRAMES;
-      state.score += ROLLOVER_SCORE * state.level;
+      return true;
     }
+    return false;
   }
 
   function circleHitsRect(bx, by, br, rx, ry, rw, rh) {
@@ -531,7 +532,9 @@
 
     if (state.rollovers) {
       for (var ri = 0; ri < state.rollovers.length; ri += 1) {
-        resolveRollover(ball, state.rollovers[ri]);
+        if (resolveRollover(ball, state.rollovers[ri])) {
+          state.score += ROLLOVER_SCORE * state.level;
+        }
       }
     }
 
