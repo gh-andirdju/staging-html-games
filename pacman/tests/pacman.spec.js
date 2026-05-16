@@ -128,12 +128,6 @@ test('pacman position changes after advancing frames', async ({ page }) => {
   await advanceFrames(page, 60);
   await page.keyboard.up('ArrowRight');
   const after = await getState(page);
-  // Either x changed (moved horizontally) or it hit a wall and stayed
-  // Either way, we verify state is consistent
-  expect(after.pacman.x).toBeDefined();
-  expect(after.pacman.y).toBeDefined();
-  // With 60 frames at 7.5 tiles/sec and fixed dt=1/60: 7.5 frames of movement = ~7 tiles
-  // At minimum, position should differ from initial if path is open
   const moved = after.pacman.x !== before.pacman.x || after.pacman.y !== before.pacman.y;
   expect(moved).toBe(true);
 });
