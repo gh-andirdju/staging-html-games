@@ -443,6 +443,7 @@
       if (typeof value !== 'number' || value <= 0) return;
       state.grid[row][col] = value;
       state.newTilePos = [row, col];
+      state.mergedCells = new Set();
       checkWin();
       checkGameOver();
       render();

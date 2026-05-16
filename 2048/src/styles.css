@@ -173,7 +173,6 @@ body {
   font-size: clamp(16px, 4.5vw, 26px);
   background: rgba(30, 15, 0, 0.6);
   color: var(--text-main);
-  transition: transform 0.08s ease;
   aspect-ratio: 1 / 1;
   min-height: 0;
 }

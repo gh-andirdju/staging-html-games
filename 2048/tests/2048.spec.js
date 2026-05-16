@@ -300,6 +300,29 @@ test('spawnTile API triggers tile-new animation on the placed cell', async ({ pa
   await expect(page.locator('#grid .cell').nth(10)).toHaveClass(/tile-new/);
 });
 
+test('multiple merges in one slide each get tile-merged class', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [[2,2,2,2],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
+    score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+  await page.keyboard.press('ArrowLeft');
+  // [2,2,2,2] -> [4,4,0,0]: merges at col 0 and col 1
+  await expect(page.locator('#grid .cell').nth(0)).toHaveClass(/tile-merged/);
+  await expect(page.locator('#grid .cell').nth(1)).toHaveClass(/tile-merged/);
+});
+
+test('no animation classes appear after a no-op slide', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [[2,4,8,16],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
+    score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('#grid .cell.tile-merged')).toHaveCount(0);
+  await expect(page.locator('#grid .cell.tile-new')).toHaveCount(0);
+});
+
 // No-move case
 
 test('slide in direction with no valid moves does not change state', async ({ page }) => {
