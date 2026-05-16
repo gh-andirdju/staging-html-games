@@ -341,6 +341,7 @@
     }
 
     if (boss.beam && boss.beam.active) {
+      boss.beam.x = boss.x + BOSS_W / 2 - BOSS_BEAM_W / 2;
       boss.beam.y += BOSS_BEAM_SPEED * dt;
       if (boss.beam.y > HEIGHT) boss.beam.active = false;
     }
