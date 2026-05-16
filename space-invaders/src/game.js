@@ -86,9 +86,9 @@
     }
     // Challenge stage every 4th wave starting at wave 5
     if (wave >= 5 && (wave - 5) % 4 === 0) {
-      cfg = Object.assign({}, cfg, { challengeStage: true });
+      return Object.assign({}, cfg, { challengeStage: true });
     }
-    return cfg;
+    return Object.assign({}, cfg);
   }
 
   var canvas = document.getElementById('game');
@@ -189,6 +189,11 @@
     var n = 0;
     for (var i = 0; i < state.enemies.length; i++) {
       if (state.enemies[i].alive) n++;
+    }
+    // Count in-flight dive bombers so launching one doesn't spuriously
+    // accelerate the formation (their source slot is marked alive=false)
+    for (var di = 0; di < state.diveBombers.length; di++) {
+      if (state.diveBombers[di].alive) n++;
     }
     return n;
   }
