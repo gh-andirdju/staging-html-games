@@ -55,7 +55,6 @@
     left: false,
     right: false,
     softDrop: false,
-    hardDrop: false,
     leftDasTick: 0,
     rightDasTick: 0,
     leftArrTick: 0,
@@ -337,7 +336,6 @@
   }
 
   function hardDrop() {
-    held.hardDrop = false;
     if (state.gameOver || !state.current || state.clearAnimation) return;
     let distance = 0;
     while (true) {
@@ -506,8 +504,8 @@
     scoreEl.textContent = String(state.score);
     linesEl.textContent = String(state.lines);
     levelEl.textContent = String(state.level);
-    statusEl.textContent = state.statusMessage;
-    if (statusWrapEl) statusWrapEl.dataset.tone = state.statusTone;
+    if (statusEl.textContent !== state.statusMessage) statusEl.textContent = state.statusMessage;
+    if (statusWrapEl && statusWrapEl.dataset.tone !== state.statusTone) statusWrapEl.dataset.tone = state.statusTone;
     drawPiecePreview(nextCanvasEl, nextCtx, state.nextPieceType ?? null);
     drawPiecePreview(holdCanvasEl, holdCtx, state.heldPiece ?? null);
     if (holdCanvasEl) {
@@ -589,10 +587,6 @@
       } else {
         held.softTick = 0;
       }
-      if (held.hardDrop && state.current) {
-        hardDrop();
-      }
-
       state.gravityTick += 1;
       if (state.gravityTick >= state.gravityFrames) {
         state.gravityTick = 0;
@@ -669,7 +663,6 @@
     if (action === 'left') setHorizontalHold('left', isHeld);
     else if (action === 'right') setHorizontalHold('right', isHeld);
     else if (action === 'soft-drop') held.softDrop = isHeld;
-    else if (action === 'hard-drop') held.hardDrop = isHeld;
   }
 
   function onTouchButtonDown(action) {
@@ -699,7 +692,9 @@
     });
     button.addEventListener('pointerup', () => onTouchButtonUp(action));
     button.addEventListener('pointercancel', () => onTouchButtonUp(action));
-    button.addEventListener('pointerleave', () => onTouchButtonUp(action));
+    button.addEventListener('pointerleave', (event) => {
+      if (!button.hasPointerCapture(event.pointerId)) onTouchButtonUp(action);
+    });
     button.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();

@@ -410,8 +410,12 @@ test('game over on spawn collision then restart recovers', async ({ page }) => {
   await setState(page, state);
 
   await page.keyboard.press('Space');
+  await advanceFrames(page, 1);
   const over = await getState(page);
   expect(over.gameOver).toBe(true);
+  expect(over.statusMessage).toBe('Game Over');
+  expect(over.statusTone).toBe('warning');
+  await expect(page.locator('#status')).toHaveText('Game Over');
 
   await page.keyboard.press('r');
   const restarted = await getState(page);
