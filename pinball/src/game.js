@@ -15,7 +15,7 @@
   var WIDTH = canvas.width;
   var HEIGHT = canvas.height;
   var FIXED_DT = 1 / 60;
-  var GRAVITY = 800;
+  var GRAVITY = 500;
   var BALL_RADIUS = 10;
   var BALL_LAUNCH_SPEED = 1080;
   var FLIPPER_LENGTH = 88;
@@ -25,6 +25,7 @@
   var FLIPPER_REST_ANGLE_R = Math.PI - 0.62;
   var FLIPPER_ACTIVE_ANGLE_R = Math.PI + 0.42;
   var FLIPPER_SPEED = Math.PI * 8;
+  var FLIPPER_BOOST_MAX_SPEED = 1080;
   var FLIPPER_PIVOT_Y = HEIGHT - 160;
   var FLIPPER_PIVOT_LX = 110;
   var FLIPPER_PIVOT_RX = 290;
@@ -35,9 +36,9 @@
   var DEFLECTOR_Y = 160;
   var DEFLECTOR_END_Y = 216;
   var BUMPER_RADIUS = 22;
-  var BUMPER_REPEL_SPEED = 170;
+  var BUMPER_REPEL_SPEED = 210;
   var BUMPER_VEL_RETAIN = 0.8;
-  var BUMPER_MAX_SPEED = 620;
+  var BUMPER_MAX_SPEED = 720;
   var WALL_RESTITUTION = 0.9;
   var WALL_FRICTION = 0.97;
   var ARC_RESTITUTION = 0.86;
@@ -48,6 +49,19 @@
   var LAUNCH_MIN_POWER = 0.93;
   var BUMPER_SCORE = 50;
   var LANE_SCORE = 150;
+  var SLING_KICK_SPEED = 360;
+  var SLING_THICKNESS = 9;
+  var SLING_RESTITUTION = 0.5;
+  var SLING_SCORE = 30;
+  var SLING_FLASH_FRAMES = 12;
+  var PEG_RADIUS = 8;
+  var PEG_REPEL_SPEED = 90;
+  var PEG_RESTITUTION = 0.92;
+  var PEG_SCORE = 10;
+  var PEG_FLASH_FRAMES = 8;
+  var ROLLOVER_RADIUS = 11;
+  var ROLLOVER_SCORE = 120;
+  var ROLLOVER_FLASH_FRAMES = 30;
   var WALL_LEFT = 30;
   var WALL_RIGHT = WIDTH - 30;
   var LAUNCH_X = WALL_RIGHT - BALL_RADIUS;
@@ -90,14 +104,33 @@
         pivotY: FLIPPER_PIVOT_Y
       },
       bumpers: [
-        { x: 200, y: 292, radius: BUMPER_RADIUS, hitTimer: 0 },
-        { x: 120, y: 366, radius: BUMPER_RADIUS, hitTimer: 0 },
-        { x: 270, y: 366, radius: BUMPER_RADIUS, hitTimer: 0 }
+        { x: 200, y: 248, radius: BUMPER_RADIUS, hitTimer: 0 },
+        { x: 132, y: 318, radius: BUMPER_RADIUS, hitTimer: 0 },
+        { x: 268, y: 318, radius: BUMPER_RADIUS, hitTimer: 0 },
+        { x: 200, y: 318, radius: BUMPER_RADIUS, hitTimer: 0 },
+        { x: 200, y: 388, radius: BUMPER_RADIUS, hitTimer: 0 }
       ],
       targets: [
         { x: 48, y: 436, w: 56, h: 12, hit: false },
         { x: 166, y: 436, w: 56, h: 12, hit: false },
         { x: 268, y: 436, w: 56, h: 12, hit: false }
+      ],
+      slingshots: [
+        { ax: 70, ay: 472, bx: 96, by: 516, nx: 0.86, ny: -0.51, hitTimer: 0 },
+        { ax: 330, ay: 472, bx: 304, by: 516, nx: -0.86, ny: -0.51, hitTimer: 0 }
+      ],
+      pegs: [
+        { x: 96, y: 250, radius: PEG_RADIUS, hitTimer: 0 },
+        { x: 304, y: 250, radius: PEG_RADIUS, hitTimer: 0 },
+        { x: 200, y: 150, radius: PEG_RADIUS, hitTimer: 0 },
+        { x: 110, y: 410, radius: PEG_RADIUS, hitTimer: 0 },
+        { x: 290, y: 410, radius: PEG_RADIUS, hitTimer: 0 },
+        { x: 200, y: 470, radius: PEG_RADIUS, hitTimer: 0 }
+      ],
+      rollovers: [
+        { x: 150, y: 96, radius: ROLLOVER_RADIUS, lit: false, hitTimer: 0 },
+        { x: 200, y: 84, radius: ROLLOVER_RADIUS, lit: false, hitTimer: 0 },
+        { x: 250, y: 96, radius: ROLLOVER_RADIUS, lit: false, hitTimer: 0 }
       ],
       score: 0,
       balls: 3,
@@ -121,6 +154,11 @@
     state.ball.vy = 0;
     state.ball.launched = false;
     state.plunger.compressed = 0;
+    if (state.rollovers) {
+      for (var i = 0; i < state.rollovers.length; i += 1) {
+        state.rollovers[i].lit = false;
+      }
+    }
   }
 
   function statusText() {
@@ -190,8 +228,8 @@
       ball.vx += tipVx;
       ball.vy += tipVy;
       var speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
-      if (speed > 900) {
-        var s = 900 / speed;
+      if (speed > FLIPPER_BOOST_MAX_SPEED) {
+        var s = FLIPPER_BOOST_MAX_SPEED / speed;
         ball.vx *= s;
         ball.vy *= s;
       }
@@ -219,6 +257,86 @@
       ball.vx = nx * vn + tx * vt;
       ball.vy = ny * vn + ty * vt;
     }
+  }
+
+  function resolvePegCollision(ball, peg) {
+    if (peg.hitTimer > 0) {
+      peg.hitTimer -= 1;
+    }
+    var dx = ball.x - peg.x;
+    var dy = ball.y - peg.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    var minD = ball.radius + peg.radius;
+    if (dist >= minD) {
+      return false;
+    }
+    var nx, ny;
+    if (dist < 0.001) {
+      nx = 0; ny = -1;
+    } else {
+      nx = dx / dist; ny = dy / dist;
+    }
+    ball.x = peg.x + nx * (minD + 0.5);
+    ball.y = peg.y + ny * (minD + 0.5);
+    var vn = ball.vx * nx + ball.vy * ny;
+    if (vn < 0) {
+      ball.vx -= (1 + PEG_RESTITUTION) * vn * nx;
+      ball.vy -= (1 + PEG_RESTITUTION) * vn * ny;
+      ball.vx += nx * PEG_REPEL_SPEED;
+      ball.vy += ny * PEG_REPEL_SPEED;
+      peg.hitTimer = PEG_FLASH_FRAMES;
+      return true;
+    }
+    return false;
+  }
+
+  function resolveSlingshot(ball, sling) {
+    if (sling.hitTimer > 0) {
+      sling.hitTimer -= 1;
+    }
+    var cp = closestPointOnSegment(sling.ax, sling.ay, sling.bx, sling.by, ball.x, ball.y);
+    var dx = ball.x - cp.x;
+    var dy = ball.y - cp.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    var minD = ball.radius + SLING_THICKNESS / 2;
+    if (dist >= minD) {
+      return false;
+    }
+    var nx, ny;
+    if (dist < 0.001) {
+      nx = 0; ny = -1;
+    } else {
+      nx = dx / dist; ny = dy / dist;
+    }
+    ball.x = cp.x + nx * (minD + 0.5);
+    ball.y = cp.y + ny * (minD + 0.5);
+    var vn = ball.vx * nx + ball.vy * ny;
+    if (vn < 0) {
+      ball.vx -= (1 + SLING_RESTITUTION) * vn * nx;
+      ball.vy -= (1 + SLING_RESTITUTION) * vn * ny;
+      ball.vx += nx * SLING_KICK_SPEED;
+      ball.vy += ny * SLING_KICK_SPEED;
+      sling.hitTimer = SLING_FLASH_FRAMES;
+      return true;
+    }
+    return false;
+  }
+
+  function resolveRollover(ball, ro) {
+    if (ro.hitTimer > 0) {
+      ro.hitTimer -= 1;
+    }
+    if (ro.lit) {
+      return false;
+    }
+    var dx = ball.x - ro.x;
+    var dy = ball.y - ro.y;
+    if (dx * dx + dy * dy <= (ball.radius + ro.radius) * (ball.radius + ro.radius)) {
+      ro.lit = true;
+      ro.hitTimer = ROLLOVER_FLASH_FRAMES;
+      return true;
+    }
+    return false;
   }
 
   function circleHitsRect(bx, by, br, rx, ry, rw, rh) {
@@ -396,6 +514,30 @@
       }
     }
 
+    if (state.pegs) {
+      for (var pi = 0; pi < state.pegs.length; pi += 1) {
+        if (resolvePegCollision(ball, state.pegs[pi])) {
+          state.score += PEG_SCORE * state.level;
+        }
+      }
+    }
+
+    if (state.slingshots) {
+      for (var si = 0; si < state.slingshots.length; si += 1) {
+        if (resolveSlingshot(ball, state.slingshots[si])) {
+          state.score += SLING_SCORE * state.level;
+        }
+      }
+    }
+
+    if (state.rollovers) {
+      for (var ri = 0; ri < state.rollovers.length; ri += 1) {
+        if (resolveRollover(ball, state.rollovers[ri])) {
+          state.score += ROLLOVER_SCORE * state.level;
+        }
+      }
+    }
+
     resolveFlipperCollision(ball, lf, dt);
     resolveFlipperCollision(ball, rf, dt);
 
@@ -404,6 +546,11 @@
       if (state.balls <= 0) {
         state.balls = 0;
         state.status = "game_over";
+        if (state.rollovers) {
+          for (var gori = 0; gori < state.rollovers.length; gori += 1) {
+            state.rollovers[gori].lit = false;
+          }
+        }
       } else {
         resetBallToLauncher();
         state.status = "ready";
@@ -502,6 +649,71 @@
     }
   }
 
+  function drawPeg(peg) {
+    var hot = peg.hitTimer > 0;
+    ctx.beginPath();
+    ctx.arc(peg.x, peg.y, peg.radius, 0, Math.PI * 2);
+    ctx.fillStyle = hot ? "#fde68a" : "rgba(245, 158, 11, 0.45)";
+    ctx.shadowColor = hot ? "#f59e0b" : "rgba(245, 158, 11, 0.2)";
+    ctx.shadowBlur = hot ? 12 : 4;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(peg.x, peg.y, peg.radius - 2, 0, Math.PI * 2);
+    ctx.strokeStyle = hot ? "#fff" : "rgba(255,255,255,0.4)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  function drawSlingshot(sling) {
+    var hot = sling.hitTimer > 0;
+    var midX = (sling.ax + sling.bx) / 2;
+    var midY = (sling.ay + sling.by) / 2;
+    var apexX = midX + sling.nx * 26;
+    var apexY = midY + sling.ny * 26;
+
+    ctx.beginPath();
+    ctx.moveTo(sling.ax, sling.ay);
+    ctx.lineTo(sling.bx, sling.by);
+    ctx.lineTo(apexX, apexY);
+    ctx.closePath();
+    ctx.fillStyle = hot ? "rgba(251, 191, 36, 0.55)" : "rgba(245, 158, 11, 0.28)";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(sling.ax, sling.ay);
+    ctx.lineTo(sling.bx, sling.by);
+    ctx.strokeStyle = hot ? "#fbbf24" : "rgba(245, 158, 11, 0.75)";
+    ctx.lineWidth = SLING_THICKNESS;
+    ctx.lineCap = "round";
+    ctx.shadowColor = hot ? "#f59e0b" : "transparent";
+    ctx.shadowBlur = hot ? 14 : 0;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.lineCap = "butt";
+  }
+
+  function drawRollover(ro) {
+    var hot = ro.hitTimer > 0;
+    ctx.beginPath();
+    ctx.arc(ro.x, ro.y, ro.radius, 0, Math.PI * 2);
+    if (ro.lit) {
+      ctx.fillStyle = hot ? "#fff" : "#fbbf24";
+      ctx.shadowColor = hot ? "#fff" : "#f59e0b";
+      ctx.shadowBlur = hot ? 18 : 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = "rgba(245, 158, 11, 0.12)";
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(ro.x, ro.y, ro.radius, 0, Math.PI * 2);
+    ctx.strokeStyle = ro.lit ? "#fbbf24" : "rgba(245, 158, 11, 0.5)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
   function drawPlunger() {
     if (state.status !== "ready") return;
     var comp = state.plunger.compressed;
@@ -555,6 +767,21 @@
   function draw() {
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
     drawTable();
+    if (state.rollovers) {
+      for (var ri = 0; ri < state.rollovers.length; ri += 1) {
+        drawRollover(state.rollovers[ri]);
+      }
+    }
+    if (state.pegs) {
+      for (var pi = 0; pi < state.pegs.length; pi += 1) {
+        drawPeg(state.pegs[pi]);
+      }
+    }
+    if (state.slingshots) {
+      for (var si = 0; si < state.slingshots.length; si += 1) {
+        drawSlingshot(state.slingshots[si]);
+      }
+    }
     for (var i = 0; i < state.bumpers.length; i += 1) {
       drawBumper(state.bumpers[i]);
     }
@@ -698,6 +925,46 @@
         });
       } else {
         state.targets = initial.targets;
+      }
+      if (Array.isArray(state.slingshots)) {
+        state.slingshots = state.slingshots.map(function (sl) {
+          return {
+            ax: typeof sl.ax === "number" ? sl.ax : 0,
+            ay: typeof sl.ay === "number" ? sl.ay : 0,
+            bx: typeof sl.bx === "number" ? sl.bx : 0,
+            by: typeof sl.by === "number" ? sl.by : 0,
+            nx: typeof sl.nx === "number" ? sl.nx : 0,
+            ny: typeof sl.ny === "number" ? sl.ny : 0,
+            hitTimer: typeof sl.hitTimer === "number" ? Math.max(0, sl.hitTimer) : 0
+          };
+        });
+      } else {
+        state.slingshots = initial.slingshots;
+      }
+      if (Array.isArray(state.pegs)) {
+        state.pegs = state.pegs.map(function (p) {
+          return {
+            x: typeof p.x === "number" ? p.x : 0,
+            y: typeof p.y === "number" ? p.y : 0,
+            radius: typeof p.radius === "number" ? p.radius : PEG_RADIUS,
+            hitTimer: typeof p.hitTimer === "number" ? Math.max(0, p.hitTimer) : 0
+          };
+        });
+      } else {
+        state.pegs = initial.pegs;
+      }
+      if (Array.isArray(state.rollovers)) {
+        state.rollovers = state.rollovers.map(function (ro) {
+          return {
+            x: typeof ro.x === "number" ? ro.x : 0,
+            y: typeof ro.y === "number" ? ro.y : 0,
+            radius: typeof ro.radius === "number" ? ro.radius : ROLLOVER_RADIUS,
+            lit: Boolean(ro.lit),
+            hitTimer: typeof ro.hitTimer === "number" ? Math.max(0, ro.hitTimer) : 0
+          };
+        });
+      } else {
+        state.rollovers = initial.rollovers;
       }
       if (typeof state.balls === "number") {
         state.balls = Math.max(0, Math.floor(state.balls));
