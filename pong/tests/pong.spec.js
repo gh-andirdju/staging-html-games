@@ -414,6 +414,50 @@ test('HUD displays correct scores', async ({ page }) => {
   expect(aiText).toBe('3');
 });
 
+test('AI moves faster with higher scores', async ({ page }) => {
+  await openGame(page);
+
+  await setState(page, {
+    ball: { x: 600, y: 50, dx: 100, dy: 0 },
+    aiPaddle: { y: 300 },
+    playerScore: 0,
+    aiScore: 0,
+    gameState: 'playing'
+  });
+  const before1 = await getState(page);
+  await advanceFrames(page, 20);
+  const after1 = await getState(page);
+  const easyMovement = before1.aiPaddle.y - after1.aiPaddle.y;
+
+  await setState(page, {
+    ball: { x: 600, y: 50, dx: 100, dy: 0 },
+    aiPaddle: { y: 300 },
+    playerScore: 5,
+    aiScore: 5,
+    gameState: 'playing'
+  });
+  const before2 = await getState(page);
+  await advanceFrames(page, 20);
+  const after2 = await getState(page);
+  const hardMovement = before2.aiPaddle.y - after2.aiPaddle.y;
+
+  expect(hardMovement).toBeGreaterThan(easyMovement);
+});
+
+test('serve speed increases with score', async ({ page }) => {
+  await openGame(page);
+
+  await setState(page, { gameState: 'serving', serveTimer: 0, playerScore: 0, aiScore: 0 });
+  await advanceFrames(page, 1);
+  const earlySpeed = Math.abs((await getState(page)).ball.dx);
+
+  await setState(page, { gameState: 'serving', serveTimer: 0, playerScore: 5, aiScore: 5 });
+  await advanceFrames(page, 1);
+  const lateSpeed = Math.abs((await getState(page)).ball.dx);
+
+  expect(lateSpeed).toBeGreaterThan(earlySpeed);
+});
+
 test('matches the desktop layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);
