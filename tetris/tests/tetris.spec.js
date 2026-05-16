@@ -754,6 +754,29 @@ test('hold swap cancelled without state corruption when spawn is blocked', async
   expect(after.holdUsed).toBe(false);
 });
 
+test('first hold resets gravityTick so new piece gets a full gravity cycle', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Set gravityTick to 47 — one frame from firing at gravityFrames=48
+  await setState(page, {
+    ...state,
+    heldPiece: null,
+    holdUsed: false,
+    gravityTick: 47,
+    gravityFrames: 48,
+    lockTimer: 0
+  });
+  const beforeY = (await getState(page)).current.y;
+
+  await page.keyboard.press('c'); // first hold
+  await advanceFrames(page, 1);  // one gravity tick on newly spawned piece
+  const afterY = (await getState(page)).current.y;
+
+  // Without the fix, the spawned piece inherits gravityTick=47 and drops on the first frame.
+  expect(afterY).toBe(beforeY);
+});
+
 test('ghost piece renders at piece position without error when already at floor', async ({ page }) => {
   await openGame(page);
   const state = await getState(page);
@@ -795,15 +818,14 @@ test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
   const hasGhostPixel = await page.evaluate(({ row, col }) => {
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
-    const cellW = canvas.width / 10;
-    const cellH = canvas.height / 20;
-    // Sample center of cell
-    const px = Math.floor(col * cellW + cellW / 2);
-    const py = Math.floor(row * cellH + cellH / 2);
+    const cellSize = canvas.width / 10; // 30px
+    // Sample the left stroke edge of the ghost cell (strokeRect draws 2px inside the cell).
+    // Ghost is rgba(255,255,255,0.22) over the background (#020617, r=2): r blends to ~58.
+    const px = col * cellSize + 2;          // left stroke edge x
+    const py = Math.floor(row * cellSize + cellSize / 2); // vertical midpoint
     const data = ctx.getImageData(px, py, 1, 1).data;
-    // Background is #080400: r=8,g=4,b=0. Ghost stroke adds alpha-blended white, so
-    // at least one channel will be measurably higher than background.
-    return data[0] > 20 || data[1] > 10 || data[2] > 5;
+    // Background red channel = 2; ghost white stroke at 22% alpha raises it to ~58.
+    return data[0] > 20;
   }, { row: ghostRow, col: ghostCol });
   expect(hasGhostPixel).toBe(true);
 

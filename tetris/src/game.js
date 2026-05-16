@@ -128,6 +128,7 @@
     if (state.heldPiece === null) {
       state.heldPiece = currentType;
       state.current = null;
+      state.gravityTick = 0;
       spawnPiece();
       if (state.gameOver) return;
     } else {
