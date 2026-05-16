@@ -771,24 +771,22 @@
   }
 
   function drawBoss(ctx, x, y, w, h) {
-    // Central body
+    ctx.save();
     ctx.beginPath();
     ctx.ellipse(x + w / 2, y + h * 0.55, w * 0.42, h * 0.4, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Dome
     ctx.fillRect(x + w * 0.25, y, w * 0.5, h * 0.4);
-    // Left winglet
     ctx.fillRect(x - w * 0.18, y + h * 0.4, w * 0.22, h * 0.3);
-    // Right winglet
     ctx.fillRect(x + w * 0.96, y + h * 0.4, w * 0.22, h * 0.3);
-    // Cockpit windows
     ctx.fillStyle = '#000a1a';
     for (var li = 0; li < 3; li++) {
       ctx.fillRect(x + w * (0.28 + li * 0.17), y + h * 0.1, w * 0.1, h * 0.18);
     }
+    ctx.restore();
   }
 
   function drawUfo(ctx, x, y, w, h) {
+    ctx.save();
     ctx.beginPath();
     ctx.ellipse(x + w / 2, y + h * 0.6, w * 0.48, h * 0.38, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -797,6 +795,7 @@
     for (var li = 0; li < 3; li++) {
       ctx.fillRect(x + w * (0.27 + li * 0.18), y + h * 0.08, w * 0.1, h * 0.18);
     }
+    ctx.restore();
   }
 
   function frame(timestamp) {
