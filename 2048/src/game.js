@@ -297,8 +297,8 @@
     };
     const direction = directionMap[event.key];
     if (!direction) return;
-    if (!guideOverlayEl.hidden) return;
     event.preventDefault();
+    if (!guideOverlayEl.hidden) return;
     if (state.gameOver) return;
     const moved = slide(direction);
     if (moved) {
