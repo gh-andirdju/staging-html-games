@@ -427,6 +427,7 @@
       if (!isValidPosition(next)) break;
       ghost = next;
     }
+    if (ghost.y === piece.y) return [];
     return pieceCells(ghost);
   }
 
