@@ -275,6 +275,9 @@
           alive: true
         });
         state.diveBomberCooldown = cfg.diveBomberCooldown + Math.floor(rng() * 120);
+      } else {
+        // No row-0 candidates; retry after a short delay instead of spinning
+        state.diveBomberCooldown = 60;
       }
     }
 
@@ -329,9 +332,9 @@
 
     if (boss.flashTimer > 0) boss.flashTimer--;
 
-    // Tractor beam
+    // Tractor beam — only fire once the previous beam has cleared
     boss.beamTimer--;
-    if (boss.beamTimer <= 0) {
+    if (boss.beamTimer <= 0 && (!boss.beam || !boss.beam.active)) {
       boss.beam = {
         x: boss.x + BOSS_W / 2 - BOSS_BEAM_W / 2,
         y: boss.y + BOSS_H,
@@ -622,7 +625,8 @@
       state.enemyDir = 1;
       state.enemyDropPending = false;
       state.enemyMoveTimer = 60;
-      state.enemyFireTimer = 80;
+      var initScale = (state.waveConfig && state.waveConfig.fireRateScale) || 1.0;
+      state.enemyFireTimer = Math.round(80 / initScale);
       state.bullets = [];
       state.enemyBullets = [];
     }
