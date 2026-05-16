@@ -36,10 +36,16 @@
   var DEFLECTOR_END_Y = 216;
   var BUMPER_RADIUS = 22;
   var BUMPER_REPEL_SPEED = 170;
+  var BUMPER_VEL_RETAIN = 0.8;
+  var BUMPER_MAX_SPEED = 620;
   var WALL_RESTITUTION = 0.9;
   var WALL_FRICTION = 0.97;
   var ARC_RESTITUTION = 0.86;
+  var FUNNEL_RESTITUTION = 0.45;
+  var DIVIDER_RESTITUTION = 0.6;
+  var DEFLECTOR_RESTITUTION = 0.85;
   var DRAG = 0.99;
+  var LAUNCH_MIN_POWER = 0.85;
   var BUMPER_SCORE = 50;
   var LANE_SCORE = 150;
   var WALL_LEFT = 30;
@@ -252,7 +258,8 @@
       if (keys.launch) {
         state.plunger.compressed = Math.min(1, state.plunger.compressed + 0.03);
       } else if (state.plunger.compressed > 0) {
-        ball.vy = -BALL_LAUNCH_SPEED * (0.85 + 0.15 * state.plunger.compressed);
+        ball.vy = -BALL_LAUNCH_SPEED *
+          (LAUNCH_MIN_POWER + (1 - LAUNCH_MIN_POWER) * state.plunger.compressed);
         ball.vx = 0;
         ball.launched = true;
         state.plunger.compressed = 0;
@@ -315,10 +322,10 @@
       }
     }
 
-    resolveWallSegment(ball, WALL_LEFT, FUNNEL_TOP_Y, FLIPPER_PIVOT_LX, FLIPPER_PIVOT_Y, 0.45);
-    resolveWallSegment(ball, LANE_X, FUNNEL_TOP_Y, FLIPPER_PIVOT_RX, FLIPPER_PIVOT_Y, 0.45);
-    resolveWallSegment(ball, LANE_X, LANE_TOP_Y, LANE_X, FUNNEL_TOP_Y, 0.6);
-    resolveWallSegment(ball, DEFLECTOR_X, DEFLECTOR_Y, WALL_RIGHT, DEFLECTOR_END_Y, 0.85);
+    resolveWallSegment(ball, WALL_LEFT, FUNNEL_TOP_Y, FLIPPER_PIVOT_LX, FLIPPER_PIVOT_Y, FUNNEL_RESTITUTION);
+    resolveWallSegment(ball, LANE_X, FUNNEL_TOP_Y, FLIPPER_PIVOT_RX, FLIPPER_PIVOT_Y, FUNNEL_RESTITUTION);
+    resolveWallSegment(ball, LANE_X, LANE_TOP_Y, LANE_X, FUNNEL_TOP_Y, DIVIDER_RESTITUTION);
+    resolveWallSegment(ball, DEFLECTOR_X, DEFLECTOR_Y, WALL_RIGHT, DEFLECTOR_END_Y, DEFLECTOR_RESTITUTION);
 
     for (var i = 0; i < state.bumpers.length; i += 1) {
       var bumper = state.bumpers[i];
@@ -340,12 +347,12 @@
           ball.vx -= 2 * bvn * bnx;
           ball.vy -= 2 * bvn * bny;
         }
-        ball.vx = ball.vx * 0.8 + bnx * BUMPER_REPEL_SPEED;
-        ball.vy = ball.vy * 0.8 + bny * BUMPER_REPEL_SPEED;
+        ball.vx = ball.vx * BUMPER_VEL_RETAIN + bnx * BUMPER_REPEL_SPEED;
+        ball.vy = ball.vy * BUMPER_VEL_RETAIN + bny * BUMPER_REPEL_SPEED;
         var bsp = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
-        if (bsp > 620) {
-          ball.vx *= 620 / bsp;
-          ball.vy *= 620 / bsp;
+        if (bsp > BUMPER_MAX_SPEED) {
+          ball.vx *= BUMPER_MAX_SPEED / bsp;
+          ball.vy *= BUMPER_MAX_SPEED / bsp;
         }
         bumper.hitTimer = 14;
         state.score += BUMPER_SCORE * state.level;
