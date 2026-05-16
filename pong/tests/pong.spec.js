@@ -66,28 +66,6 @@ async function prepareVisualLayout(page) {
   await page.locator('canvas').first().scrollIntoViewIfNeeded();
 }
 
-async function dragTouchOnLane(page, relativePoints) {
-  await page.evaluate((points) => {
-    const lane = document.getElementById('player-drag-lane');
-    if (!lane) throw new Error('Drag lane not found.');
-    const rect = lane.getBoundingClientRect();
-    const makeInit = (pt, type) => ({
-      bubbles: true,
-      cancelable: true,
-      pointerId: 1,
-      pointerType: 'touch',
-      isPrimary: true,
-      clientX: rect.left + rect.width * pt.x,
-      clientY: rect.top + rect.height * pt.y,
-      buttons: type === 'pointerup' ? 0 : 1
-    });
-    lane.dispatchEvent(new PointerEvent('pointerdown', makeInit(points[0], 'pointerdown')));
-    for (let i = 1; i < points.length; i++) {
-      lane.dispatchEvent(new PointerEvent('pointermove', makeInit(points[i], 'pointermove')));
-    }
-    lane.dispatchEvent(new PointerEvent('pointerup', makeInit(points[points.length - 1], 'pointerup')));
-  }, relativePoints);
-}
 
 test('renders the game canvas and exposes the test API', async ({ page }) => {
   await openGame(page);
@@ -414,15 +392,15 @@ test('won state freezes ball and paddles', async ({ page }) => {
 
 test('ball speed is capped at BALL_SPEED_MAX after paddle hit at near-cap speed', async ({ page }) => {
   await openGame(page);
-  // dx = -510: one uncapped bounce would give 510 * 1.05 = 535.5, exceeding the 520 cap
+  // dx = -660: one uncapped bounce would give 660 * 1.08 = 712.8, exceeding the 700 cap
   await setState(page, {
-    ball: { x: 48, y: 260, dx: -510, dy: 0 },
+    ball: { x: 48, y: 260, dx: -660, dy: 0 },
     playerPaddle: { y: 220 },
     gameState: 'playing'
   });
   await advanceFrames(page, 4);
   const state = await getState(page);
-  expect(Math.abs(state.ball.dx)).toBeLessThanOrEqual(520);
+  expect(Math.abs(state.ball.dx)).toBeLessThanOrEqual(700);
 });
 
 test('HUD displays correct scores', async ({ page }) => {
@@ -455,20 +433,30 @@ test.describe('mobile touch controls', () => {
     isMobile: true
   });
 
-  test('touch drag moves the player paddle', async ({ page }) => {
+  test('player-up button moves paddle up', async ({ page }) => {
     await openGame(page);
     await setState(page, { playerPaddle: { y: 220 }, gameState: 'playing' });
     const before = await getState(page);
 
-    await dragTouchOnLane(page, [
-      { x: 0.5, y: 0.2 },
-      { x: 0.5, y: 0.5 },
-      { x: 0.5, y: 0.8 }
-    ]);
-    await advanceFrames(page, 2);
+    await page.locator('#player-up').dispatchEvent('pointerdown');
+    await advanceFrames(page, 10);
+    await page.locator('#player-up').dispatchEvent('pointerup');
 
     const after = await getState(page);
-    expect(after.playerPaddle.y).not.toBeCloseTo(before.playerPaddle.y, 0);
+    expect(after.playerPaddle.y).toBeLessThan(before.playerPaddle.y);
+  });
+
+  test('player-down button moves paddle down', async ({ page }) => {
+    await openGame(page);
+    await setState(page, { playerPaddle: { y: 220 }, gameState: 'playing' });
+    const before = await getState(page);
+
+    await page.locator('#player-down').dispatchEvent('pointerdown');
+    await advanceFrames(page, 10);
+    await page.locator('#player-down').dispatchEvent('pointerup');
+
+    const after = await getState(page);
+    expect(after.playerPaddle.y).toBeGreaterThan(before.playerPaddle.y);
   });
 
   test('touch controls are below the game canvas', async ({ page }) => {
@@ -480,16 +468,6 @@ test.describe('mobile touch controls', () => {
     expect(canvasBox).not.toBeNull();
     expect(controlsBox).not.toBeNull();
     expect(controlsBox.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height - 2);
-  });
-
-  test('drag lane is full width within touch controls', async ({ page }) => {
-    await openGame(page);
-
-    const controlsBox = await page.locator('.touch-controls').boundingBox();
-    const laneBox = await page.locator('#player-drag-lane').boundingBox();
-
-    expect(laneBox).not.toBeNull();
-    expect(laneBox.width).toBeGreaterThanOrEqual(controlsBox.width - 2);
   });
 
   test('matches the mobile layout baseline', async ({ page }) => {
