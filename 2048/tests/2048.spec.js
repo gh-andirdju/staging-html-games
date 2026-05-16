@@ -36,7 +36,8 @@ async function openGame(page) {
       typeof api.isGuideVisible === 'function' &&
       typeof api.getGuideStep === 'function' &&
       typeof api.showGuide === 'function' &&
-      typeof api.dismissGuide === 'function'
+      typeof api.dismissGuide === 'function' &&
+      api.isGuideVisible() === false
     );
   });
   await page.evaluate(() => window.__2048Test.setAutoStep(false));

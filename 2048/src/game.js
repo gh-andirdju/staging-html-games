@@ -210,8 +210,9 @@
     guideOverlayEl.setAttribute('aria-labelledby', `guide-title-${guideStep}`);
     if (guideLiveEl) {
       const title = guideStepEls[guideStep]?.querySelector('.guide-title')?.textContent ?? '';
+      const announcement = `${title} — Step ${guideStep + 1} of ${GUIDE_TOTAL_STEPS}`;
       guideLiveEl.textContent = '';
-      setTimeout(() => { guideLiveEl.textContent = title; }, 0);
+      setTimeout(() => { guideLiveEl.textContent = announcement; }, 0);
     }
   }
 
