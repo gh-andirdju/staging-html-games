@@ -129,6 +129,7 @@
       state.heldPiece = currentType;
       state.current = null;
       spawnPiece();
+      if (state.gameOver) return;
     } else {
       const swappedType = state.heldPiece;
       const pieceDef = PIECES.find((p) => p.type === swappedType);
@@ -649,6 +650,7 @@
     else if (event.key === 'z' || event.key === 'Z') rotatePieceCcw();
     else if (event.key === 'c' || event.key === 'C') holdPiece();
     else if (event.code === 'Space') {
+      if (event.repeat) return;
       event.preventDefault();
       hardDrop();
     }

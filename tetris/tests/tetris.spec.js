@@ -491,6 +491,8 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   const afterSwap = await getState(page);
   expect(afterSwap.heldPiece).toBe(beforeSwapType);
   expect(afterSwap.current.type).toBe(initialType);
+  expect(afterSwap.nextPieceType).not.toBeNull();
+  expect(afterSwap.nextPieceType).not.toBe(afterSwap.current.type);
 });
 
 test('touch hard-drop does not chain-drop subsequent pieces while button is held', async ({ page }) => {
@@ -513,6 +515,29 @@ test('touch hard-drop does not chain-drop subsequent pieces while button is held
   // With the fix, held.hardDrop is cleared on the first call so only one piece drops.
   expect(after.gameOver).toBe(false);
   expect(after.current).not.toBeNull();
+});
+
+test('keyboard Space held does not chain hard-drop multiple pieces', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    gravityFrames: 48, gravityTick: 0, lockTimer: 0, score: 0
+  });
+
+  // Simulate keyboard repeat: dispatch many keydown events with repeat: true
+  await page.evaluate(() => {
+    for (let i = 0; i < 50; i++) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', repeat: true, bubbles: true }));
+    }
+  });
+  await advanceFrames(page, 10);
+
+  const after = await getState(page);
+  // Without the event.repeat guard, Space repeat would hard-drop piece after piece;
+  // with the guard, repeated keydown events are no-ops and the board stays alive.
+  expect(after.gameOver).toBe(false);
 });
 
 test('hold swap cancelled without state corruption when spawn is blocked', async ({ page }) => {
