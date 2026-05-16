@@ -45,6 +45,52 @@
   var DEATH_FLASH_PERIOD = 6;
   var ENEMY_SPEED_SCALE = 0.9; // frames saved per enemy killed (controls acceleration)
 
+  // New constants for Galaga features
+  var UFO_W = 48;
+  var UFO_H = 20;
+  var UFO_Y = 18;
+  var UFO_SCORES = [50, 100, 150, 200, 300];
+
+  var BOSS_W = 48;
+  var BOSS_H = 28;
+  var BOSS_Y = 28;
+  var BOSS_SCORE = 300;
+  var BOSS_BEAM_W = 10;
+  var BOSS_BEAM_SPEED = 100;
+  var BOSS_BEAM_INTERVAL = 300;
+
+  var DIVE_SPEED = 180;
+  var RETURN_SPEED = 120;
+  var DIVE_BOMBER_SCORE = 50;
+
+  // Wave configurations
+  var WAVE_CONFIGS = [
+    { wave: 1, shieldsReset: true,  diveBombers: 0, diveBomberCooldown: 0,
+      ufoInterval: 1800, ufoSpeed: 60, fireRateScale: 1.0, zigzagChance: 0.0,
+      hasBoss: false, challengeStage: false, formation: 'classic' },
+    { wave: 2, shieldsReset: true,  diveBombers: 0, diveBomberCooldown: 0,
+      ufoInterval: 1200, ufoSpeed: 70, fireRateScale: 1.1, zigzagChance: 0.0,
+      hasBoss: false, challengeStage: false, formation: 'classic' },
+    { wave: 3, shieldsReset: false, diveBombers: 1, diveBomberCooldown: 300,
+      ufoInterval: 900,  ufoSpeed: 80, fireRateScale: 1.2, zigzagChance: 0.15,
+      hasBoss: true,  challengeStage: false, formation: 'classic' },
+    { wave: 4, shieldsReset: false, diveBombers: 2, diveBomberCooldown: 200,
+      ufoInterval: 600,  ufoSpeed: 90, fireRateScale: 1.4, zigzagChance: 0.25,
+      hasBoss: true,  challengeStage: false, formation: 'v-shape' }
+  ];
+
+  function getWaveConfig(wave) {
+    var cfg = WAVE_CONFIGS[0];
+    for (var i = 0; i < WAVE_CONFIGS.length; i++) {
+      if (wave >= WAVE_CONFIGS[i].wave) cfg = WAVE_CONFIGS[i];
+    }
+    // Challenge stage every 4th wave starting at wave 5
+    if (wave >= 5 && (wave - 5) % 4 === 0) {
+      cfg = Object.assign({}, cfg, { challengeStage: true });
+    }
+    return cfg;
+  }
+
   var canvas = document.getElementById('game');
   var ctx = canvas.getContext('2d');
   var scoreEl = document.getElementById('score');
@@ -52,15 +98,22 @@
   var waveEl = document.getElementById('wave');
   var statusEl = document.getElementById('status-msg');
 
-  function buildEnemies() {
+  function buildEnemies(variant) {
+    variant = variant || 'classic';
     var enemies = [];
     for (var row = 0; row < ENEMY_ROWS; row++) {
       for (var col = 0; col < ENEMY_COLS; col++) {
+        var x = ENEMY_START_X + col * (ENEMY_W + ENEMY_PAD_X);
+        var y = ENEMY_START_Y + row * (ENEMY_H + ENEMY_PAD_Y);
+        if (variant === 'v-shape') {
+          var midCol = Math.floor(ENEMY_COLS / 2);
+          y += Math.abs(col - midCol) * 6;
+        }
         enemies.push({
           row: row,
           col: col,
-          x: ENEMY_START_X + col * (ENEMY_W + ENEMY_PAD_X),
-          y: ENEMY_START_Y + row * (ENEMY_H + ENEMY_PAD_Y),
+          x: x,
+          y: y,
           alive: true,
           type: row < 1 ? 2 : row < 3 ? 1 : 0
         });
@@ -83,6 +136,18 @@
     return shields;
   }
 
+  function spawnBoss() {
+    return {
+      x: WIDTH / 2 - BOSS_W / 2,
+      y: BOSS_Y,
+      hp: 2,
+      alive: true,
+      flashTimer: 0,
+      beamTimer: BOSS_BEAM_INTERVAL,
+      beam: null
+    };
+  }
+
   function initialState() {
     return {
       player: { x: WIDTH / 2 - PLAYER_WIDTH / 2 },
@@ -100,7 +165,14 @@
       bulletCooldown: 0,
       enemyFireTimer: 80,
       rngSeed: 12345,
-      deathTimer: 0
+      deathTimer: 0,
+      // Galaga features
+      waveConfig: null,
+      ufo: null,
+      ufoSpawnTimer: 0,
+      diveBombers: [],
+      diveBomberCooldown: 0,
+      boss: null
     };
   }
 
@@ -118,6 +190,12 @@
       if (state.enemies[i].alive) n++;
     }
     return n;
+  }
+
+  function allClear() {
+    return aliveCount() === 0
+      && state.diveBombers.length === 0
+      && (!state.boss || !state.boss.alive);
   }
 
   function rng() {
@@ -147,6 +225,125 @@
     return false;
   }
 
+  function updateUfo(dt) {
+    var cfg = state.waveConfig;
+    if (!cfg) return;
+
+    if (!state.ufo) {
+      state.ufoSpawnTimer++;
+      if (state.ufoSpawnTimer >= cfg.ufoInterval) {
+        var dir = rng() < 0.5 ? 1 : -1;
+        var startX = dir > 0 ? -UFO_W : WIDTH + UFO_W;
+        var pts = UFO_SCORES[Math.floor(rng() * UFO_SCORES.length)];
+        state.ufo = { x: startX, y: UFO_Y, dir: dir, speed: cfg.ufoSpeed, pointValue: pts };
+        state.ufoSpawnTimer = 0;
+      }
+      return;
+    }
+
+    state.ufo.x += state.ufo.dir * state.ufo.speed * dt;
+    if (state.ufo.dir > 0 && state.ufo.x > WIDTH + UFO_W) state.ufo = null;
+    if (state.ufo.dir < 0 && state.ufo.x < -UFO_W) state.ufo = null;
+  }
+
+  function updateDiveBombers(dt) {
+    var cfg = state.waveConfig;
+    if (!cfg || cfg.diveBombers === 0) return;
+
+    // Launch new dive bomber if conditions allow
+    if (state.diveBomberCooldown > 0) {
+      state.diveBomberCooldown--;
+    } else if (state.diveBombers.length < cfg.diveBombers) {
+      // Candidates: alive row-0 enemies
+      var candidates = [];
+      for (var i = 0; i < ENEMY_COLS; i++) {
+        var e = state.enemies[i]; // row 0 = indices 0..10
+        if (e && e.alive) candidates.push({ enemy: e, idx: i });
+      }
+      if (candidates.length > 0) {
+        var pick = candidates[Math.floor(rng() * candidates.length)];
+        pick.enemy.alive = false;
+        state.diveBombers.push({
+          x: pick.enemy.x,
+          y: pick.enemy.y,
+          sourceIdx: pick.idx,
+          originX: pick.enemy.x,
+          originY: pick.enemy.y,
+          phase: 'dive',
+          age: 0,
+          alive: true
+        });
+        state.diveBomberCooldown = cfg.diveBomberCooldown + Math.floor(rng() * 120);
+      }
+    }
+
+    // Update active dive bombers
+    for (var di = state.diveBombers.length - 1; di >= 0; di--) {
+      var db = state.diveBombers[di];
+      if (!db.alive) { state.diveBombers.splice(di, 1); continue; }
+
+      db.age++;
+
+      if (db.phase === 'dive') {
+        var targetX = state.player.x + PLAYER_WIDTH / 2 - ENEMY_W / 2;
+        var targetY = PLAYER_Y - ENEMY_H;
+        var dx = targetX - db.x;
+        var dy = targetY - db.y;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 10 || db.y >= targetY) {
+          db.phase = 'return';
+        } else {
+          var norm = DIVE_SPEED * dt / dist;
+          db.x += dx * norm + Math.sin(db.age * 0.15) * 40 * dt;
+          db.y += dy * norm;
+        }
+      } else {
+        var odx = db.originX - db.x;
+        var ody = db.originY - db.y;
+        var odist = Math.sqrt(odx * odx + ody * ody);
+
+        if (odist < 6) {
+          // Returned to formation slot
+          var src = state.enemies[db.sourceIdx];
+          if (src) { src.alive = true; src.x = db.originX; src.y = db.originY; }
+          state.diveBombers.splice(di, 1);
+        } else {
+          var rnorm = RETURN_SPEED * dt / odist;
+          db.x += odx * rnorm;
+          db.y += ody * rnorm;
+        }
+      }
+    }
+  }
+
+  function updateBoss(dt) {
+    var boss = state.boss;
+    if (!boss || !boss.alive) return;
+
+    // Slow horizontal oscillation
+    boss.x += Math.sin(state.enemyMoveTimer * 0.05) * 0.8;
+    boss.x = Math.max(0, Math.min(WIDTH - BOSS_W, boss.x));
+
+    if (boss.flashTimer > 0) boss.flashTimer--;
+
+    // Tractor beam
+    boss.beamTimer--;
+    if (boss.beamTimer <= 0) {
+      boss.beam = {
+        x: boss.x + BOSS_W / 2 - BOSS_BEAM_W / 2,
+        y: boss.y + BOSS_H,
+        active: true
+      };
+      boss.beamTimer = BOSS_BEAM_INTERVAL + Math.floor(rng() * 120);
+    }
+
+    if (boss.beam && boss.beam.active) {
+      boss.beam.y += BOSS_BEAM_SPEED * dt;
+      if (boss.beam.y > HEIGHT) boss.beam.active = false;
+    }
+  }
+
   function step(dt) {
     if (state.status === 'gameover') return;
 
@@ -154,6 +351,11 @@
       state.deathTimer--;
       return;
     }
+
+    // Lazy-init wave config
+    if (!state.waveConfig) state.waveConfig = getWaveConfig(state.wave);
+    var cfg = state.waveConfig;
+    var isChallenge = cfg && cfg.challengeStage;
 
     // Move player
     var px = state.player.x;
@@ -186,7 +388,6 @@
       state.enemyMoveTimer = Math.max(4, Math.round(60 - aliveCount() * ENEMY_SPEED_SCALE));
 
       if (state.enemyDropPending) {
-        // Drop enemies down and flip direction
         for (var e = 0; e < state.enemies.length; e++) {
           if (state.enemies[e].alive) {
             state.enemies[e].y += ENEMY_DROP_PX;
@@ -195,7 +396,6 @@
         state.enemyDir = -state.enemyDir;
         state.enemyDropPending = false;
       } else {
-        // Move horizontally
         var dx = ENEMY_STEP_PX * state.enemyDir;
         var hitWall = false;
         for (var e = 0; e < state.enemies.length; e++) {
@@ -217,38 +417,56 @@
       }
     }
 
-    // Enemy fire: collect the bottom-most alive enemy per column in one pass
-    state.enemyFireTimer--;
-    if (state.enemyFireTimer <= 0) {
-      var colShooters = [];
-      for (var col = 0; col < ENEMY_COLS; col++) {
-        for (var row = ENEMY_ROWS - 1; row >= 0; row--) {
-          var idx = row * ENEMY_COLS + col;
-          if (idx < state.enemies.length && state.enemies[idx].alive) {
-            colShooters.push(state.enemies[idx]);
-            break;
+    // Galaga systems
+    updateDiveBombers(dt);
+    updateUfo(dt);
+    updateBoss(dt);
+
+    // Enemy fire (skip entirely for challenge stage)
+    if (!isChallenge) {
+      state.enemyFireTimer--;
+      if (state.enemyFireTimer <= 0) {
+        var colShooters = [];
+        for (var col = 0; col < ENEMY_COLS; col++) {
+          for (var row = ENEMY_ROWS - 1; row >= 0; row--) {
+            var idx = row * ENEMY_COLS + col;
+            if (idx < state.enemies.length && state.enemies[idx].alive) {
+              colShooters.push(state.enemies[idx]);
+              break;
+            }
           }
         }
+        if (colShooters.length > 0) {
+          var shooter = colShooters[Math.floor(rng() * colShooters.length)];
+          var isZigzag = cfg && rng() < cfg.zigzagChance;
+          state.enemyBullets.push({
+            x: shooter.x + ENEMY_W / 2 - ENEMY_BULLET_W / 2,
+            y: shooter.y + ENEMY_H,
+            zigzag: isZigzag,
+            age: 0
+          });
+        }
+        var scale = (cfg && cfg.fireRateScale) || 1.0;
+        state.enemyFireTimer = Math.round(FIRE_COOLDOWN_MIN / scale)
+          + Math.floor(rng() * Math.round(FIRE_COOLDOWN_RANGE / scale));
       }
-      if (colShooters.length > 0) {
-        var shooter = colShooters[Math.floor(rng() * colShooters.length)];
-        state.enemyBullets.push({
-          x: shooter.x + ENEMY_W / 2 - ENEMY_BULLET_W / 2,
-          y: shooter.y + ENEMY_H
-        });
-      }
-      state.enemyFireTimer = FIRE_COOLDOWN_MIN + Math.floor(rng() * FIRE_COOLDOWN_RANGE);
     }
 
     // Move enemy bullets
     for (var i = state.enemyBullets.length - 1; i >= 0; i--) {
-      state.enemyBullets[i].y += ENEMY_BULLET_SPEED * dt;
-      if (state.enemyBullets[i].y > HEIGHT) {
+      var eb = state.enemyBullets[i];
+      eb.y += ENEMY_BULLET_SPEED * dt;
+      if (eb.zigzag) {
+        eb.age = (eb.age || 0) + 1;
+        eb.x += Math.sin(eb.age * 0.2) * 1.8;
+      }
+      if (eb.y > HEIGHT) {
         state.enemyBullets.splice(i, 1);
       }
     }
 
-    // Player bullet vs enemy collision
+    // Player bullet vs formation enemy collision
+    var scoreMultiplier = isChallenge ? 2 : 1;
     for (var bi = state.bullets.length - 1; bi >= 0; bi--) {
       var b = state.bullets[bi];
       var hit = false;
@@ -257,27 +475,77 @@
         if (!en.alive) continue;
         if (rectOverlap(b.x, b.y, BULLET_W, BULLET_H, en.x, en.y, ENEMY_W, ENEMY_H)) {
           en.alive = false;
-          state.score += SCORE_BY_ROW[en.row] || 10;
+          state.score += (SCORE_BY_ROW[en.row] || 10) * scoreMultiplier;
           hit = true;
           break;
         }
       }
-      if (hit) state.bullets.splice(bi, 1);
+      if (hit) { state.bullets.splice(bi, 1); continue; }
     }
 
-    // Player bullet vs shield collision
+    // Player bullet vs dive bomber
+    for (var bi = state.bullets.length - 1; bi >= 0; bi--) {
+      var b = state.bullets[bi];
+      var hit = false;
+      for (var di = 0; di < state.diveBombers.length; di++) {
+        var db = state.diveBombers[di];
+        if (!db.alive) continue;
+        if (rectOverlap(b.x, b.y, BULLET_W, BULLET_H, db.x, db.y, ENEMY_W, ENEMY_H)) {
+          db.alive = false;
+          state.score += DIVE_BOMBER_SCORE * scoreMultiplier;
+          hit = true;
+          break;
+        }
+      }
+      if (hit) { state.bullets.splice(bi, 1); continue; }
+    }
+
+    // Player bullet vs UFO
+    if (state.ufo) {
+      for (var bi = state.bullets.length - 1; bi >= 0; bi--) {
+        var b = state.bullets[bi];
+        if (rectOverlap(b.x, b.y, BULLET_W, BULLET_H,
+                        state.ufo.x, state.ufo.y, UFO_W, UFO_H)) {
+          state.score += state.ufo.pointValue;
+          state.ufo = null;
+          state.bullets.splice(bi, 1);
+          break;
+        }
+      }
+    }
+
+    // Player bullet vs boss
+    if (state.boss && state.boss.alive) {
+      for (var bi = state.bullets.length - 1; bi >= 0; bi--) {
+        var b = state.bullets[bi];
+        if (rectOverlap(b.x, b.y, BULLET_W, BULLET_H,
+                        state.boss.x, state.boss.y, BOSS_W, BOSS_H)) {
+          state.boss.hp--;
+          state.bullets.splice(bi, 1);
+          if (state.boss.hp <= 0) {
+            state.boss.alive = false;
+            state.score += BOSS_SCORE;
+          } else {
+            state.boss.flashTimer = 20;
+          }
+          break;
+        }
+      }
+    }
+
+    // Player bullet vs shield
     for (var bi = state.bullets.length - 1; bi >= 0; bi--) {
       var b = state.bullets[bi];
       if (bulletHitsShield(b.x, b.y, BULLET_W, BULLET_H)) state.bullets.splice(bi, 1);
     }
 
-    // Enemy bullet vs shield collision
+    // Enemy bullet vs shield
     for (var bi = state.enemyBullets.length - 1; bi >= 0; bi--) {
       var b = state.enemyBullets[bi];
       if (bulletHitsShield(b.x, b.y, ENEMY_BULLET_W, ENEMY_BULLET_H)) state.enemyBullets.splice(bi, 1);
     }
 
-    // Enemy bullet vs player collision
+    // Enemy bullet vs player
     for (var bi = state.enemyBullets.length - 1; bi >= 0; bi--) {
       var b = state.enemyBullets[bi];
       if (rectOverlap(b.x, b.y, ENEMY_BULLET_W, ENEMY_BULLET_H,
@@ -294,11 +562,52 @@
       }
     }
 
-    // Check win: all enemies dead
-    if (aliveCount() === 0) {
+    // Boss beam vs player
+    if (state.boss && state.boss.alive && state.boss.beam && state.boss.beam.active) {
+      var beam = state.boss.beam;
+      if (rectOverlap(beam.x, beam.y, BOSS_BEAM_W, 40,
+                      state.player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT)) {
+        beam.active = false;
+        state.lives--;
+        if (state.lives <= 0) {
+          state.lives = 0;
+          state.status = 'gameover';
+          return;
+        }
+        state.deathTimer = 90; // longer stun — Galaga capture spirit
+        state.bullets = [];
+      }
+    }
+
+    // Dive bomber contact vs player
+    for (var di = state.diveBombers.length - 1; di >= 0; di--) {
+      var db = state.diveBombers[di];
+      if (!db.alive || db.phase !== 'dive') continue;
+      if (rectOverlap(db.x, db.y, ENEMY_W, ENEMY_H,
+                      state.player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT)) {
+        db.alive = false;
+        state.lives--;
+        if (state.lives <= 0) {
+          state.lives = 0;
+          state.status = 'gameover';
+          return;
+        }
+        state.deathTimer = DEATH_TIMER_FRAMES;
+        state.bullets = [];
+      }
+    }
+
+    // Wave advance
+    if (allClear()) {
       state.wave++;
-      state.enemies = buildEnemies();
-      state.shields = buildShields();
+      state.waveConfig = getWaveConfig(state.wave);
+      state.enemies = buildEnemies(state.waveConfig.formation);
+      state.diveBombers = [];
+      state.diveBomberCooldown = 0;
+      state.ufo = null;
+      state.ufoSpawnTimer = 0;
+      state.boss = state.waveConfig.hasBoss ? spawnBoss() : null;
+      if (state.waveConfig.shieldsReset) state.shields = buildShields();
       state.enemyDir = 1;
       state.enemyDropPending = false;
       state.enemyMoveTimer = 0;
@@ -337,6 +646,17 @@
       return;
     }
 
+    // Challenge stage banner
+    var cfg = state.waveConfig || getWaveConfig(state.wave);
+    if (cfg && cfg.challengeStage) {
+      ctx.fillStyle = 'rgba(250,204,21,0.15)';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      ctx.font = 'bold 18px monospace';
+      ctx.fillStyle = '#facc15';
+      ctx.textAlign = 'center';
+      ctx.fillText('★ CHALLENGE STAGE — 2× POINTS ★', WIDTH / 2, 12);
+    }
+
     // Draw shields
     for (var si = 0; si < state.shields.length; si++) {
       var sh = state.shields[si];
@@ -351,7 +671,7 @@
       }
     }
 
-    // Draw enemies
+    // Draw formation enemies
     for (var ei = 0; ei < state.enemies.length; ei++) {
       var en = state.enemies[ei];
       if (!en.alive) continue;
@@ -363,16 +683,49 @@
       drawEnemy(ctx, en.x, en.y, ENEMY_W, ENEMY_H, en.type);
     }
 
+    // Draw boss
+    if (state.boss && state.boss.alive) {
+      var boss = state.boss;
+      var bossAlpha = (boss.flashTimer > 0 && Math.floor(boss.flashTimer / 4) % 2 === 0) ? 0.4 : 1.0;
+      ctx.globalAlpha = bossAlpha;
+      ctx.fillStyle = '#facc15';
+      drawBoss(ctx, boss.x, boss.y, BOSS_W, BOSS_H);
+      ctx.globalAlpha = 1.0;
+
+      // Boss beam
+      if (boss.beam && boss.beam.active) {
+        ctx.fillStyle = 'rgba(250,204,21,0.6)';
+        ctx.fillRect(boss.beam.x, boss.beam.y, BOSS_BEAM_W, 40);
+        ctx.fillStyle = 'rgba(250,204,21,0.2)';
+        ctx.fillRect(boss.beam.x - 4, boss.beam.y, BOSS_BEAM_W + 8, 40);
+      }
+    }
+
+    // Draw dive bombers (same shape as type-2 enemies, in orange to distinguish)
+    for (var di = 0; di < state.diveBombers.length; di++) {
+      var db = state.diveBombers[di];
+      if (!db.alive) continue;
+      ctx.fillStyle = '#fb923c';
+      drawEnemy(ctx, db.x, db.y, ENEMY_W, ENEMY_H, 2);
+    }
+
+    // Draw UFO
+    if (state.ufo) {
+      ctx.fillStyle = '#facc15';
+      drawUfo(ctx, state.ufo.x, state.ufo.y, UFO_W, UFO_H);
+    }
+
     // Draw player bullets
     ctx.fillStyle = '#fbbf24';
     for (var i = 0; i < state.bullets.length; i++) {
       ctx.fillRect(state.bullets[i].x, state.bullets[i].y, BULLET_W, BULLET_H);
     }
 
-    // Draw enemy bullets
-    ctx.fillStyle = '#f87171';
+    // Draw enemy bullets (zigzag bullets are brighter red)
     for (var i = 0; i < state.enemyBullets.length; i++) {
-      ctx.fillRect(state.enemyBullets[i].x, state.enemyBullets[i].y, ENEMY_BULLET_W, ENEMY_BULLET_H);
+      var eb = state.enemyBullets[i];
+      ctx.fillStyle = eb.zigzag ? '#ff4444' : '#f87171';
+      ctx.fillRect(eb.x, eb.y, ENEMY_BULLET_W, ENEMY_BULLET_H);
     }
 
     // Draw player
@@ -392,7 +745,6 @@
   }
 
   function drawPlayer(ctx, x, y, w, h) {
-    // Simple pixel ship shape
     ctx.fillRect(x + w * 0.4, y, w * 0.2, h * 0.35);
     ctx.fillRect(x + w * 0.15, y + h * 0.3, w * 0.7, h * 0.45);
     ctx.fillRect(x, y + h * 0.65, w, h * 0.35);
@@ -400,24 +752,50 @@
 
   function drawEnemy(ctx, x, y, w, h, type) {
     if (type === 2) {
-      // Top row: saucer shape
       ctx.beginPath();
       ctx.ellipse(x + w / 2, y + h * 0.45, w * 0.45, h * 0.35, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillRect(x + w * 0.25, y, w * 0.5, h * 0.35);
     } else if (type === 1) {
-      // Mid rows: crab shape
       ctx.fillRect(x + w * 0.1, y + h * 0.1, w * 0.8, h * 0.6);
       ctx.fillRect(x, y + h * 0.4, w * 0.15, h * 0.45);
       ctx.fillRect(x + w * 0.85, y + h * 0.4, w * 0.15, h * 0.45);
       ctx.fillRect(x + w * 0.2, y + h * 0.7, w * 0.15, h * 0.3);
       ctx.fillRect(x + w * 0.65, y + h * 0.7, w * 0.15, h * 0.3);
     } else {
-      // Bottom rows: squid shape
       ctx.fillRect(x + w * 0.2, y, w * 0.6, h * 0.5);
       ctx.fillRect(x, y + h * 0.3, w, h * 0.4);
       ctx.fillRect(x + w * 0.1, y + h * 0.65, w * 0.2, h * 0.35);
       ctx.fillRect(x + w * 0.7, y + h * 0.65, w * 0.2, h * 0.35);
+    }
+  }
+
+  function drawBoss(ctx, x, y, w, h) {
+    // Central body
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h * 0.55, w * 0.42, h * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Dome
+    ctx.fillRect(x + w * 0.25, y, w * 0.5, h * 0.4);
+    // Left winglet
+    ctx.fillRect(x - w * 0.18, y + h * 0.4, w * 0.22, h * 0.3);
+    // Right winglet
+    ctx.fillRect(x + w * 0.96, y + h * 0.4, w * 0.22, h * 0.3);
+    // Cockpit windows
+    ctx.fillStyle = '#000a1a';
+    for (var li = 0; li < 3; li++) {
+      ctx.fillRect(x + w * (0.28 + li * 0.17), y + h * 0.1, w * 0.1, h * 0.18);
+    }
+  }
+
+  function drawUfo(ctx, x, y, w, h) {
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h * 0.6, w * 0.48, h * 0.38, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(x + w * 0.2, y, w * 0.6, h * 0.45);
+    ctx.fillStyle = '#000a1a';
+    for (var li = 0; li < 3; li++) {
+      ctx.fillRect(x + w * (0.27 + li * 0.18), y + h * 0.08, w * 0.1, h * 0.18);
     }
   }
 
