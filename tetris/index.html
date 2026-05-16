@@ -24,7 +24,7 @@
         <aside class="side-rail" aria-label="Game status">
           <div class="preview-box next-preview">
             <span class="preview-label">NEXT</span>
-            <canvas id="next-canvas" width="50" height="34"></canvas>
+            <canvas id="next-canvas" width="50" height="34" aria-label="Next piece preview"></canvas>
           </div>
           <div class="stat-block">
             <span class="stat-label">SCORE</span>
@@ -38,11 +38,11 @@
             <span class="stat-label">LINES</span>
             <strong id="lines">0</strong>
           </div>
-          <div class="preview-box hold-preview">
+          <div class="preview-box hold-preview" data-action="hold" role="button" tabindex="0" aria-label="Hold piece">
             <span class="preview-label">HOLD</span>
-            <canvas id="hold-canvas" width="50" height="34"></canvas>
+            <canvas id="hold-canvas" width="50" height="34" aria-label="Held piece preview"></canvas>
           </div>
-          <div class="status-wrap" aria-hidden="true">
+          <div class="status-wrap" role="status" aria-live="polite">
             <strong id="status"></strong>
           </div>
         </aside>
@@ -61,9 +61,11 @@
           <p class="cluster-label">◀▶ move · ▼ soft drop / <span class="accent-text">▲ HARD DROP</span></p>
         </div>
 
-        <div class="rotate-cluster" aria-label="Rotation controls">
-          <button type="button" class="rotate-btn ccw" data-action="rotate-ccw" aria-label="Rotate Left">↺</button>
-          <button type="button" class="rotate-btn cw" data-action="rotate-cw" aria-label="Rotate Right">↻</button>
+        <div class="rotate-area">
+          <div class="rotate-cluster" aria-label="Rotation controls">
+            <button type="button" class="rotate-btn ccw" data-action="rotate-ccw" aria-label="Rotate Left">↺</button>
+            <button type="button" class="rotate-btn cw" data-action="rotate-cw" aria-label="Rotate Right">↻</button>
+          </div>
           <p class="cluster-label">rotate left · rotate right</p>
         </div>
       </div>

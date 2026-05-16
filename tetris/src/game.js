@@ -132,10 +132,11 @@
       spawnPiece();
     } else {
       const swappedType = state.heldPiece;
-      state.heldPiece = currentType;
       const pieceDef = PIECES.find((p) => p.type === swappedType);
       const swapped = { type: pieceDef.type, index: pieceDef.index, x: 4, y: 0, rotation: 0 };
       if (!isValidPosition(swapped)) return;
+      // Mutate only after validation succeeds to avoid corrupt state on failure.
+      state.heldPiece = currentType;
       state.current = swapped;
       state.lockTimer = 0;
     }
@@ -336,6 +337,7 @@
 
   function hardDrop() {
     if (state.gameOver || !state.current || state.clearAnimation) return;
+    held.hardDrop = false;
     let distance = 0;
     while (true) {
       const next = { ...state.current, y: state.current.y + 1 };
@@ -390,7 +392,7 @@
 
   function setStateFromTests(nextState) {
     state = structuredClone(nextState);
-    if (!state.clearAnimation) state.clearAnimation = null;
+    state.clearAnimation = state.clearAnimation ?? null;
     if (typeof state.statusMessage !== 'string') state.statusMessage = '';
     if (typeof state.statusTone !== 'string') state.statusTone = 'normal';
     if (typeof state.statusMessageTimer !== 'number') state.statusMessageTimer = 0;
@@ -410,7 +412,6 @@
       if (!isValidPosition(next)) break;
       ghost = next;
     }
-    if (ghost.y === piece.y) return [];
     return pieceCells(ghost);
   }
 

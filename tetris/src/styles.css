@@ -144,6 +144,14 @@ body {
 
 .hold-preview {
   border-style: dashed;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.hold-preview:hover {
+  filter: brightness(1.15);
 }
 
 .hold-preview.hold-empty {
@@ -171,13 +179,13 @@ body {
   color: var(--text-main);
 }
 
-/* Visually hidden — keeps #status in DOM for test compat */
+/* Visually hidden — keeps #status in DOM for test compat and live-region announcements */
 .status-wrap {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -190,7 +198,6 @@ body {
   align-items: flex-start;
   padding: 10px 12px 14px;
   padding-bottom: max(14px, env(safe-area-inset-bottom));
-  border-top: 1.5px dashed var(--panel-border);
   background: var(--panel);
   border-radius: 0 0 18px 18px;
   border: 1px solid var(--panel-border);
@@ -285,6 +292,13 @@ body {
 }
 
 /* ── Rotation cluster ─────────────────────────────────────────── */
+
+.rotate-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
 
 .rotate-cluster {
   position: relative;
@@ -417,6 +431,10 @@ body {
 
   .dpad-up {
     left: 37px;
+  }
+
+  .dpad-left {
+    top: 37px;
   }
 
   .dpad-right {

@@ -17,7 +17,6 @@ test.afterEach(async ({ page }) => {
 
 async function openGame(page) {
   await page.goto('./');
-  await page.evaluate(() => window.localStorage.removeItem('tetris-handedness'));
   await page.reload();
   await page.waitForFunction(() => {
     const api = window.__tetrisTest;
@@ -174,6 +173,8 @@ async function prepareVisualLayout(page) {
     statusMessage: 'Level 1',
     statusTone: '',
     statusMessageTimer: 0,
+    gravityTick: 0,
+    lockTimer: 0,
     heldPiece: 'S',
     holdUsed: false,
     nextPieceType: 'I'
@@ -461,6 +462,48 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   expect(afterSwap.current.type).toBe(initialType);
 });
 
+test('hold swap cancelled without state corruption when spawn is blocked', async ({ page }) => {
+  await openGame(page);
+
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  board[0][3] = 1; board[0][4] = 1; board[0][5] = 1; board[0][6] = 1;
+
+  await setState(page, {
+    board,
+    current: { type: 'T', index: 3, x: 4, y: 10, rotation: 0 },
+    heldPiece: 'I',
+    holdUsed: false,
+    score: 0, lines: 0, level: 1,
+    gravityFrames: 48, gravityTick: 0, lockTimer: 0,
+    gameOver: false, clearAnimation: null,
+    statusMessage: '', statusTone: 'normal', statusMessageTimer: 0,
+    nextPieceType: 'O'
+  });
+
+  await page.keyboard.press('c');
+  const after = await getState(page);
+
+  expect(after.current.type).toBe('T');
+  expect(after.heldPiece).toBe('I');
+  expect(after.holdUsed).toBe(false);
+});
+
+test('ghost piece renders at piece position without error when already at floor', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  expect(after.current).not.toBeNull();
+});
+
 test('matches the desktop layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);
@@ -512,6 +555,24 @@ test.describe('mobile touch controls', () => {
     await hard.dispatchEvent('pointerup');
     const hardened = await getState(page);
     expect(hardened.score).toBeGreaterThanOrEqual(scoreBeforeHard);
+  });
+
+  test('CCW touch button rotates counterclockwise', async ({ page }) => {
+    await openGame(page);
+    const initial = await getState(page);
+    const initialRotation = initial.current.rotation;
+
+    const cw = page.locator('[data-action="rotate-cw"]');
+    await cw.dispatchEvent('pointerdown');
+    await cw.dispatchEvent('pointerup');
+    const afterCw = await getState(page);
+    expect(afterCw.current.rotation).toBe((initialRotation + 1) % 4);
+
+    const ccw = page.locator('[data-action="rotate-ccw"]');
+    await ccw.dispatchEvent('pointerdown');
+    await ccw.dispatchEvent('pointerup');
+    const afterCcw = await getState(page);
+    expect(afterCcw.current.rotation).toBe(initialRotation);
   });
 
   test('keeps touch controls below the board in portrait layout', async ({ page }) => {
