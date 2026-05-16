@@ -137,8 +137,10 @@
   }
 
   function spawnBoss() {
+    var cx = WIDTH / 2 - BOSS_W / 2;
     return {
-      x: WIDTH / 2 - BOSS_W / 2,
+      x: cx,
+      startX: cx,
       y: BOSS_Y,
       hp: 2,
       alive: true,
@@ -199,8 +201,10 @@
   }
 
   function allClear() {
+    // aliveCount() already includes alive dive bombers, so no separate
+    // diveBombers.length check needed (dead-but-not-yet-spliced bombers
+    // have alive=false and are excluded from the count)
     return aliveCount() === 0
-      && state.diveBombers.length === 0
       && (!state.boss || !state.boss.alive);
   }
 
@@ -330,10 +334,11 @@
     var boss = state.boss;
     if (!boss || !boss.alive) return;
 
-    // Slow horizontal oscillation using a dedicated monotonic age counter
+    // Position-based oscillation anchored to spawn center so the boss
+    // never drifts or gets pinned against a wall by the clamp
     boss.age++;
-    boss.x += Math.sin(boss.age * 0.05) * 0.8;
-    boss.x = Math.max(0, Math.min(WIDTH - BOSS_W, boss.x));
+    boss.x = Math.max(0, Math.min(WIDTH - BOSS_W,
+      boss.startX + 20 * Math.sin(boss.age * 0.05)));
 
     if (boss.flashTimer > 0) boss.flashTimer--;
 
