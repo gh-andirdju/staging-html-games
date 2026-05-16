@@ -751,6 +751,10 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   expect(afterSecondAttempt.statusMessage).toBe('Hold not available');
   await expect(page.locator('#status')).toHaveText('Hold not available');
 
+  // Clear the board before hard-drop so no line-clear animation can delay spawnPiece
+  // and leave holdUsed=true when we assert below.
+  const stateBeforeDrop = await getState(page);
+  await setState(page, { ...stateBeforeDrop, board: Array.from({ length: 20 }, () => Array(10).fill(0)) });
   await page.keyboard.press('Space');
   await advanceFrames(page, 1);
   const afterDrop = await getState(page);
@@ -943,6 +947,36 @@ test('soft-drop lock with line clear gives new piece a full gravity cycle', asyn
 
   // Advance one more frame; new piece should NOT have dropped yet (gravityTick was reset to 0)
   const spawnY = afterClear.current?.y ?? 0;
+  await advanceFrames(page, 1);
+  const afterOneFrame = await getState(page);
+  expect(afterOneFrame.current?.y ?? spawnY).toBe(spawnY);
+});
+
+test('gravity fires during soft-drop accumulation and new piece gets full gravity cycle', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // O-piece at floor (y=18). gravityTick=47, gravityFrames=48, lockTimer=0.
+  // Frame 1: soft-drop fires (tick 1, lockTimer→1) then gravity fires (gravityTick→48→0→lockPiece).
+  // lockPiece triggers spawnPiece which must reset gravityTick to 0.
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+    gravityTick: 47, gravityFrames: 48, lockTimer: 0
+  });
+
+  const softBtn = page.locator('[data-action="soft-drop"]');
+  await softBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 1); // lock fires; new piece spawns with gravityTick=0
+  await softBtn.dispatchEvent('pointerup');
+
+  const afterLock = await getState(page);
+  expect(afterLock.board[18][4]).toBeGreaterThan(0); // O-piece locked at row 18
+  expect(afterLock.current).not.toBeNull();
+
+  // Advance one more frame with gravity still slow; piece must not have dropped yet
+  const spawnY = afterLock.current.y;
   await advanceFrames(page, 1);
   const afterOneFrame = await getState(page);
   expect(afterOneFrame.current?.y ?? spawnY).toBe(spawnY);
