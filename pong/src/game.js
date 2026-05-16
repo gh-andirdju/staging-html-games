@@ -8,23 +8,26 @@
   const BALL_R = 8;
   const PLAYER_X = 24;
   const AI_X = WIDTH - 24 - PADDLE_W;
-  const PADDLE_SPEED = 480;
-  const AI_SPEED = 340;
-  const BALL_SPEED = 260;
+  const PADDLE_SPEED = 320;
+  const AI_SPEED_MIN = 200;
+  const AI_SPEED_MAX = 420;
+  const BALL_SPEED_SERVE_MIN = 250;
+  const BALL_SPEED_SERVE_MAX = 450;
   const WIN_SCORE = 7;
   const FIXED_DT = 1 / 60;
   const SERVE_DELAY = 60;
   const NET_H = 10;
   const NET_GAP = 8;
-  const BALL_SPEED_MAX = 520;
-  const BALL_SPEED_ACCEL = 1.05;
+  const BALL_SPEED_MAX = 700;
+  const BALL_SPEED_ACCEL = 1.08;
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const playerScoreEl = document.getElementById('player-score');
   const aiScoreEl = document.getElementById('ai-score');
   const statusEl = document.getElementById('status');
-  const dragLane = document.getElementById('player-drag-lane');
+  const playerUpBtn = document.getElementById('player-up');
+  const playerDownBtn = document.getElementById('player-down');
   const restartBtn = document.getElementById('restart');
 
   const keys = { up: false, down: false };
@@ -56,11 +59,16 @@
     state.ball.dy = 0;
   }
 
+  function getDifficulty() {
+    return Math.min((state.playerScore + state.aiScore) / 12, 1);
+  }
+
   function launchBall(towardPlayer) {
+    const speed = BALL_SPEED_SERVE_MIN + (BALL_SPEED_SERVE_MAX - BALL_SPEED_SERVE_MIN) * getDifficulty();
     const n = state.serveCount;
     const ySign = (n % 2 === 0 ? 1 : -1);
-    state.ball.dy = ySign * BALL_SPEED * 0.5;
-    state.ball.dx = towardPlayer ? -BALL_SPEED : BALL_SPEED;
+    state.ball.dy = ySign * speed * 0.5;
+    state.ball.dx = towardPlayer ? -speed : speed;
     state.serveCount += 1;
   }
 
@@ -106,11 +114,12 @@
     if (keys.down) pp.y += PADDLE_SPEED * dt;
     pp.y = clamp(pp.y, 0, HEIGHT - PADDLE_H);
 
-    // AI paddle follows ball
+    // AI paddle follows ball — speed scales with difficulty
     const aiCenter = ap.y + PADDLE_H / 2;
     const diff = ball.y - aiCenter;
     if (Math.abs(diff) > 4) {
-      const move = Math.min(Math.abs(diff), AI_SPEED * dt) * Math.sign(diff);
+      const aiSpeed = AI_SPEED_MIN + (AI_SPEED_MAX - AI_SPEED_MIN) * getDifficulty();
+      const move = Math.min(Math.abs(diff), aiSpeed * dt) * Math.sign(diff);
       ap.y = clamp(ap.y + move, 0, HEIGHT - PADDLE_H);
     }
 
@@ -277,38 +286,20 @@
     if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = false;
   });
 
-  // Mouse control
-  canvas.addEventListener('mousemove', function (e) {
-    if (state.gameState === 'won') return;
-    const rect = canvas.getBoundingClientRect();
-    const scale = HEIGHT / rect.height;
-    const canvasY = (e.clientY - rect.top) * scale;
-    state.playerPaddle.y = clamp(canvasY - PADDLE_H / 2, 0, HEIGHT - PADDLE_H);
-  });
+  // Touch paddle buttons — hold to move, same speed as keyboard
+  playerUpBtn.addEventListener('pointerdown', function (e) {
+    keys.up = true;
+    e.preventDefault();
+  }, { passive: false });
+  playerUpBtn.addEventListener('pointerup', function () { keys.up = false; });
+  playerUpBtn.addEventListener('pointercancel', function () { keys.up = false; });
 
-  // Touch drag lane
-  let dragStartY = null;
-  let dragStartPaddleY = null;
-  dragLane.addEventListener('pointerdown', function (e) {
-    dragLane.setPointerCapture(e.pointerId);
-    dragStartY = e.clientY;
-    dragStartPaddleY = state.playerPaddle.y;
-  });
-  dragLane.addEventListener('pointermove', function (e) {
-    if (dragStartY === null) return;
-    const rect = canvas.getBoundingClientRect();
-    const scale = HEIGHT / rect.height;
-    const dy = (e.clientY - dragStartY) * scale;
-    state.playerPaddle.y = clamp(dragStartPaddleY + dy, 0, HEIGHT - PADDLE_H);
-  });
-  dragLane.addEventListener('pointerup', function () {
-    dragStartY = null;
-    dragStartPaddleY = null;
-  });
-  dragLane.addEventListener('pointercancel', function () {
-    dragStartY = null;
-    dragStartPaddleY = null;
-  });
+  playerDownBtn.addEventListener('pointerdown', function (e) {
+    keys.down = true;
+    e.preventDefault();
+  }, { passive: false });
+  playerDownBtn.addEventListener('pointerup', function () { keys.down = false; });
+  playerDownBtn.addEventListener('pointercancel', function () { keys.down = false; });
 
   // Restart button
   restartBtn.addEventListener('click', gameRestart);
@@ -318,6 +309,7 @@
     isReady: false,
     getState: publicState,
     readState: publicState,
+    getDifficulty: getDifficulty,
     setState: function (nextState) {
       if (nextState.ball) Object.assign(state.ball, nextState.ball);
       if (nextState.playerPaddle) Object.assign(state.playerPaddle, nextState.playerPaddle);

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Minesweeper</title>
+    <link rel="stylesheet" href="src/styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <span class="eyebrow">Classic Puzzle</span>
+          <strong class="title">Minesweeper</strong>
+        </div>
+        <button id="restart" type="button">Restart</button>
+      </header>
+
+      <section class="playfield" aria-label="Game area">
+        <header class="hud" aria-label="Game status">
+          <div class="stat-card">
+            <span class="label">Mines</span>
+            <strong id="mines-remaining">10</strong>
+          </div>
+          <div class="stat-card">
+            <span class="label">Time</span>
+            <strong id="time">0s</strong>
+          </div>
+          <div class="stat-card">
+            <span class="label">Difficulty</span>
+            <strong id="difficulty-label">Easy</strong>
+          </div>
+          <div class="status-wrap">
+            <span class="label">Status</span>
+            <strong id="status">Click any cell to start</strong>
+          </div>
+        </header>
+
+        <div class="difficulty-select" aria-label="Difficulty">
+          <button type="button" data-difficulty="easy" class="diff-btn active" aria-current="true">Easy</button>
+          <button type="button" data-difficulty="normal" class="diff-btn" aria-current="false">Normal</button>
+          <button type="button" data-difficulty="hard" class="diff-btn" aria-current="false">Hard</button>
+        </div>
+
+        <div class="board-wrap">
+          <canvas id="game" width="288" height="288" aria-label="Minesweeper board"></canvas>
+        </div>
+      </section>
+
+      <section class="touch-controls" aria-label="Touch controls">
+        <div class="thumb-zone action-zone">
+          <span class="control-label">Mode</span>
+          <div class="mode-buttons">
+            <button type="button" data-action="reveal" class="active" aria-pressed="true">Reveal</button>
+            <button type="button" data-action="flag" aria-pressed="false">Flag</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="src/game.js"></script>
+  </body>
+</html>

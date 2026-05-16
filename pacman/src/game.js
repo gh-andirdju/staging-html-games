@@ -798,6 +798,18 @@
     if (dir) {
       pressedDirs[dir] = true;
       state.pacman.nextDirection = dir;
+      // Start immediately if stopped at current tile — no wait for moveProgress to cycle
+      var pm = state.pacman;
+      if (pm.targetRow === pm.tileRow && pm.targetCol === pm.tileCol) {
+        var nr = pm.tileRow + DIR_VECTORS[dir].dr;
+        var nc = pm.tileCol + DIR_VECTORS[dir].dc;
+        if (!isBlockedForPacman(state.maze, nr, nc)) {
+          pm.direction = dir;
+          pm.targetRow = nr;
+          pm.targetCol = nc;
+          pm.moveProgress = 0;
+        }
+      }
       e.preventDefault();
     }
   });
