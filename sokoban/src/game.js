@@ -231,15 +231,16 @@
       '#    @     #',
       '############',
     ],
-    // Level 23 — five boxes, diagonal arrangement
+    // Level 23 — five boxes, two rows of targets (3+2=5 boxes, 3+2=5 targets)
     [
       '#############',
       '#           #',
       '#  .  .  .  #',
       '#           #',
-      '#  $  .  $  #',
-      '#     $     #',
-      '#  $  @  $  #',
+      '#  $  $  $  #',
+      '#  .     .  #',
+      '#  $     $  #',
+      '#   @       #',
       '#############',
     ],
     // Level 24 — mixed, requires reordering pushes
@@ -256,16 +257,16 @@
       '#   @    #',
       '##########',
     ],
-    // Level 25 — five boxes, internal obstacle, tight maneuvering
+    // Level 25 — five boxes (4 push up 3 rows, 1 push right 5 cols)
     [
       '###########',
       '#         #',
       '# . . . . #',
       '#         #',
-      '#  #   #  #',
-      '#  $ $ $  #',
-      '#  .   $  #',
-      '#    @    #',
+      '#         #',
+      '# $ $ $ $ #',
+      '#         #',
+      '# $  @  . #',
       '###########',
     ],
     // Level 26 — six boxes, wide board
@@ -296,8 +297,8 @@
 
   // ── Procedural level generator (backward chaining) ───────────────────────
 
-  function generateLevel(levelIndex) {
-    const rng = mulberry32(levelIndex * 1103515245 + 12345);
+  function generateLevel(levelIndex, attempt = 0) {
+    const rng = mulberry32((levelIndex * 1103515245 + 12345) ^ (attempt * 1234567));
     const randInt = (lo, hi) => lo + Math.floor(rng() * (hi - lo + 1));
 
     // Scale difficulty with level
@@ -346,7 +347,7 @@
         }
       }
     }
-    if (floors.length < nBoxes + 1) return generateLevel(levelIndex + 1); // degenerate grid, skip
+    if (floors.length < nBoxes + 1) return generateLevel(levelIndex, attempt + 1);
 
     shuffle(floors, rng);
 
@@ -364,7 +365,7 @@
       playerPos = { row: floors[i][0], col: floors[i][1] };
       break;
     }
-    if (!playerPos) return generateLevel(levelIndex + 1);
+    if (!playerPos) return generateLevel(levelIndex, attempt + 1);
 
     // Apply reverse pushes (backward chaining)
     const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
@@ -390,15 +391,15 @@
       if (grid[pfr][pfc] !== FLOOR) continue;
       if (boxes.some((b, i) => i !== bi && b.row === pfr && b.col === pfc)) continue;
 
-      // Check player can reach pull-from position without crossing current box position
-      const boxSet = new Set(boxes.map((b, i) => i === bi ? null : `${b.row},${b.col}`).filter(Boolean));
+      // Check player can reach pull-from position; all boxes are obstacles
+      const boxSet = new Set(boxes.map((b) => `${b.row},${b.col}`));
       const reach = bfsReach(grid, rows, cols, playerPos.row, playerPos.col, boxSet);
       if (!reach.has(`${pfr},${pfc}`)) continue;
 
-      // Apply the reverse push
+      // Apply the reverse push; player lands at pull-from position
       box.row = nbr;
       box.col = nbc;
-      playerPos = { row: box.row - dr, col: box.col - dc };
+      playerPos = { row: pfr, col: pfc };
       pullsDone++;
     }
 
