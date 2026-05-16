@@ -621,7 +621,7 @@
       if (state.waveConfig.shieldsReset) state.shields = buildShields();
       state.enemyDir = 1;
       state.enemyDropPending = false;
-      state.enemyMoveTimer = 0;
+      state.enemyMoveTimer = 60;
       state.enemyFireTimer = 80;
       state.bullets = [];
       state.enemyBullets = [];
