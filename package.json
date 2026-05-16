@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "bun server.js",
     "dev:pages": "BASE_PATH=/html-games/ bun server.js",
+    "validate": "tar --exclude=.git --exclude=node_modules --dereference --hard-dereference -cf /dev/null . && echo 'Pages deploy validation passed: no broken symlinks'",
     "test": "PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers ./node_modules/.bin/playwright test",
     "test:brickbreaker": "cd brickbreaker && bun run test",
     "test:tetris": "cd tetris && bun run test",
