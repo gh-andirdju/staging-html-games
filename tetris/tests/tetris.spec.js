@@ -489,6 +489,7 @@ test('4-line Tetris clear awards correct score and status message', async ({ pag
   expect(after.lines).toBe(4);
   expect(after.score).toBeGreaterThanOrEqual(800); // 800 (Tetris) + hard-drop bonus
   expect(after.statusMessage).toMatch(/tetris clear/i);
+  expect(after.statusTone).toBe('milestone');
 });
 
 test('control deck buttons are keyboard-activatable via Space', async ({ page }) => {
@@ -532,6 +533,8 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   expect(afterFirstHold.holdUsed).toBe(true);
   expect(afterFirstHold.current).not.toBeNull();
   expect(afterFirstHold.current.type).not.toBe(initialType);
+  expect(afterFirstHold.nextPieceType).not.toBeNull();
+  expect(afterFirstHold.nextPieceType).not.toBe(afterFirstHold.current.type);
   expect(afterFirstHold.statusMessage).toMatch(/hold/i);
   await expect(page.locator('[data-action="hold"]')).toHaveAttribute('aria-disabled', 'true');
 

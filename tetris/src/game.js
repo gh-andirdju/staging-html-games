@@ -373,7 +373,6 @@
     held.left = false;
     held.right = false;
     held.softDrop = false;
-    held.hardDrop = false;
     held.leftDasTick = 0;
     held.rightDasTick = 0;
     held.leftArrTick = 0;
