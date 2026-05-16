@@ -593,10 +593,14 @@ test.describe('beginner guide', () => {
     expect(step).toBe(1);
   });
 
-  test('Next on last step closes guide', async ({ page }) => {
+  test('guide DOM has 4 steps matching JS constant', async ({ page }) => {
     await openGameFresh(page);
     const domStepCount = await page.evaluate(() => document.querySelectorAll('.guide-step').length);
     expect(domStepCount).toBe(4);
+  });
+
+  test('Next on last step closes guide', async ({ page }) => {
+    await openGameFresh(page);
     await page.evaluate(() => window.__2048Test.showGuide(3));
     const stepBefore = await page.evaluate(() => window.__2048Test.getGuideStep());
     expect(stepBefore).toBe(3);
@@ -722,10 +726,20 @@ test.describe('beginner guide', () => {
       const api = window.__2048Test;
       return (
         api && api.isReady &&
+        typeof api.getState === 'function' &&
+        typeof api.setState === 'function' &&
+        typeof api.advanceFrames === 'function' &&
+        typeof api.restart === 'function' &&
+        typeof api.setAutoStep === 'function' &&
+        typeof api.spawnTile === 'function' &&
         typeof api.isGuideVisible === 'function' &&
-        typeof api.getGuideStep === 'function'
+        typeof api.getGuideStep === 'function' &&
+        typeof api.showGuide === 'function' &&
+        typeof api.dismissGuide === 'function' &&
+        api.isGuideVisible() === false
       );
     });
+    await page.evaluate(() => window.__2048Test.setAutoStep(false));
     const visible = await page.evaluate(() => window.__2048Test.isGuideVisible());
     expect(visible).toBe(false);
   });
