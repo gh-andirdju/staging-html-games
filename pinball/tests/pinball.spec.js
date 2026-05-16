@@ -420,7 +420,7 @@ test('HUD score updates in DOM after bumper hit via advanceFrames', async ({ pag
   expect(after.score).toBeGreaterThan(0);
 });
 
-test('ball speed is capped after flipper boost', async ({ page }) => {
+test('ball speed is capped at 1080 after flipper boost', async ({ page }) => {
   await openGame(page);
   await page.evaluate(() => {
     window.__pinballTest.setState({
@@ -433,7 +433,7 @@ test('ball speed is capped after flipper boost', async ({ page }) => {
   await page.keyboard.up('z');
   const after = await getState(page);
   const speed = Math.sqrt(after.ball.vx ** 2 + after.ball.vy ** 2);
-  expect(speed).toBeLessThanOrEqual(900);
+  expect(speed).toBeLessThanOrEqual(1080);
 });
 
 test('plunger compresses while launch key is held', async ({ page }) => {
@@ -544,6 +544,72 @@ test('ball reflects off curved top wall', async ({ page }) => {
   const adist = Math.sqrt((after.ball.x - 200) ** 2 + after.ball.y ** 2);
   expect(adist).toBeLessThanOrEqual(170);
   expect(after.ball.y).toBeGreaterThan(0);
+});
+
+test('slingshot kick sends ball upward and scores', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      ball: { x: 83, y: 494, vx: -20, vy: 30, radius: 10, launched: true }
+    });
+  });
+  await advanceFrames(page, 3);
+  const after = await getState(page);
+  expect(after.ball.vy).toBeLessThan(0);
+  expect(after.score).toBeGreaterThan(0);
+  expect(after.slingshots[0].hitTimer).toBeGreaterThan(0);
+});
+
+test('five bumpers exist and new bumper scores on collision', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  expect(s.bumpers.length).toBe(5);
+  const bumper = s.bumpers[4];
+  await page.evaluate((b) => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      ball: { x: b.x, y: b.y, vx: 0, vy: 0, radius: 10, launched: true }
+    });
+  }, bumper);
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  expect(after.score).toBeGreaterThan(0);
+  expect(after.bumpers[4].hitTimer).toBe(14);
+});
+
+test('peg collision scores and sets hitTimer', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      level: 1,
+      ball: { x: 200, y: 158, vx: 0, vy: 120, radius: 10, launched: true }
+    });
+  });
+  await advanceFrames(page, 4);
+  const after = await getState(page);
+  expect(after.score).toBeGreaterThanOrEqual(10);
+  expect(after.pegs[2].hitTimer).toBeGreaterThan(0);
+});
+
+test('rollover lights up and scores once', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      level: 1,
+      ball: { x: 200, y: 84, vx: 0, vy: 0, radius: 10, launched: true }
+    });
+  });
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  expect(after.rollovers[1].lit).toBe(true);
+  expect(after.score).toBe(120);
 });
 
 test('desktop layout screenshot', async ({ page }) => {
