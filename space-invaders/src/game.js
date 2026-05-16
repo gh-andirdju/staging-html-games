@@ -166,7 +166,7 @@
       enemyDropPending: false,
       enemyMoveTimer: 60,
       bulletCooldown: 0,
-      enemyFireTimer: 80,
+      enemyFireTimer: FIRE_COOLDOWN_MIN,
       rngSeed: 12345,
       deathTimer: 0,
       // Galaga features
