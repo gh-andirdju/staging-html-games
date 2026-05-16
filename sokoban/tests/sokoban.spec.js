@@ -282,6 +282,60 @@ test('level advances automatically after win', async ({ page }) => {
   expect(after.status).toBe('playing');
 });
 
+test('every pre-defined level has no statically trapped boxes', async ({ page }) => {
+  await openGame(page);
+
+  const LEVEL_COUNT = 26;
+
+  for (let levelIdx = 0; levelIdx < LEVEL_COUNT; levelIdx++) {
+    await page.evaluate(async (idx) => {
+      window.__sokobanTest.setState({ level: idx });
+      await window.__sokobanTest.restart();
+    }, levelIdx);
+
+    const deadlockedBoxes = await page.evaluate(() => {
+      const { board, boxes, targets } = window.__sokobanTest.getState();
+      const numRows = board.length;
+      const numCols = board[0].length;
+      const trapped = [];
+
+      for (const box of boxes) {
+        const visited = new Set();
+        const queue = [[box.row, box.col]];
+        visited.add(`${box.row},${box.col}`);
+
+        while (queue.length > 0) {
+          const [r, c] = queue.shift();
+          for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+            const nr = r + dr, nc = c + dc;
+            const pr = r - dr, pc = c - dc;
+            if (nr < 0 || nr >= numRows || nc < 0 || nc >= numCols) continue;
+            if (board[nr][nc] === '#') continue;
+            if (pr < 0 || pr >= numRows || pc < 0 || pc >= numCols) continue;
+            if (board[pr][pc] === '#') continue;
+            const key = `${nr},${nc}`;
+            if (!visited.has(key)) {
+              visited.add(key);
+              queue.push([nr, nc]);
+            }
+          }
+        }
+
+        if (!targets.some(t => visited.has(`${t.row},${t.col}`))) {
+          trapped.push({ row: box.row, col: box.col });
+        }
+      }
+
+      return trapped;
+    });
+
+    expect(
+      deadlockedBoxes,
+      `Level ${levelIdx}: boxes at ${JSON.stringify(deadlockedBoxes)} cannot reach any target`
+    ).toHaveLength(0);
+  }
+});
+
 test('desktop layout matches screenshot', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1024 });
   await openGame(page);
