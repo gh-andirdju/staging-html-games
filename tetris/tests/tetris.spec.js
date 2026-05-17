@@ -15,7 +15,7 @@ test.afterEach(async ({ page }) => {
   expect(page.__runtimeErrors).toEqual([]);
 });
 
-async function openGame(page) {
+async function openGame(page, { keepNaturalSize = false } = {}) {
   await page.goto('./');
   await page.reload();
   await page.waitForFunction(() => {
@@ -29,10 +29,17 @@ async function openGame(page) {
       typeof api.restart === 'function' &&
       typeof api.setAutoStep === 'function' &&
       typeof api.getControlsState === 'function' &&
-      typeof api.setHandedness === 'function'
+      typeof api.setHandedness === 'function' &&
+      typeof api.getBoardSize === 'function' &&
+      typeof api.setBoardSize === 'function'
     );
   });
   await page.evaluate(() => window.__tetrisTest.setAutoStep(false));
+  if (!keepNaturalSize) {
+    // Lock to standard 10×20 so gameplay tests use predictable hardcoded dimensions.
+    await page.evaluate(() => window.__tetrisTest.setBoardSize(10, 20));
+    await page.evaluate(() => window.__tetrisTest.restart());
+  }
   await expect(page.locator('canvas#game')).toBeVisible();
 }
 
@@ -159,13 +166,25 @@ function expectPortraitErgonomics(layout) {
 }
 
 async function prepareVisualLayout(page) {
-  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
-  board[17] = [0, 0, 3, 3, 3, 0, 4, 4, 0, 0];
-  board[18] = [0, 5, 5, 0, 2, 2, 0, 1, 1, 1];
-  board[19] = [6, 6, 5, 2, 2, 7, 7, 0, 3, 3];
+  const { cols, rows } = await page.evaluate(() => window.__tetrisTest.getBoardSize());
+  const board = Array.from({ length: rows }, () => Array(cols).fill(0));
+  // Place the same 10-column visual pattern in the bottom 3 rows, centered.
+  const offset = Math.floor((cols - 10) / 2);
+  const place = (row, col, val) => { if (col >= 0 && col < cols) board[row][col] = val; };
+  const r1 = rows - 3, r2 = rows - 2, r3 = rows - 1;
+  place(r1, offset + 2, 3); place(r1, offset + 3, 3); place(r1, offset + 4, 3);
+  place(r1, offset + 6, 4); place(r1, offset + 7, 4);
+  place(r2, offset + 1, 5); place(r2, offset + 2, 5);
+  place(r2, offset + 4, 2); place(r2, offset + 5, 2);
+  place(r2, offset + 7, 1); place(r2, offset + 8, 1); place(r2, offset + 9, 1);
+  place(r3, offset + 0, 6); place(r3, offset + 1, 6);
+  place(r3, offset + 2, 5); place(r3, offset + 3, 2); place(r3, offset + 4, 2);
+  place(r3, offset + 5, 7); place(r3, offset + 6, 7);
+  place(r3, offset + 8, 3); place(r3, offset + 9, 3);
+  const spawnX = Math.floor(cols / 2) - 1;
   await setState(page, {
     board,
-    current: { type: 'T', index: 3, x: 4, y: 3, rotation: 0 },
+    current: { type: 'T', index: 3, x: spawnX, y: 3, rotation: 0 },
     score: 1200,
     lines: 4,
     level: 1,
@@ -1025,7 +1044,7 @@ test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
   const hasGhostPixel = await page.evaluate(({ row, col }) => {
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
-    const cellSize = canvas.width / 10; // 30px
+    const cellSize = canvas.width / window.__tetrisTest.getBoardSize().cols;
     // Sample a 3-pixel horizontal strip along the left stroke edge of the ghost cell.
     // strokeRect draws 2px inside, lineWidth=1.5: strip at x=[col*30+1, col*30+3].
     // Ghost is rgba(255,255,255,0.22) over background (#020617, r=2): r blends to ~58.
@@ -1054,7 +1073,7 @@ test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
 
 test('matches the desktop layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await openGame(page);
+  await openGame(page, { keepNaturalSize: true });
   await prepareVisualLayout(page);
 
   await expect(page).toHaveScreenshot('tetris-desktop-layout.png', {
@@ -1184,7 +1203,7 @@ test.describe('mobile touch controls', () => {
   });
 
   test('matches the portrait layout baseline', async ({ page }) => {
-    await openGame(page);
+    await openGame(page, { keepNaturalSize: true });
     await prepareVisualLayout(page);
 
     const layout = await getPortraitLayout(page);
@@ -1194,6 +1213,51 @@ test.describe('mobile touch controls', () => {
       animations: 'disabled',
       fullPage: false,
       maxDiffPixels: 10
+    });
+  });
+});
+
+test.describe('responsive layout screenshots', () => {
+  test('matches the tablet landscape layout baseline', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await openGame(page, { keepNaturalSize: true });
+    await prepareVisualLayout(page);
+
+    await expect(page).toHaveScreenshot('tetris-tablet-landscape-layout.png', {
+      animations: 'disabled',
+      fullPage: false,
+      maxDiffPixels: 10
+    });
+  });
+
+  test('matches the tablet portrait layout baseline', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await openGame(page, { keepNaturalSize: true });
+    await prepareVisualLayout(page);
+
+    await expect(page).toHaveScreenshot('tetris-tablet-portrait-layout.png', {
+      animations: 'disabled',
+      fullPage: false,
+      maxDiffPixels: 10
+    });
+  });
+
+  test.describe('small portrait', () => {
+    test.use({
+      viewport: { width: 360, height: 740 },
+      hasTouch: true,
+      isMobile: true
+    });
+
+    test('matches the small portrait layout baseline', async ({ page }) => {
+      await openGame(page, { keepNaturalSize: true });
+      await prepareVisualLayout(page);
+
+      await expect(page).toHaveScreenshot('tetris-small-portrait-layout.png', {
+        animations: 'disabled',
+        fullPage: false,
+        maxDiffPixels: 10
+      });
     });
   });
 });
