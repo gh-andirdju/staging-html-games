@@ -27,7 +27,7 @@ body {
 }
 
 .game-shell {
-  width: min(100vw, 480px);
+  width: 100vw;
   min-height: 100vh;
   margin: 0 auto;
   padding: 8px 8px 0;
@@ -91,6 +91,7 @@ body {
   flex-direction: row;
   gap: 6px;
   align-items: flex-start;
+  justify-content: center;
   padding: 0 2px 0 6px;
   min-height: 0;
 }
@@ -99,14 +100,11 @@ body {
   flex: none;
   display: flex;
   align-items: stretch;
+  overflow: hidden;
 }
 
 #game {
   display: block;
-  width: auto;
-  height: 100%;
-  aspect-ratio: 1 / 2;
-  max-height: calc(100svh - 260px);
   border: 1px solid rgba(var(--accent-rgb), 0.35);
   border-radius: 8px;
   background: var(--bg-bottom);
@@ -428,10 +426,6 @@ body {
   #restart {
     padding: 8px 12px;
     font-size: 13px;
-  }
-
-  #game {
-    max-height: calc(100svh - 220px);
   }
 
   .control-deck {

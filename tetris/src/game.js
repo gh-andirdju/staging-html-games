@@ -1,7 +1,7 @@
 (() => {
-  const BOARD_WIDTH = 10;
-  const BOARD_HEIGHT = 20;
-  const CELL_SIZE = 30;
+  let boardCols = 10;
+  let boardRows = 20;
+  let cellSize = 30;
   const BASE_GRAVITY_FRAMES = 48;
   const MIN_GRAVITY_FRAMES = 6;
   const GRAVITY_FRAMES_BY_LEVEL = [48, 44, 40, 34, 30, 27, 24, 21, 18, 16, 14, 12, 10, 8, 6];
@@ -40,8 +40,38 @@
   const holdCtx = holdCanvasEl ? holdCanvasEl.getContext('2d') : null;
   const touchButtons = Array.from(document.querySelectorAll('[data-action]'));
 
+  function computeDimensions() {
+    const shellEl = canvas.closest('.game-shell');
+    const topbarEl = shellEl.querySelector('.topbar');
+    const controlEl = shellEl.querySelector('.control-deck');
+    const gameAreaEl = shellEl.querySelector('.game-area');
+    const sideRailEl = shellEl.querySelector('.side-rail');
+
+    const gameAreaRect = gameAreaEl.getBoundingClientRect();
+    const sideRailRect = sideRailEl.getBoundingClientRect();
+    const topbarRect = topbarEl.getBoundingClientRect();
+    const controlRect = controlEl.getBoundingClientRect();
+    const shellStyle = getComputedStyle(shellEl);
+    const shellPadTop = parseFloat(shellStyle.paddingTop) || 8;
+    const shellRowGap = parseFloat(shellStyle.rowGap) || 6;
+
+    const availW = Math.max(150, gameAreaRect.width - sideRailRect.width - 6);
+    const availH = Math.max(300, window.innerHeight - topbarRect.height - controlRect.height - shellRowGap * 2 - shellPadTop);
+
+    // Target 30px cells; shrink only if available height can't fit minimum 20 rows.
+    const TARGET_CELL = 30;
+    const cs = availH < 20 * TARGET_CELL ? Math.max(16, Math.floor(availH / 20)) : TARGET_CELL;
+
+    boardCols = Math.max(10, Math.min(24, Math.floor(availW / cs)));
+    boardRows = Math.max(20, Math.min(40, Math.floor(availH / cs)));
+    cellSize = cs;
+
+    canvas.width = boardCols * cs;
+    canvas.height = boardRows * cs;
+  }
+
   function createBoard() {
-    return Array.from({ length: BOARD_HEIGHT }, () => Array(BOARD_WIDTH).fill(0));
+    return Array.from({ length: boardRows }, () => Array(boardCols).fill(0));
   }
 
   let state = null;
@@ -90,7 +120,7 @@
     return {
       type: pieceDef.type,
       index: pieceDef.index,
-      x: 4,
+      x: Math.floor(boardCols / 2) - 1,
       y: 0,
       rotation: 0
     };
@@ -105,7 +135,7 @@
   function isValidPosition(piece) {
     const cells = pieceCells(piece);
     for (const cell of cells) {
-      if (cell.x < 0 || cell.x >= BOARD_WIDTH || cell.y >= BOARD_HEIGHT) return false;
+      if (cell.x < 0 || cell.x >= boardCols || cell.y >= boardRows) return false;
       if (cell.y >= 0 && state.board[cell.y][cell.x] !== 0) return false;
     }
     return true;
@@ -135,7 +165,8 @@
     } else {
       const swappedType = state.heldPiece;
       const pieceDef = PIECES.find((p) => p.type === swappedType);
-      const swapped = { type: pieceDef.type, index: pieceDef.index, x: 4, y: 0, rotation: 0 };
+      const spawnX = Math.floor(boardCols / 2) - 1;
+      const swapped = { type: pieceDef.type, index: pieceDef.index, x: spawnX, y: 0, rotation: 0 };
       if (!isValidPosition(swapped)) return;
       // Mutate only after validation succeeds to avoid corrupt state on failure.
       state.heldPiece = currentType;
@@ -152,7 +183,7 @@
 
   function mergePiece() {
     for (const cell of pieceCells(state.current)) {
-      if (cell.y >= 0 && cell.y < BOARD_HEIGHT && cell.x >= 0 && cell.x < BOARD_WIDTH) {
+      if (cell.y >= 0 && cell.y < boardRows && cell.x >= 0 && cell.x < boardCols) {
         state.board[cell.y][cell.x] = state.current.index;
       }
     }
@@ -227,7 +258,7 @@
 
   function findFullRows() {
     const rows = [];
-    for (let row = 0; row < BOARD_HEIGHT; row += 1) {
+    for (let row = 0; row < boardRows; row += 1) {
       if (state.board[row].every((value) => value !== 0)) rows.push(row);
     }
     return rows;
@@ -236,10 +267,10 @@
   function collapseRows(rows) {
     const rowSet = new Set(rows);
     const kept = [];
-    for (let row = 0; row < BOARD_HEIGHT; row += 1) {
+    for (let row = 0; row < boardRows; row += 1) {
       if (!rowSet.has(row)) kept.push(state.board[row].slice());
     }
-    while (kept.length < BOARD_HEIGHT) kept.unshift(Array(BOARD_WIDTH).fill(0));
+    while (kept.length < boardRows) kept.unshift(Array(boardCols).fill(0));
     state.board = kept;
   }
 
@@ -412,6 +443,19 @@
     if (!('heldPiece' in state)) state.heldPiece = null;
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
+    // Normalize board to current dimensions, padding missing cells with zero.
+    if (state.board) {
+      const normalized = createBoard();
+      const srcRows = Math.min(state.board.length, boardRows);
+      for (let r = 0; r < srcRows; r += 1) {
+        const srcRow = state.board[r] || [];
+        const srcCols = Math.min(srcRow.length, boardCols);
+        for (let c = 0; c < srcCols; c += 1) {
+          normalized[r][c] = srcRow[c] || 0;
+        }
+      }
+      state.board = normalized;
+    }
     if (!state.current && !state.gameOver && !state.clearAnimation) spawnPiece();
     // Preserve an explicitly injected statusMessage; only sync the fallback when none was provided.
     if (state.gameOver) syncStatusMessage();
@@ -433,9 +477,9 @@
 
   function drawCell(x, y, index) {
     ctx.fillStyle = COLORS[index];
-    ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
     ctx.strokeStyle = '#0f172a';
-    ctx.strokeRect(x * CELL_SIZE + 0.5, y * CELL_SIZE + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
+    ctx.strokeRect(x * cellSize + 0.5, y * cellSize + 0.5, cellSize - 1, cellSize - 1);
   }
 
   function drawBoard() {
@@ -456,18 +500,18 @@
       for (const cell of ghostCells) {
         if (cell.y >= 0) {
           ctx.strokeRect(
-            cell.x * CELL_SIZE + 2,
-            cell.y * CELL_SIZE + 2,
-            CELL_SIZE - 4,
-            CELL_SIZE - 4
+            cell.x * cellSize + 2,
+            cell.y * cellSize + 2,
+            cellSize - 4,
+            cellSize - 4
           );
         }
       }
       ctx.restore();
     }
 
-    for (let y = 0; y < BOARD_HEIGHT; y += 1) {
-      for (let x = 0; x < BOARD_WIDTH; x += 1) {
+    for (let y = 0; y < boardRows; y += 1) {
+      for (let x = 0; x < boardCols; x += 1) {
         if (clearRowSet && clearRowSet.has(y) && !shouldShowBlinkRows) continue;
         const value = state.board[y][x];
         if (value !== 0) drawCell(x, y, value);
@@ -500,21 +544,21 @@
     }
     const cols = maxX - minX + 1;
     const rows = maxY - minY + 1;
-    const cellSize = Math.floor(Math.min((w - 4) / cols, (h - 4) / rows));
-    const pieceW = cols * cellSize;
-    const pieceH = rows * cellSize;
-    const offsetX = Math.floor((w - pieceW) / 2) - minX * cellSize;
-    const offsetY = Math.floor((h - pieceH) / 2) - minY * cellSize;
+    const previewCell = Math.floor(Math.min((w - 4) / cols, (h - 4) / rows));
+    const pieceW = cols * previewCell;
+    const pieceH = rows * previewCell;
+    const offsetX = Math.floor((w - pieceW) / 2) - minX * previewCell;
+    const offsetY = Math.floor((h - pieceH) / 2) - minY * previewCell;
 
     const color = COLORS[pieceDef.index];
     for (const [dx, dy] of cells) {
-      const px = offsetX + dx * cellSize;
-      const py = offsetY + dy * cellSize;
+      const px = offsetX + dx * previewCell;
+      const py = offsetY + dy * previewCell;
       context.fillStyle = color;
-      context.fillRect(px, py, cellSize, cellSize);
+      context.fillRect(px, py, previewCell, previewCell);
       context.strokeStyle = '#0f172a';
       context.lineWidth = 0.5;
-      context.strokeRect(px + 0.5, py + 0.5, cellSize - 1, cellSize - 1);
+      context.strokeRect(px + 0.5, py + 0.5, previewCell - 1, previewCell - 1);
     }
   }
 
@@ -728,6 +772,18 @@
     });
   }
 
+  let _resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      const prevCols = boardCols;
+      const prevRows = boardRows;
+      computeDimensions();
+      if (boardCols !== prevCols || boardRows !== prevRows) restartGame();
+    }, 200);
+  });
+
+  computeDimensions();
   restartGame();
   setAutoStep(true);
 
@@ -750,6 +806,13 @@
     }),
     setHandedness: (_value) => {
       // no-op stub for test API compatibility
+    },
+    getBoardSize: () => ({ cols: boardCols, rows: boardRows, cellSize }),
+    setBoardSize: (cols, rows) => {
+      boardCols = cols;
+      boardRows = rows;
+      canvas.width = cols * cellSize;
+      canvas.height = rows * cellSize;
     }
   };
 })();
