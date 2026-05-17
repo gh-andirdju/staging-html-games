@@ -63,7 +63,7 @@
     const TARGET_CELL = 30;
     const cs = availH < 20 * TARGET_CELL ? Math.max(16, Math.floor(availH / 20)) : TARGET_CELL;
 
-    boardCols = Math.max(10, Math.min(24, Math.floor(availW / cs)));
+    boardCols = 10;
     boardRows = Math.max(20, Math.min(40, Math.floor(availH / cs)));
     cellSize = cs;
 
