@@ -44,26 +44,20 @@
     const shellEl = canvas.closest('.game-shell');
     const topbarEl = shellEl.querySelector('.topbar');
     const controlEl = shellEl.querySelector('.control-deck');
-    const gameAreaEl = shellEl.querySelector('.game-area');
-    const sideRailEl = shellEl.querySelector('.side-rail');
 
-    const gameAreaRect = gameAreaEl.getBoundingClientRect();
-    const sideRailRect = sideRailEl.getBoundingClientRect();
     const topbarRect = topbarEl.getBoundingClientRect();
     const controlRect = controlEl.getBoundingClientRect();
     const shellStyle = getComputedStyle(shellEl);
     const shellPadTop = parseFloat(shellStyle.paddingTop) || 8;
     const shellRowGap = parseFloat(shellStyle.rowGap) || 6;
-    const gameAreaGap = parseFloat(getComputedStyle(gameAreaEl).columnGap) || 6;
 
-    const availW = gameAreaRect.width - sideRailRect.width - gameAreaGap;
     const availH = window.innerHeight - topbarRect.height - controlRect.height - shellRowGap * 2 - shellPadTop;
 
     // Target 30px cells; shrink only if available height can't fit minimum 20 rows.
     const TARGET_CELL = 30;
     const cs = availH < 20 * TARGET_CELL ? Math.max(16, Math.floor(availH / 20)) : TARGET_CELL;
 
-    boardCols = Math.max(10, Math.min(24, Math.floor(availW / cs)));
+    boardCols = 10;
     boardRows = Math.max(20, Math.min(40, Math.floor(availH / cs)));
     cellSize = cs;
 
