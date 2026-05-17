@@ -16,60 +16,59 @@
         <button id="restart" type="button">Restart</button>
       </header>
 
-      <section class="playfield" aria-label="Game area">
-        <header class="hud" aria-label="Game status">
-          <div class="stat-card">
-            <span class="label">Score</span>
+      <div class="game-area" role="region" aria-label="Game area">
+        <div class="board-wrap">
+          <canvas id="game" width="300" height="600" role="img" aria-label="Tetris board"></canvas>
+        </div>
+
+        <aside class="side-rail" aria-label="Game status">
+          <div class="preview-box next-preview">
+            <span class="preview-label">NEXT</span>
+            <canvas id="next-canvas" width="50" height="34" role="img" aria-label="Next piece preview"></canvas>
+          </div>
+          <div class="stat-block">
+            <span class="stat-label">SCORE</span>
             <strong id="score">0</strong>
           </div>
-          <div class="stat-card">
-            <span class="label">Lines</span>
-            <strong id="lines">0</strong>
-          </div>
-          <div class="stat-card">
-            <span class="label">Level</span>
+          <div class="stat-block">
+            <span class="stat-label">LVL</span>
             <strong id="level">1</strong>
           </div>
-          <div class="status-wrap">
-            <span class="label">Status</span>
-            <strong id="status">Playing</strong>
+          <div class="stat-block">
+            <span class="stat-label">LINES</span>
+            <strong id="lines">0</strong>
           </div>
-        </header>
+          <div class="preview-box hold-preview" data-action="hold" role="button" tabindex="0" aria-label="Hold piece">
+            <span class="preview-label">HOLD</span>
+            <canvas id="hold-canvas" width="50" height="34" role="img" aria-label="Held piece preview"></canvas>
+          </div>
+          <div class="status-wrap" role="status" aria-live="polite">
+            <strong id="status"></strong>
+          </div>
+        </aside>
+      </div>
 
-        <div class="board-wrap">
-          <canvas id="game" width="300" height="600" aria-label="Tetris board"></canvas>
+      <div class="control-deck" role="group" aria-label="Touch controls">
+        <div class="dpad-cluster">
+          <div class="dpad" role="group" aria-label="Directional pad">
+            <div class="dpad-v-bar"></div>
+            <div class="dpad-h-bar"></div>
+            <button type="button" class="dpad-btn dpad-up" data-action="hard-drop" aria-label="Hard Drop">▲</button>
+            <button type="button" class="dpad-btn dpad-left" data-action="left" aria-label="Left">◀</button>
+            <button type="button" class="dpad-btn dpad-right" data-action="right" aria-label="Right">▶</button>
+            <button type="button" class="dpad-btn dpad-down" data-action="soft-drop" aria-label="Soft Drop">▼</button>
+          </div>
+          <p class="cluster-label">◀▶ move · ▼ soft drop / <span class="accent-text">▲ HARD DROP</span></p>
         </div>
-      </section>
 
-      <section class="touch-controls" aria-label="Touch controls">
-        <div class="controls-header">
-          <span class="control-label">Handedness</span>
-          <button
-            id="handedness-toggle"
-            class="mode-toggle"
-            type="button"
-            aria-label="Switch to left-handed controls"
-            aria-pressed="false"
-          >
-            Right-handed
-          </button>
-        </div>
-        <div class="thumb-zone move-zone">
-          <span class="control-label">Move</span>
-          <div class="move-row">
-            <button type="button" data-action="left">Left</button>
-            <button type="button" data-action="soft-drop" aria-label="Soft Drop">Down</button>
-            <button type="button" data-action="right">Right</button>
+        <div class="rotate-area">
+          <div class="rotate-cluster" role="group" aria-label="Rotation controls">
+            <button type="button" class="rotate-btn ccw" data-action="rotate-ccw" aria-label="Rotate Left">↺</button>
+            <button type="button" class="rotate-btn cw" data-action="rotate-cw" aria-label="Rotate Right">↻</button>
           </div>
+          <p class="cluster-label">rotate left · rotate right</p>
         </div>
-        <div class="thumb-zone action-zone">
-          <span class="control-label">Actions</span>
-          <div class="action-grid">
-            <button type="button" data-action="rotate">Rotate</button>
-            <button type="button" data-action="hard-drop" aria-label="Hard Drop">Drop</button>
-          </div>
-        </div>
-      </section>
+      </div>
     </main>
     <script src="src/game.js"></script>
   </body>

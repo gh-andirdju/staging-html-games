@@ -34,17 +34,14 @@
   const statusEl = document.getElementById('status');
   const restartEl = document.getElementById('restart');
   const statusWrapEl = statusEl.closest('.status-wrap');
-  const touchControlsEl = document.querySelector('.touch-controls');
-  const handednessToggleEl = document.getElementById('handedness-toggle');
-  const touchButtons = Array.from(document.querySelectorAll('.touch-controls [data-action]'));
-  const HANDEDNESS_STORAGE_KEY = 'tetris-handedness';
+  const nextCanvasEl = document.getElementById('next-canvas');
+  const nextCtx = nextCanvasEl ? nextCanvasEl.getContext('2d') : null;
+  const holdCanvasEl = document.getElementById('hold-canvas');
+  const holdCtx = holdCanvasEl ? holdCanvasEl.getContext('2d') : null;
+  const touchButtons = Array.from(document.querySelectorAll('[data-action]'));
 
   function createBoard() {
     return Array.from({ length: BOARD_HEIGHT }, () => Array(BOARD_WIDTH).fill(0));
-  }
-
-  function clonePiece(piece) {
-    return { ...piece };
   }
 
   let state = null;
@@ -58,57 +55,12 @@
     left: false,
     right: false,
     softDrop: false,
-    hardDrop: false,
     leftDasTick: 0,
     rightDasTick: 0,
     leftArrTick: 0,
     rightArrTick: 0,
-    softTick: 0,
-    hardTick: 0
+    softTick: 0
   };
-  let controlHandedness = 'right';
-
-  function normalizeHandedness(value) {
-    return value === 'left' ? 'left' : 'right';
-  }
-
-  function readStoredHandedness() {
-    try {
-      return normalizeHandedness(window.localStorage.getItem(HANDEDNESS_STORAGE_KEY));
-    } catch {
-      return 'right';
-    }
-  }
-
-  function writeStoredHandedness(value) {
-    try {
-      window.localStorage.setItem(HANDEDNESS_STORAGE_KEY, value);
-    } catch {
-      // Ignore storage failures so touch controls still work in restricted contexts.
-    }
-  }
-
-  function syncHandednessUi() {
-    if (!touchControlsEl || !handednessToggleEl) return;
-    touchControlsEl.dataset.handedness = controlHandedness;
-    const isLeft = controlHandedness === 'left';
-    handednessToggleEl.textContent = isLeft ? 'Left-handed' : 'Right-handed';
-    handednessToggleEl.setAttribute('aria-pressed', String(isLeft));
-    handednessToggleEl.setAttribute(
-      'aria-label',
-      isLeft ? 'Switch to right-handed controls' : 'Switch to left-handed controls'
-    );
-  }
-
-  function setControlHandedness(value, { persist = true } = {}) {
-    controlHandedness = normalizeHandedness(value);
-    syncHandednessUi();
-    if (persist) writeStoredHandedness(controlHandedness);
-  }
-
-  function toggleControlHandedness() {
-    setControlHandedness(controlHandedness === 'left' ? 'right' : 'left');
-  }
 
   function nextRandom() {
     seededValue = (seededValue * 1664525 + 1013904223) >>> 0;
@@ -126,9 +78,15 @@
     return order;
   }
 
+  function peekNextPieceType() {
+    if (bag.length === 0) bag = shuffleBag();
+    return PIECES[bag[0]].type;
+  }
+
   function nextPiece() {
     if (bag.length === 0) bag = shuffleBag();
     const pieceDef = PIECES[bag.shift()];
+    if (state) state.nextPieceType = peekNextPieceType();
     return {
       type: pieceDef.type,
       index: pieceDef.index,
@@ -156,10 +114,40 @@
   function spawnPiece() {
     state.current = nextPiece();
     state.lockTimer = 0;
+    state.gravityTick = 0;
+    state.holdUsed = false;
     if (!isValidPosition(state.current)) {
       state.gameOver = true;
       syncStatusMessage();
     }
+  }
+
+  function holdPiece() {
+    if (!state.current || state.clearAnimation || state.gameOver) return;
+    if (state.holdUsed) { setStatusMessage('Hold not available'); return; }
+    const currentType = state.current.type;
+    if (state.heldPiece === null) {
+      state.heldPiece = currentType;
+      state.current = null;
+      state.gravityTick = 0;
+      spawnPiece();
+      if (state.gameOver) return;
+    } else {
+      const swappedType = state.heldPiece;
+      const pieceDef = PIECES.find((p) => p.type === swappedType);
+      const swapped = { type: pieceDef.type, index: pieceDef.index, x: 4, y: 0, rotation: 0 };
+      if (!isValidPosition(swapped)) return;
+      // Mutate only after validation succeeds to avoid corrupt state on failure.
+      state.heldPiece = currentType;
+      state.current = swapped;
+      state.lockTimer = 0;
+      state.gravityTick = 0;
+    }
+    // After first-hold, spawnPiece() cleared holdUsed for the spawned piece; after a swap it was
+    // already false. Either way, lock it now to block a second hold until the next piece spawns.
+    state.holdUsed = true;
+    setStatusMessage(`Hold: ${currentType}`);
+    // DOM (CSS classes, aria attrs) refreshes on the next oneFrame() render call.
   }
 
   function mergePiece() {
@@ -220,6 +208,12 @@
   function onLinesResolved(cleared) {
     const previousLevel = state.level;
     updateLevelAndSpeed();
+    if (cleared === 4) {
+      const linesToNextLevel = (10 - (state.lines % 10)) || 10;
+      const levelTag = state.level > previousLevel ? ` · Level ${state.level}!` : '';
+      setStatusMessage(`Tetris clear: ${linesToNextLevel} lines to next level${levelTag}`, 'milestone');
+      return;
+    }
     if (state.level > previousLevel) {
       if (state.level % MILESTONE_LEVEL_INTERVAL === 0) {
         setStatusMessage(`Milestone reached: level ${state.level}`, 'milestone');
@@ -228,29 +222,7 @@
       }
       return;
     }
-    if (cleared === 4) {
-      const linesToNextLevel = (10 - (state.lines % 10)) || 10;
-      setStatusMessage(`Tetris clear: ${linesToNextLevel} lines to next level`, 'milestone');
-      return;
-    }
     syncStatusMessage({ forceFallback: true });
-  }
-
-  function clearLines() {
-    let cleared = 0;
-    for (let row = BOARD_HEIGHT - 1; row >= 0; row -= 1) {
-      if (state.board[row].every((value) => value !== 0)) {
-        state.board.splice(row, 1);
-        state.board.unshift(Array(BOARD_WIDTH).fill(0));
-        cleared += 1;
-        row += 1;
-      }
-    }
-    if (cleared > 0) {
-      state.lines += cleared;
-      state.score += CLEAR_SCORES[cleared] * state.level;
-      onLinesResolved(cleared);
-    }
   }
 
   function findFullRows() {
@@ -330,6 +302,26 @@
     return false;
   }
 
+  function rotatePieceCcw() {
+    if (state.gameOver || !state.current || state.clearAnimation) return false;
+    const next = { ...state.current, rotation: (state.current.rotation - 1 + 4) % 4 };
+    if (isValidPosition(next)) {
+      state.current = next;
+      state.lockTimer = 0;
+      return true;
+    }
+    const kicks = [1, -1, 2, -2];
+    for (const kick of kicks) {
+      const kicked = { ...next, x: next.x + kick };
+      if (isValidPosition(kicked)) {
+        state.current = kicked;
+        state.lockTimer = 0;
+        return true;
+      }
+    }
+    return false;
+  }
+
   function applySoftDropPoint(steps) {
     state.score += steps;
   }
@@ -346,8 +338,12 @@
       if (rewardSoftDrop) applySoftDropPoint(1);
       return true;
     }
-    state.lockTimer += 1;
-    if (state.lockTimer >= LOCK_DELAY_FRAMES || !rewardSoftDrop) lockPiece();
+    if (rewardSoftDrop) {
+      state.lockTimer += 1;
+      if (state.lockTimer >= LOCK_DELAY_FRAMES) lockPiece();
+    } else {
+      lockPiece();
+    }
     return false;
   }
 
@@ -370,6 +366,9 @@
     state = {
       board: createBoard(),
       current: null,
+      heldPiece: null,
+      holdUsed: false,
+      nextPieceType: null,
       score: 0,
       lines: 0,
       level: 1,
@@ -386,13 +385,11 @@
     held.left = false;
     held.right = false;
     held.softDrop = false;
-    held.hardDrop = false;
     held.leftDasTick = 0;
     held.rightDasTick = 0;
     held.leftArrTick = 0;
     held.rightArrTick = 0;
     held.softTick = 0;
-    held.hardTick = 0;
     spawnPiece();
     syncStatusMessage({ forceFallback: true });
     render();
@@ -404,13 +401,34 @@
 
   function setStateFromTests(nextState) {
     state = structuredClone(nextState);
-    if (!state.clearAnimation) state.clearAnimation = null;
+    state.clearAnimation = state.clearAnimation ?? null;
     if (typeof state.statusMessage !== 'string') state.statusMessage = '';
     if (typeof state.statusTone !== 'string') state.statusTone = 'normal';
     if (typeof state.statusMessageTimer !== 'number') state.statusMessageTimer = 0;
+    if (typeof state.frame !== 'number') state.frame = 0;
+    if (typeof state.gravityFrames !== 'number') state.gravityFrames = BASE_GRAVITY_FRAMES;
+    if (typeof state.gravityTick !== 'number') state.gravityTick = 0;
+    if (typeof state.lockTimer !== 'number') state.lockTimer = 0;
+    if (!('heldPiece' in state)) state.heldPiece = null;
+    if (!('holdUsed' in state)) state.holdUsed = false;
+    if (!('nextPieceType' in state)) state.nextPieceType = null;
     if (!state.current && !state.gameOver && !state.clearAnimation) spawnPiece();
-    syncStatusMessage({ forceFallback: !state.statusMessage });
+    // Preserve an explicitly injected statusMessage; only sync the fallback when none was provided.
+    if (state.gameOver) syncStatusMessage();
+    else if (!state.statusMessage) syncStatusMessage({ forceFallback: true });
     render();
+  }
+
+  function getGhostCells(piece) {
+    if (!piece) return [];
+    let ghost = { ...piece };
+    while (true) {
+      const next = { ...ghost, y: ghost.y + 1 };
+      if (!isValidPosition(next)) break;
+      ghost = next;
+    }
+    if (ghost.y === piece.y) return [];
+    return pieceCells(ghost);
   }
 
   function drawCell(x, y, index) {
@@ -428,6 +446,26 @@
     const clearRowSet = clearAnimation ? new Set(clearAnimation.rows) : null;
     ctx.fillStyle = '#020617';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (state.current && !state.clearAnimation) {
+      const ghostCells = getGhostCells(state.current);
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      for (const cell of ghostCells) {
+        if (cell.y >= 0) {
+          ctx.strokeRect(
+            cell.x * CELL_SIZE + 2,
+            cell.y * CELL_SIZE + 2,
+            CELL_SIZE - 4,
+            CELL_SIZE - 4
+          );
+        }
+      }
+      ctx.restore();
+    }
+
     for (let y = 0; y < BOARD_HEIGHT; y += 1) {
       for (let x = 0; x < BOARD_WIDTH; x += 1) {
         if (clearRowSet && clearRowSet.has(y) && !shouldShowBlinkRows) continue;
@@ -442,12 +480,59 @@
     }
   }
 
+  function drawPiecePreview(canvasEl, context, type) {
+    if (!canvasEl || !context) return;
+    const w = canvasEl.width;
+    const h = canvasEl.height;
+    context.clearRect(0, 0, w, h);
+    if (!type) return;
+
+    const pieceDef = PIECES.find((p) => p.type === type);
+    if (!pieceDef) return;
+
+    const cells = pieceDef.rotations[0];
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const [dx, dy] of cells) {
+      if (dx < minX) minX = dx;
+      if (dx > maxX) maxX = dx;
+      if (dy < minY) minY = dy;
+      if (dy > maxY) maxY = dy;
+    }
+    const cols = maxX - minX + 1;
+    const rows = maxY - minY + 1;
+    const cellSize = Math.floor(Math.min((w - 4) / cols, (h - 4) / rows));
+    const pieceW = cols * cellSize;
+    const pieceH = rows * cellSize;
+    const offsetX = Math.floor((w - pieceW) / 2) - minX * cellSize;
+    const offsetY = Math.floor((h - pieceH) / 2) - minY * cellSize;
+
+    const color = COLORS[pieceDef.index];
+    for (const [dx, dy] of cells) {
+      const px = offsetX + dx * cellSize;
+      const py = offsetY + dy * cellSize;
+      context.fillStyle = color;
+      context.fillRect(px, py, cellSize, cellSize);
+      context.strokeStyle = '#0f172a';
+      context.lineWidth = 0.5;
+      context.strokeRect(px + 0.5, py + 0.5, cellSize - 1, cellSize - 1);
+    }
+  }
+
   function updateHud() {
     scoreEl.textContent = String(state.score);
     linesEl.textContent = String(state.lines);
     levelEl.textContent = String(state.level);
-    statusEl.textContent = state.statusMessage;
-    statusWrapEl.dataset.tone = state.statusTone;
+    if (statusEl.textContent !== state.statusMessage) statusEl.textContent = state.statusMessage;
+    if (statusWrapEl && statusWrapEl.dataset.tone !== state.statusTone) statusWrapEl.dataset.tone = state.statusTone;
+    drawPiecePreview(nextCanvasEl, nextCtx, state.nextPieceType ?? null);
+    drawPiecePreview(holdCanvasEl, holdCtx, state.heldPiece ?? null);
+    if (holdCanvasEl) {
+      const holdBox = holdCanvasEl.closest('.preview-box');
+      holdBox?.classList.toggle('hold-empty', state.heldPiece === null);
+      holdBox?.classList.toggle('hold-locked', !!state.holdUsed);
+      holdBox?.setAttribute('aria-disabled', state.holdUsed ? 'true' : 'false');
+      holdBox?.setAttribute('aria-label', state.heldPiece ? `Hold piece: ${state.heldPiece}` : 'Hold piece');
+    }
   }
 
   function render() {
@@ -503,7 +588,7 @@
 
   function oneFrame() {
     if (!state.gameOver) {
-      if (state.statusMessageTimer > 0) {
+      if (state.statusMessageTimer > 0 && !state.clearAnimation) {
         state.statusMessageTimer -= 1;
         if (state.statusMessageTimer === 0) syncStatusMessage({ forceFallback: true });
       }
@@ -517,17 +602,10 @@
       if (held.right) stepHorizontalHold('right', 1);
       if (held.softDrop && state.current) {
         held.softTick += 1;
-        if (held.softTick === 1 || held.softTick % DROP_REPEAT_FRAMES === 0) stepDown({ rewardSoftDrop: true });
+        if ((held.softTick - 1) % DROP_REPEAT_FRAMES === 0) stepDown({ rewardSoftDrop: true });
       } else {
         held.softTick = 0;
       }
-      if (held.hardDrop && state.current) {
-        held.hardTick += 1;
-        if (held.hardTick === 1 || held.hardTick % 10 === 0) hardDrop();
-      } else {
-        held.hardTick = 0;
-      }
-
       state.gravityTick += 1;
       if (state.gravityTick >= state.gravityFrames) {
         state.gravityTick = 0;
@@ -535,7 +613,7 @@
       }
       state.frame += 1;
     } else {
-      syncStatusMessage();
+      if (state.statusMessage !== 'Game Over') syncStatusMessage();
     }
     render();
   }
@@ -585,7 +663,10 @@
     }
     else if (event.key === 'ArrowDown') held.softDrop = true;
     else if (event.key === 'ArrowUp') rotatePiece();
+    else if (event.key === 'z' || event.key === 'Z') rotatePieceCcw();
+    else if (event.key === 'c' || event.key === 'C') holdPiece();
     else if (event.code === 'Space') {
+      if (event.repeat) return;
       event.preventDefault();
       hardDrop();
     }
@@ -601,11 +682,13 @@
     if (action === 'left') setHorizontalHold('left', isHeld);
     else if (action === 'right') setHorizontalHold('right', isHeld);
     else if (action === 'soft-drop') held.softDrop = isHeld;
-    else if (action === 'hard-drop') held.hardDrop = isHeld;
   }
 
   function onTouchButtonDown(action) {
-    if (action === 'rotate') rotatePiece();
+    if (action === 'rotate-cw') rotatePiece();
+    else if (action === 'rotate-ccw') rotatePieceCcw();
+    else if (action === 'hold') holdPiece();
+    else if (action === 'hard-drop') hardDrop();
     else setTouchHeld(action, true);
   }
 
@@ -614,7 +697,6 @@
   }
 
   restartEl.addEventListener('click', restartGame);
-  handednessToggleEl?.addEventListener('click', toggleControlHandedness);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
 
@@ -622,14 +704,30 @@
     const action = button.dataset.action;
     button.addEventListener('pointerdown', (event) => {
       event.preventDefault();
+      // preventDefault() blocks focus transfer for non-button elements; restore it manually.
+      if (button.tagName !== 'BUTTON') button.focus();
+      if (action === 'left' || action === 'right' || action === 'soft-drop') {
+        try { button.setPointerCapture(event.pointerId); } catch (_) { /* synthetic event */ }
+      }
       onTouchButtonDown(action);
     });
     button.addEventListener('pointerup', () => onTouchButtonUp(action));
     button.addEventListener('pointercancel', () => onTouchButtonUp(action));
-    button.addEventListener('pointerleave', () => onTouchButtonUp(action));
+    // Only release on pointerleave when not captured; instant-action buttons (hold, rotate,
+    // hard-drop) never capture, but onTouchButtonUp is a no-op for them so this is safe.
+    button.addEventListener('pointerleave', (event) => {
+      if (!button.hasPointerCapture(event.pointerId)) onTouchButtonUp(action);
+    });
+    button.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        event.stopPropagation();
+        onTouchButtonDown(action);
+        onTouchButtonUp(action);
+      }
+    });
   }
 
-  setControlHandedness(readStoredHandedness(), { persist: false });
   restartGame();
   setAutoStep(true);
 
@@ -648,10 +746,10 @@
       setAutoStep(enabled);
     },
     getControlsState: () => ({
-      handedness: controlHandedness
+      handedness: 'right'
     }),
-    setHandedness: (value) => {
-      setControlHandedness(value);
+    setHandedness: (_value) => {
+      // no-op stub for test API compatibility
     }
   };
 })();

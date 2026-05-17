@@ -17,7 +17,6 @@ test.afterEach(async ({ page }) => {
 
 async function openGame(page) {
   await page.goto('./');
-  await page.evaluate(() => window.localStorage.removeItem('tetris-handedness'));
   await page.reload();
   await page.waitForFunction(() => {
     const api = window.__tetrisTest;
@@ -34,7 +33,7 @@ async function openGame(page) {
     );
   });
   await page.evaluate(() => window.__tetrisTest.setAutoStep(false));
-  await expect(page.locator('canvas')).toBeVisible();
+  await expect(page.locator('canvas#game')).toBeVisible();
 }
 
 async function getState(page) {
@@ -84,17 +83,16 @@ async function getPortraitLayout(page) {
       },
       scrollHeight: document.scrollingElement.scrollHeight,
       board: readBox('#game'),
-      controls: readBox('.touch-controls'),
-      playfield: readBox('.playfield'),
-      status: readBox('.status-wrap'),
-      moveZone: readBox('.move-zone'),
-      actionZone: readBox('.action-zone'),
-      toggle: readBox('#handedness-toggle'),
+      controlDeck: readBox('.control-deck'),
+      gameArea: readBox('.game-area'),
+      dpadCluster: readBox('.dpad-cluster'),
+      rotateCluster: readBox('.rotate-cluster'),
       left: readBox('[data-action="left"]'),
       right: readBox('[data-action="right"]'),
       softDrop: readBox('[data-action="soft-drop"]'),
-      rotate: readBox('[data-action="rotate"]'),
-      hardDrop: readBox('[data-action="hard-drop"]')
+      hardDrop: readBox('[data-action="hard-drop"]'),
+      rotateCw: readBox('[data-action="rotate-cw"]'),
+      rotateCcw: readBox('[data-action="rotate-ccw"]')
     };
   });
 }
@@ -119,60 +117,45 @@ function centerY(box) {
   return box.y + box.height / 2;
 }
 
-function expectRightHandedErgonomics(layout) {
+function expectPortraitErgonomics(layout) {
   const {
     viewport,
     scrollHeight,
     board,
-    controls,
-    playfield,
-    status,
-    moveZone,
-    actionZone,
-    toggle,
+    controlDeck,
+    gameArea,
+    dpadCluster,
+    rotateCluster,
     left,
     right,
     softDrop,
-    rotate,
-    hardDrop
+    hardDrop,
+    rotateCw,
+    rotateCcw
   } = layout;
 
-  for (const box of [board, controls, playfield, status, moveZone, actionZone, toggle, left, right, softDrop, rotate, hardDrop]) {
+  for (const box of [board, controlDeck, gameArea, dpadCluster, rotateCluster,
+    left, right, softDrop, hardDrop, rotateCw, rotateCcw]) {
     expect(box).not.toBeNull();
     expectVisibleInViewport(box, viewport);
   }
 
   expect(scrollHeight).toBeLessThanOrEqual(viewport.height + 1);
-  expect(board.height).toBeGreaterThan(status.height * 5);
-  expect(playfield.height).toBeGreaterThan(controls.height * 2.5);
-  expect(controls.y).toBeGreaterThanOrEqual(board.bottom - 1);
-  expect(controls.height).toBeLessThanOrEqual(viewport.height * 0.26);
-  expect(Math.abs(centerX(toggle) - centerX(controls))).toBeLessThan(4);
-  expect(moveZone.x).toBeLessThan(actionZone.x);
-  expect(moveZone.right).toBeLessThanOrEqual(actionZone.x + 4);
-  expect(Math.abs(moveZone.width - actionZone.width)).toBeLessThan(2);
-  expect(Math.abs(moveZone.height - actionZone.height)).toBeLessThan(2);
-  expect(Math.abs(moveZone.y - actionZone.y)).toBeLessThan(2);
-  expect(Math.abs(moveZone.bottom - actionZone.bottom)).toBeLessThan(2);
-  expect(toggle.bottom).toBeLessThanOrEqual(moveZone.y + 4);
-  expectInside(left, moveZone);
-  expectInside(right, moveZone);
-  expectInside(softDrop, moveZone);
-  expectInside(rotate, actionZone);
-  expectInside(hardDrop, actionZone);
-  expect(Math.abs(left.width - right.width)).toBeLessThan(2);
-  expect(Math.abs(left.width - softDrop.width)).toBeLessThan(2);
-  expect(Math.abs(left.height - right.height)).toBeLessThan(2);
-  expect(Math.abs(left.height - softDrop.height)).toBeLessThan(2);
-  expect(Math.abs(centerY(left) - centerY(right))).toBeLessThan(2);
-  expect(softDrop.y).toBeGreaterThan(left.y);
-  expect(centerX(softDrop)).toBeGreaterThan(centerX(left));
-  expect(centerX(softDrop)).toBeLessThan(centerX(right));
-  expect(rotate.height).toBeGreaterThan(hardDrop.height);
-  expect(Math.abs(rotate.width - rotate.height)).toBeLessThan(2);
-  expect(Math.abs(hardDrop.width - hardDrop.height)).toBeLessThan(2);
-  expect(centerX(rotate)).toBeGreaterThan(centerX(hardDrop));
-  expect(centerY(hardDrop)).toBeGreaterThanOrEqual(centerY(rotate));
+  expect(controlDeck.y).toBeGreaterThanOrEqual(board.bottom - 2);
+  expect(controlDeck.height).toBeLessThanOrEqual(viewport.height * 0.30);
+  expect(centerX(dpadCluster)).toBeLessThan(centerX(rotateCluster));
+  expectInside(left, dpadCluster);
+  expectInside(right, dpadCluster);
+  expectInside(softDrop, dpadCluster);
+  expectInside(hardDrop, dpadCluster);
+  expectInside(rotateCw, rotateCluster);
+  expectInside(rotateCcw, rotateCluster);
+  expect(Math.abs(left.width - right.width)).toBeLessThan(4);
+  expect(Math.abs(left.height - right.height)).toBeLessThan(4);
+  expect(Math.abs(left.y - right.y)).toBeLessThan(4);
+  expect(Math.abs(rotateCw.width - rotateCcw.width)).toBeLessThan(4);
+  expect(Math.abs(rotateCw.height - rotateCcw.height)).toBeLessThan(4);
+  expect(hardDrop.y).toBeLessThan(softDrop.y);
 }
 
 async function prepareVisualLayout(page) {
@@ -189,15 +172,21 @@ async function prepareVisualLayout(page) {
     gameOver: false,
     clearAnimation: null,
     statusMessage: 'Level 1',
-    statusTone: '',
-    statusMessageTimer: 0
+    statusTone: 'normal',
+    statusMessageTimer: 180,
+    gravityFrames: 48,
+    gravityTick: 0,
+    lockTimer: 0,
+    heldPiece: 'S',
+    holdUsed: true,
+    nextPieceType: 'I'
   });
 }
 
 test('renders and exposes ready test API', async ({ page }) => {
   await openGame(page);
   await expect.poll(async () => {
-    return page.locator('canvas').evaluate((canvas) => {
+    return page.locator('canvas#game').evaluate((canvas) => {
       const context = canvas.getContext('2d');
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
       let colored = 0;
@@ -207,6 +196,12 @@ test('renders and exposes ready test API', async ({ page }) => {
       return colored;
     });
   }).toBeGreaterThan(500);
+});
+
+test('getControlsState returns handedness stub', async ({ page }) => {
+  await openGame(page);
+  const controls = await getControlsState(page);
+  expect(controls).toEqual({ handedness: 'right' });
 });
 
 test('keyboard move rotate and hard drop work', async ({ page }) => {
@@ -222,11 +217,10 @@ test('keyboard move rotate and hard drop work', async ({ page }) => {
   const rotated = await getState(page);
   expect(rotated.current.rotation).not.toBe(beforeRotate);
 
-  const yBeforeDrop = rotated.current.y;
   await page.keyboard.press('Space');
   const dropped = await getState(page);
-  expect(dropped.current.y).toBeLessThanOrEqual(yBeforeDrop);
-  expect(dropped.score).toBeGreaterThanOrEqual(rotated.score);
+  // Hard drop locks the piece and spawns a new one; score must have increased
+  expect(dropped.score).toBeGreaterThan(rotated.score);
 });
 
 test('tap left and right moves exactly one column', async ({ page }) => {
@@ -266,6 +260,32 @@ test('hold left waits for DAS then repeats by ARR cadence', async ({ page }) => 
   const secondRepeat = await getState(page);
   expect(secondRepeat.current.x).toBe(firstRepeat.current.x - 1);
   await page.keyboard.up('ArrowLeft');
+});
+
+test('hold right waits for DAS then repeats by ARR cadence', async ({ page }) => {
+  await openGame(page);
+  const start = await getState(page);
+
+  await page.keyboard.down('ArrowRight');
+  const afterPress = await getState(page);
+  expect(afterPress.current.x).toBe(start.current.x + 1);
+
+  await advanceFrames(page, 15);
+  const beforeDas = await getState(page);
+  expect(beforeDas.current.x).toBe(afterPress.current.x);
+
+  await advanceFrames(page, 1);
+  const atDas = await getState(page);
+  expect(atDas.current.x).toBe(afterPress.current.x);
+
+  await advanceFrames(page, 6);
+  const firstRepeat = await getState(page);
+  expect(firstRepeat.current.x).toBe(atDas.current.x + 1);
+
+  await advanceFrames(page, 6);
+  const secondRepeat = await getState(page);
+  expect(secondRepeat.current.x).toBe(firstRepeat.current.x + 1);
+  await page.keyboard.up('ArrowRight');
 });
 
 test('line clear animates before lines and score update', async ({ page }) => {
@@ -422,14 +442,614 @@ test('game over on spawn collision then restart recovers', async ({ page }) => {
   await setState(page, state);
 
   await page.keyboard.press('Space');
+  await advanceFrames(page, 1);
   const over = await getState(page);
   expect(over.gameOver).toBe(true);
+  expect(over.statusMessage).toBe('Game Over');
+  expect(over.statusTone).toBe('warning');
+  await expect(page.locator('#status')).toHaveText('Game Over');
 
   await page.keyboard.press('r');
   const restarted = await getState(page);
   expect(restarted.gameOver).toBe(false);
   expect(restarted.lines).toBe(0);
   expect(restarted.score).toBe(0);
+});
+
+test('CCW rotation via z key rotates counterclockwise', async ({ page }) => {
+  await openGame(page);
+  const initial = await getState(page);
+  const initialRotation = initial.current.rotation;
+
+  await page.keyboard.press('ArrowUp');
+  const afterCw = await getState(page);
+  const cwRotation = (initialRotation + 1) % 4;
+  expect(afterCw.current.rotation).toBe(cwRotation);
+
+  await page.keyboard.press('z');
+  const afterCcw = await getState(page);
+  expect(afterCcw.current.rotation).toBe(initialRotation);
+});
+
+test('CCW rotation kicks away from right wall when base rotation overflows', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // I-piece vertical (rot 1) at x=8: CCW to rot 0 puts a cell at col 10 (out of bounds)
+  // kick +1 sets x=9 → cols 8-11 (cols 10-11 OOB, fails); kick -1 sets x=7 → cols 6-9 (valid)
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'I', index: 1, x: 8, y: 10, rotation: 1 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  await page.keyboard.press('z');
+  const after = await getState(page);
+  expect(after.current.rotation).toBe(0);
+  expect(after.current.x).toBe(7);
+});
+
+test('CW rotation kicks away from left wall when base rotation overflows', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // I-piece vertical (rot 3) at x=0: CW to rot 0 would place a cell at column -1 (out of bounds)
+  // The kick sequence [-1,1,-2,2] must pick offset +1 → x=1, which fits in columns 1-4
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'I', index: 1, x: 0, y: 10, rotation: 3 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  await page.keyboard.press('ArrowUp');
+  const after = await getState(page);
+  expect(after.current.rotation).toBe(0);
+  expect(after.current.x).toBe(1);
+});
+
+test('CCW rotation kicks away from left wall when base rotation overflows', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // I-piece vertical (rot 3) at x=0: CCW to rot 2 would place a cell at column -1 (out of bounds)
+  // The kick sequence [1,-1,2,-2] picks offset +1 → x=1, fitting columns 0-3
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'I', index: 1, x: 0, y: 10, rotation: 3 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  await page.keyboard.press('z');
+  const after = await getState(page);
+  expect(after.current.rotation).toBe(2);
+  expect(after.current.x).toBe(1);
+});
+
+test('4-line Tetris clear awards correct score and status message', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Rows 16-19 complete except column 5; I-piece vertical (rot 3) at x=5 fills the gap
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  for (let row = 16; row <= 19; row++) {
+    board[row] = [1, 1, 1, 1, 1, 0, 1, 1, 1, 1];
+  }
+
+  await setState(page, {
+    ...state,
+    board,
+    score: 0,
+    lines: 0,
+    level: 1,
+    current: { type: 'I', index: 1, x: 5, y: 2, rotation: 3 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  const hardBtn = page.locator('[data-action="hard-drop"]');
+  await hardBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 1);
+  await hardBtn.dispatchEvent('pointerup');
+  // Advance through clear animation (18 frames) plus extra
+  await advanceFrames(page, 25);
+
+  const after = await getState(page);
+  expect(after.lines).toBe(4);
+  expect(after.score).toBeGreaterThanOrEqual(800); // 800 (Tetris) + hard-drop bonus
+  expect(after.statusMessage).toMatch(/tetris clear/i);
+  expect(after.statusTone).toBe('milestone');
+});
+
+test('Tetris clear message shown even when clear also causes a level-up', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // lines=6 so clearing 4 pushes total to 10 → level 2 (crosses boundary)
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  for (let row = 16; row <= 19; row++) {
+    board[row] = [1, 1, 1, 1, 1, 0, 1, 1, 1, 1];
+  }
+
+  await setState(page, {
+    ...state,
+    board,
+    score: 0,
+    lines: 6,
+    level: 1,
+    current: { type: 'I', index: 1, x: 5, y: 2, rotation: 3 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  const hardBtn = page.locator('[data-action="hard-drop"]');
+  await hardBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 1);
+  await hardBtn.dispatchEvent('pointerup');
+  await advanceFrames(page, 25);
+
+  const after = await getState(page);
+  expect(after.lines).toBe(10);
+  expect(after.level).toBe(2);
+  expect(after.statusMessage).toMatch(/tetris clear/i);
+  expect(after.statusTone).toBe('milestone');
+});
+
+test('control deck buttons are keyboard-activatable via Enter', async ({ page }) => {
+  await openGame(page);
+  const initial = await getState(page);
+
+  await page.locator('[data-action="rotate-cw"]').focus();
+  await page.keyboard.press('Enter');
+  const afterRotate = await getState(page);
+  expect(afterRotate.current.rotation).toBe((initial.current.rotation + 1) % 4);
+
+  await page.locator('[data-action="rotate-ccw"]').focus();
+  await page.keyboard.press('Enter');
+  const afterCcw = await getState(page);
+  expect(afterCcw.current.rotation).toBe(initial.current.rotation);
+});
+
+test('NEXT and HOLD canvases render non-blank pixels after preview is set', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, { ...state, heldPiece: 'S', nextPieceType: 'I' });
+  await advanceFrames(page, 1);
+
+  const hasPixels = await page.evaluate(() => {
+    function canvasHasContent(id) {
+      const canvas = document.getElementById(id);
+      const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      return Array.from(data).some((v, i) => i % 4 === 3 && v > 0);
+    }
+    return { next: canvasHasContent('next-canvas'), hold: canvasHasContent('hold-canvas') };
+  });
+  expect(hasPixels.next).toBe(true);
+  expect(hasPixels.hold).toBe(true);
+});
+
+test('soft-drop lockTimer accumulates and locks piece after LOCK_DELAY_FRAMES fires', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Place O-piece at floor; it cannot move down further
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+    gravityTick: 0, lockTimer: 0, gravityFrames: 48
+  });
+
+  // Each soft-drop fire that fails to move the piece increments lockTimer by 1.
+  // With DROP_REPEAT_FRAMES=2 and cadence (tick-1)%2===0, fires at ticks 1,3,5,...,59 (30 fires).
+  // After 30 lockTimer increments the piece locks (LOCK_DELAY_FRAMES=30).
+  const softBtn = page.locator('[data-action="soft-drop"]');
+  await softBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 60);
+  await softBtn.dispatchEvent('pointerup');
+
+  const after = await getState(page);
+  expect(after.board[18][4]).toBeGreaterThan(0); // O-piece locked at row 18
+  expect(after.board[18][5]).toBeGreaterThan(0);
+  expect(after.gameOver).toBe(false);
+});
+
+test('natural gravity locks piece immediately with no extra delay', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+    gravityTick: 47, lockTimer: 0
+  });
+
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  // Gravity fires and immediately locks (no LOCK_DELAY_FRAMES buffer on gravity drops)
+  expect(after.gameOver).toBe(false);
+  expect(after.board[18][4]).toBeGreaterThan(0);
+  expect(after.current).not.toBeNull();
+});
+
+test('control deck buttons are keyboard-activatable via Space', async ({ page }) => {
+  await openGame(page);
+  const initial = await getState(page);
+
+  // Tab to the rotate-cw button and press Space — should rotate CW
+  await page.locator('[data-action="rotate-cw"]').focus();
+  await page.keyboard.press('Space');
+  const afterRotate = await getState(page);
+  expect(afterRotate.current.rotation).toBe((initial.current.rotation + 1) % 4);
+
+  // Tab to the rotate-ccw button and press Space — should rotate back
+  await page.locator('[data-action="rotate-ccw"]').focus();
+  await page.keyboard.press('Space');
+  const afterCcw = await getState(page);
+  expect(afterCcw.current.rotation).toBe(initial.current.rotation);
+});
+
+test('hold-preview div is keyboard-activatable via Space and Enter', async ({ page }) => {
+  await openGame(page);
+  const initial = await getState(page);
+  expect(initial.heldPiece).toBeNull();
+
+  // Space path
+  await page.locator('[data-action="hold"]').focus();
+  await page.keyboard.press('Space');
+  const afterSpace = await getState(page);
+  expect(afterSpace.heldPiece).toBe(initial.current.type);
+  expect(afterSpace.holdUsed).toBe(true);
+  expect(afterSpace.nextPieceType).not.toBeNull();
+
+  // Drop the current piece so holdUsed resets, then test Enter path
+  const hardBtn = page.locator('[data-action="hard-drop"]');
+  await hardBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 1);
+  await hardBtn.dispatchEvent('pointerup');
+  await advanceFrames(page, 2);
+
+  // Verify the new piece has spawned and holdUsed was reset before proceeding
+  const afterDrop = await getState(page);
+  expect(afterDrop.holdUsed).toBe(false);
+  expect(afterDrop.current).not.toBeNull();
+
+  await page.locator('[data-action="hold"]').focus();
+  await page.keyboard.press('Enter');
+  const afterEnter = await getState(page);
+  expect(afterEnter.holdUsed).toBe(true);
+});
+
+test('hold piece mechanic saves and swaps piece', async ({ page }) => {
+  await openGame(page);
+  const initial = await getState(page);
+  const initialType = initial.current.type;
+  const holdBox = page.locator('[data-action="hold"]');
+  await expect(holdBox).toHaveClass(/hold-empty/);
+  await expect(holdBox).not.toHaveClass(/hold-locked/);
+
+  await page.keyboard.press('c');
+  await advanceFrames(page, 1);
+  const afterFirstHold = await getState(page);
+  expect(afterFirstHold.heldPiece).toBe(initialType);
+  expect(afterFirstHold.holdUsed).toBe(true);
+  expect(afterFirstHold.current).not.toBeNull();
+  expect(afterFirstHold.current.type).not.toBe(initialType);
+  expect(afterFirstHold.nextPieceType).not.toBeNull();
+  expect(afterFirstHold.statusMessage).toMatch(/hold/i);
+  await expect(page.locator('#status')).toHaveText(afterFirstHold.statusMessage);
+  await expect(holdBox).toHaveAttribute('aria-disabled', 'true');
+  await expect(holdBox).toHaveAttribute('aria-label', `Hold piece: ${initialType}`);
+  await expect(holdBox).toHaveClass(/hold-locked/);
+  await expect(holdBox).not.toHaveClass(/hold-empty/);
+
+  await page.keyboard.press('c');
+  await advanceFrames(page, 1);
+  const afterSecondAttempt = await getState(page);
+  expect(afterSecondAttempt.heldPiece).toBe(initialType);
+  expect(afterSecondAttempt.current.type).toBe(afterFirstHold.current.type);
+  expect(afterSecondAttempt.statusMessage).toBe('Hold not available');
+  await expect(page.locator('#status')).toHaveText('Hold not available');
+
+  // Clear the board before hard-drop so no line-clear animation can delay spawnPiece
+  // and leave holdUsed=true when we assert below.
+  const stateBeforeDrop = await getState(page);
+  await setState(page, { ...stateBeforeDrop, board: Array.from({ length: 20 }, () => Array(10).fill(0)) });
+  await page.keyboard.press('Space');
+  await advanceFrames(page, 1);
+  const afterDrop = await getState(page);
+  expect(afterDrop.holdUsed).toBe(false);
+  await expect(holdBox).toHaveAttribute('aria-disabled', 'false');
+  await expect(holdBox).not.toHaveClass(/hold-locked/);
+
+  const beforeSwapType = afterDrop.current.type;
+  await page.keyboard.press('c');
+  await advanceFrames(page, 1);
+  const afterSwap = await getState(page);
+  expect(afterSwap.heldPiece).toBe(beforeSwapType);
+  expect(afterSwap.current.type).toBe(initialType);
+  expect(afterSwap.nextPieceType).not.toBeNull();
+  expect(afterSwap.statusMessage).toMatch(/hold/i);
+  await expect(page.locator('#status')).toHaveText(afterSwap.statusMessage);
+});
+
+test('touch hard-drop does not chain-drop subsequent pieces while button is held', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    gravityFrames: 48, gravityTick: 0, lockTimer: 0, score: 0
+  });
+
+  const hardDropBtn = page.locator('[data-action="hard-drop"]');
+  await hardDropBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 100);
+  await hardDropBtn.dispatchEvent('pointerup');
+
+  const after = await getState(page);
+  // Without the fix, held.hardDrop stays true and every frame hard-drops a new piece;
+  // on an empty board 100 consecutive hard-drops fills the board and causes game over.
+  // With the fix, held.hardDrop is cleared on the first call so only one piece drops.
+  expect(after.gameOver).toBe(false);
+  expect(after.current).not.toBeNull();
+});
+
+test('keyboard Space held does not chain hard-drop multiple pieces', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    gravityFrames: 48, gravityTick: 0, lockTimer: 0, score: 0
+  });
+
+  // Simulate keyboard repeat: dispatch many keydown events with repeat: true
+  await page.evaluate(() => {
+    for (let i = 0; i < 50; i++) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', repeat: true, bubbles: true }));
+    }
+  });
+  await advanceFrames(page, 10);
+
+  const after = await getState(page);
+  // Without the event.repeat guard, Space repeat would hard-drop piece after piece;
+  // with the guard, repeated keydown events are no-ops and the board stays alive.
+  expect(after.gameOver).toBe(false);
+});
+
+test('hold swap cancelled without state corruption when spawn is blocked', async ({ page }) => {
+  await openGame(page);
+
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  board[0][3] = 1; board[0][4] = 1; board[0][5] = 1; board[0][6] = 1;
+
+  await setState(page, {
+    board,
+    current: { type: 'T', index: 3, x: 4, y: 10, rotation: 0 },
+    heldPiece: 'I',
+    holdUsed: false,
+    score: 0, lines: 0, level: 1,
+    gravityFrames: 48, gravityTick: 0, lockTimer: 0,
+    gameOver: false, clearAnimation: null,
+    statusMessage: '', statusTone: 'normal', statusMessageTimer: 0,
+    nextPieceType: 'O'
+  });
+
+  await page.keyboard.press('c');
+  const after = await getState(page);
+
+  expect(after.current.type).toBe('T');
+  expect(after.heldPiece).toBe('I');
+  expect(after.holdUsed).toBe(false);
+});
+
+test('hold is silently ignored during an active clear animation', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Inject an active clear animation directly into state
+  await setState(page, {
+    ...state,
+    heldPiece: null,
+    holdUsed: false,
+    clearAnimation: { rows: [19], frame: 0, totalFrames: 18, blinkInterval: 2 }
+  });
+
+  await page.keyboard.press('c');
+  const after = await getState(page);
+  expect(after.heldPiece).toBeNull();
+  expect(after.holdUsed).toBe(false);
+  expect(after.clearAnimation).not.toBeNull(); // animation still running
+});
+
+test('first hold resets gravityTick so new piece gets a full gravity cycle', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Set gravityTick to 47 — one frame from firing at gravityFrames=48
+  await setState(page, {
+    ...state,
+    heldPiece: null,
+    holdUsed: false,
+    gravityTick: 47,
+    gravityFrames: 48,
+    lockTimer: 0
+  });
+  const beforeY = (await getState(page)).current.y;
+
+  await page.keyboard.press('c'); // first hold
+  await advanceFrames(page, 1);  // one gravity tick on newly spawned piece
+  const afterY = (await getState(page)).current.y;
+
+  // Without the fix, the spawned piece inherits gravityTick=47 and drops on the first frame.
+  expect(afterY).toBe(beforeY);
+});
+
+test('swap hold resets gravityTick so swapped piece gets a full gravity cycle', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // First hold to populate heldPiece, then set gravityTick near fire
+  await page.keyboard.press('c');
+  await advanceFrames(page, 1);
+  const afterFirstHold = await getState(page);
+  const heldType = afterFirstHold.heldPiece;
+
+  await page.keyboard.press('Space'); // hard-drop to reset holdUsed
+  await advanceFrames(page, 1);
+
+  // Set gravityTick to 47 — one frame from firing at gravityFrames=48
+  const mid = await getState(page);
+  await setState(page, {
+    ...mid,
+    heldPiece: heldType,
+    holdUsed: false,
+    gravityTick: 47,
+    gravityFrames: 48,
+    lockTimer: 0
+  });
+  const beforeY = (await getState(page)).current.y;
+
+  await page.keyboard.press('c'); // swap hold
+  await advanceFrames(page, 1);  // one gravity tick on swapped piece
+  const afterY = (await getState(page)).current.y;
+
+  // Without the fix, the swapped piece inherits gravityTick=47 and drops on the first frame.
+  expect(afterY).toBe(beforeY);
+});
+
+test('soft-drop lock with line clear gives new piece a full gravity cycle', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Fill row 19 except column 4; O-piece at y=17 will drop into col 4-5 and complete rows 18-19
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  board[19] = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1]; // row 19 missing col 4
+  board[18] = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1]; // row 18 missing col 4
+
+  // Set gravityTick near max so the inherited value would cause an immediate drop
+  await setState(page, {
+    ...state,
+    board,
+    current: { type: 'O', index: 2, x: 3, y: 17, rotation: 0 },
+    gravityTick: 45, gravityFrames: 48, lockTimer: 0
+  });
+
+  // Soft-drop the piece to the floor and let lockTimer reach LOCK_DELAY_FRAMES (30)
+  const softBtn = page.locator('[data-action="soft-drop"]');
+  await softBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 70); // enough frames for lockTimer to hit 30 and lines to clear
+  await softBtn.dispatchEvent('pointerup');
+
+  const afterClear = await getState(page);
+  expect(afterClear.lines).toBeGreaterThanOrEqual(1);
+
+  // Advance one more frame; new piece should NOT have dropped yet (gravityTick was reset to 0)
+  const spawnY = afterClear.current?.y ?? 0;
+  await advanceFrames(page, 1);
+  const afterOneFrame = await getState(page);
+  expect(afterOneFrame.current?.y ?? spawnY).toBe(spawnY);
+});
+
+test('gravity fires during soft-drop accumulation and new piece gets full gravity cycle', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // O-piece at floor (y=18). gravityTick=47, gravityFrames=48, lockTimer=0.
+  // Frame 1: soft-drop fires (tick 1, lockTimer→1) then gravity fires (gravityTick→48→0→lockPiece).
+  // lockPiece triggers spawnPiece which must reset gravityTick to 0.
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+    gravityTick: 47, gravityFrames: 48, lockTimer: 0
+  });
+
+  const softBtn = page.locator('[data-action="soft-drop"]');
+  await softBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 1); // lock fires; new piece spawns with gravityTick=0
+  await softBtn.dispatchEvent('pointerup');
+
+  const afterLock = await getState(page);
+  expect(afterLock.board[18][4]).toBeGreaterThan(0); // O-piece locked at row 18
+  expect(afterLock.current).not.toBeNull();
+
+  // Advance one more frame with gravity still slow; piece must not have dropped yet
+  const spawnY = afterLock.current.y;
+  await advanceFrames(page, 1);
+  const afterOneFrame = await getState(page);
+  expect(afterOneFrame.current?.y ?? spawnY).toBe(spawnY);
+});
+
+test('natural gravity fires and locks piece at floor without rendering error', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  await setState(page, {
+    ...state,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+    gravityTick: 47, lockTimer: 0
+  });
+
+  await advanceFrames(page, 1);
+  const after = await getState(page);
+  // Gravity fired, piece was at floor → locked immediately, new piece spawned
+  expect(after.current).not.toBeNull();
+  // O-piece covers cols 4-5, rows 18-19; check both columns of the top row
+  expect(after.board[18][4]).toBeGreaterThan(0);
+  expect(after.board[18][5]).toBeGreaterThan(0);
+});
+
+test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+
+  // Place filled cells at row 15 in columns 3-6 to block an O-piece dropped at x=4
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  board[15] = [0, 0, 0, 1, 1, 1, 1, 0, 0, 0];
+
+  await setState(page, {
+    ...state,
+    board,
+    current: { type: 'O', index: 2, x: 4, y: 2, rotation: 0 },
+    gravityTick: 0, lockTimer: 0
+  });
+  await advanceFrames(page, 1);
+
+  // Ghost should be rendered at row 13 (cols 4-5). Sample a pixel inside the ghost cell
+  // at the predicted ghost position and verify it differs from the background (#080400).
+  const ghostRow = 13;
+  const ghostCol = 4;
+  const hasGhostPixel = await page.evaluate(({ row, col }) => {
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const cellSize = canvas.width / 10; // 30px
+    // Sample a 3-pixel horizontal strip along the left stroke edge of the ghost cell.
+    // strokeRect draws 2px inside, lineWidth=1.5: strip at x=[col*30+1, col*30+3].
+    // Ghost is rgba(255,255,255,0.22) over background (#020617, r=2): r blends to ~58.
+    // Checking multiple pixels guards against sub-pixel antialiasing variation.
+    const py = Math.floor(row * cellSize + cellSize / 2);
+    for (let dx = 1; dx <= 3; dx++) {
+      const data = ctx.getImageData(col * cellSize + dx, py, 1, 1).data;
+      if (data[0] > 20) return true; // background red channel = 2; ghost raises it to ~58
+    }
+    return false;
+  }, { row: ghostRow, col: ghostCol });
+  expect(hasGhostPixel).toBe(true);
+
+  // Also verify hard-drop lands at ghost position
+  const hardDropBtn = '[data-action="hard-drop"]';
+  await page.locator(hardDropBtn).dispatchEvent('pointerdown');
+  await advanceFrames(page, 1);
+  await page.locator(hardDropBtn).dispatchEvent('pointerup');
+  await advanceFrames(page, 2);
+
+  const dropped = await getState(page);
+  // After hard drop from y=2, piece locks at y=13 (row 15 blocks the cell below y=14)
+  expect(dropped.board[13][4]).toBeGreaterThan(0);
+  expect(dropped.board[15][4]).toBeGreaterThan(0); // original obstacle still there
 });
 
 test('matches the desktop layout baseline', async ({ page }) => {
@@ -455,20 +1075,21 @@ test.describe('mobile touch controls', () => {
     await openGame(page);
     const start = await getState(page);
 
-    const right = page.getByRole('button', { name: 'Right' });
+    const right = page.locator('[data-action="right"]');
     await right.dispatchEvent('pointerdown');
     await advanceFrames(page, 22);
     await right.dispatchEvent('pointerup');
     const moved = await getState(page);
     expect(moved.current.x).toBeGreaterThan(start.current.x);
 
-    const rotate = page.getByRole('button', { name: 'Rotate' });
+    const rotateCw = page.locator('[data-action="rotate-cw"]');
     const beforeRotate = moved.current.rotation;
-    await rotate.click();
+    await rotateCw.dispatchEvent('pointerdown');
+    await rotateCw.dispatchEvent('pointerup');
     const rotated = await getState(page);
     expect(rotated.current.rotation).not.toBe(beforeRotate);
 
-    const soft = page.getByRole('button', { name: 'Soft Drop' });
+    const soft = page.locator('[data-action="soft-drop"]');
     const beforeSoftY = rotated.current.y;
     await soft.dispatchEvent('pointerdown');
     await advanceFrames(page, 6);
@@ -476,11 +1097,31 @@ test.describe('mobile touch controls', () => {
     const softened = await getState(page);
     expect(softened.current.y).toBeGreaterThan(beforeSoftY);
 
-    const hard = page.getByRole('button', { name: 'Hard Drop' });
+    const hard = page.locator('[data-action="hard-drop"]');
     const scoreBeforeHard = softened.score;
-    await hard.click();
+    await hard.dispatchEvent('pointerdown');
+    await advanceFrames(page, 1);
+    await hard.dispatchEvent('pointerup');
     const hardened = await getState(page);
-    expect(hardened.score).toBeGreaterThanOrEqual(scoreBeforeHard);
+    expect(hardened.score).toBeGreaterThan(scoreBeforeHard);
+  });
+
+  test('CCW touch button rotates counterclockwise', async ({ page }) => {
+    await openGame(page);
+    const initial = await getState(page);
+    const initialRotation = initial.current.rotation;
+
+    const cw = page.locator('[data-action="rotate-cw"]');
+    await cw.dispatchEvent('pointerdown');
+    await cw.dispatchEvent('pointerup');
+    const afterCw = await getState(page);
+    expect(afterCw.current.rotation).toBe((initialRotation + 1) % 4);
+
+    const ccw = page.locator('[data-action="rotate-ccw"]');
+    await ccw.dispatchEvent('pointerdown');
+    await ccw.dispatchEvent('pointerup');
+    const afterCcw = await getState(page);
+    expect(afterCcw.current.rotation).toBe(initialRotation);
   });
 
   test('keeps touch controls below the board in portrait layout', async ({ page }) => {
@@ -495,7 +1136,7 @@ test.describe('mobile touch controls', () => {
       };
     });
 
-    expectRightHandedErgonomics(layout);
+    expectPortraitErgonomics(layout);
     expect(restartStyles.borderTopColor).not.toBe('rgb(51, 65, 85)');
     expect(restartStyles.backgroundImage).toContain('gradient');
   });
@@ -505,45 +1146,41 @@ test.describe('mobile touch controls', () => {
     await openGame(page);
 
     const layout = await getPortraitLayout(page);
-    expectRightHandedErgonomics(layout);
+    expectPortraitErgonomics(layout);
   });
 
-  test('handedness toggle swaps zones and persists after reload', async ({ page }) => {
+  test('touch hold button saves and swaps pieces', async ({ page }) => {
     await openGame(page);
+    const initial = await getState(page);
+    expect(initial.heldPiece).toBeNull();
+    const firstType = initial.current.type;
 
-    await expect(page.locator('#handedness-toggle')).toHaveText('Right-handed');
-    await expect.poll(async () => {
-      const state = await getControlsState(page);
-      return state.handedness;
-    }).toBe('right');
+    // First hold: saves current piece and spawns next
+    const holdEl = page.locator('[data-action="hold"]');
+    await holdEl.dispatchEvent('pointerdown');
+    await holdEl.dispatchEvent('pointerup');
+    const afterFirst = await getState(page);
+    expect(afterFirst.heldPiece).toBe(firstType);
+    expect(afterFirst.holdUsed).toBe(true);
 
-    const beforeMoveBox = await page.locator('.move-zone').boundingBox();
-    const beforeActionBox = await page.locator('.action-zone').boundingBox();
-    expect(beforeMoveBox).not.toBeNull();
-    expect(beforeActionBox).not.toBeNull();
-    expect(beforeMoveBox.x).toBeLessThan(beforeActionBox.x);
+    // Hard-drop the new piece to get a fresh spawn with holdUsed reset.
+    // Must advance frames between pointerdown and pointerup so the frame loop fires.
+    const hardBtn = page.locator('[data-action="hard-drop"]');
+    await hardBtn.dispatchEvent('pointerdown');
+    await advanceFrames(page, 1);
+    await hardBtn.dispatchEvent('pointerup');
+    await advanceFrames(page, 2);
+    const fresh = await getState(page);
+    expect(fresh.holdUsed).toBe(false);
 
-    await page.locator('#handedness-toggle').tap();
-    await expect(page.locator('#handedness-toggle')).toHaveText('Left-handed');
-    await expect.poll(async () => {
-      const state = await getControlsState(page);
-      return state.handedness;
-    }).toBe('left');
-
-    const afterMoveBox = await page.locator('.move-zone').boundingBox();
-    const afterActionBox = await page.locator('.action-zone').boundingBox();
-    expect(afterMoveBox).not.toBeNull();
-    expect(afterActionBox).not.toBeNull();
-    expect(afterMoveBox.x).toBeGreaterThan(afterActionBox.x);
-
-    await page.reload();
-    await page.waitForFunction(() => window.__tetrisTest?.isReady === true);
-    await page.evaluate(() => window.__tetrisTest.setAutoStep(false));
-    await expect(page.locator('#handedness-toggle')).toHaveText('Left-handed');
-    await expect.poll(async () => {
-      const state = await getControlsState(page);
-      return state.handedness;
-    }).toBe('left');
+    // Second hold: swaps held piece with current piece
+    const heldBefore = fresh.heldPiece;
+    const currentBefore = fresh.current.type;
+    await holdEl.dispatchEvent('pointerdown');
+    await holdEl.dispatchEvent('pointerup');
+    const afterSwap = await getState(page);
+    expect(afterSwap.heldPiece).toBe(currentBefore);
+    expect(afterSwap.current.type).toBe(heldBefore);
   });
 
   test('matches the portrait layout baseline', async ({ page }) => {
@@ -551,7 +1188,7 @@ test.describe('mobile touch controls', () => {
     await prepareVisualLayout(page);
 
     const layout = await getPortraitLayout(page);
-    expectRightHandedErgonomics(layout);
+    expectPortraitErgonomics(layout);
 
     await expect(page).toHaveScreenshot('tetris-portrait-layout.png', {
       animations: 'disabled',
