@@ -54,9 +54,10 @@
     const shellStyle = getComputedStyle(shellEl);
     const shellPadTop = parseFloat(shellStyle.paddingTop) || 8;
     const shellRowGap = parseFloat(shellStyle.rowGap) || 6;
+    const gameAreaGap = parseFloat(getComputedStyle(gameAreaEl).columnGap) || 6;
 
-    const availW = Math.max(150, gameAreaRect.width - sideRailRect.width - 6);
-    const availH = Math.max(300, window.innerHeight - topbarRect.height - controlRect.height - shellRowGap * 2 - shellPadTop);
+    const availW = gameAreaRect.width - sideRailRect.width - gameAreaGap;
+    const availH = window.innerHeight - topbarRect.height - controlRect.height - shellRowGap * 2 - shellPadTop;
 
     // Target 30px cells; shrink only if available height can't fit minimum 20 rows.
     const TARGET_CELL = 30;
@@ -813,6 +814,7 @@
       boardRows = rows;
       canvas.width = cols * cellSize;
       canvas.height = rows * cellSize;
+      if (state) render();
     }
   };
 })();
