@@ -97,8 +97,8 @@ async function getPortraitLayout(page) {
       left: readBox('[data-action="left"]'),
       right: readBox('[data-action="right"]'),
       softDrop: readBox('[data-action="soft-drop"]'),
-      hardDrop: readBox('[data-action="hard-drop"]'),
-      rotateCw: readBox('[data-action="rotate-cw"]'),
+      dpadRotateCw: readBox('.dpad-cluster [data-action="rotate-cw"]'),
+      rotateCw: readBox('.rotate-cluster [data-action="rotate-cw"]'),
       rotateCcw: readBox('[data-action="rotate-ccw"]')
     };
   });
@@ -136,13 +136,13 @@ function expectPortraitErgonomics(layout) {
     left,
     right,
     softDrop,
-    hardDrop,
+    dpadRotateCw,
     rotateCw,
     rotateCcw
   } = layout;
 
   for (const box of [board, controlDeck, gameArea, dpadCluster, rotateCluster,
-    left, right, softDrop, hardDrop, rotateCw, rotateCcw]) {
+    left, right, softDrop, dpadRotateCw, rotateCw, rotateCcw]) {
     expect(box).not.toBeNull();
     expectVisibleInViewport(box, viewport);
   }
@@ -154,7 +154,7 @@ function expectPortraitErgonomics(layout) {
   expectInside(left, dpadCluster);
   expectInside(right, dpadCluster);
   expectInside(softDrop, dpadCluster);
-  expectInside(hardDrop, dpadCluster);
+  expectInside(dpadRotateCw, dpadCluster);
   expectInside(rotateCw, rotateCluster);
   expectInside(rotateCcw, rotateCluster);
   expect(Math.abs(left.width - right.width)).toBeLessThan(4);
@@ -162,7 +162,7 @@ function expectPortraitErgonomics(layout) {
   expect(Math.abs(left.y - right.y)).toBeLessThan(4);
   expect(Math.abs(rotateCw.width - rotateCcw.width)).toBeLessThan(4);
   expect(Math.abs(rotateCw.height - rotateCcw.height)).toBeLessThan(4);
-  expect(hardDrop.y).toBeLessThan(softDrop.y);
+  expect(dpadRotateCw.y).toBeLessThan(softDrop.y);
 }
 
 async function prepareVisualLayout(page) {
@@ -567,10 +567,8 @@ test('4-line Tetris clear awards correct score and status message', async ({ pag
     gravityTick: 0, lockTimer: 0
   });
 
-  const hardBtn = page.locator('[data-action="hard-drop"]');
-  await hardBtn.dispatchEvent('pointerdown');
+  await page.keyboard.press('Space');
   await advanceFrames(page, 1);
-  await hardBtn.dispatchEvent('pointerup');
   // Advance through clear animation (18 frames) plus extra
   await advanceFrames(page, 25);
 
@@ -601,10 +599,8 @@ test('Tetris clear message shown even when clear also causes a level-up', async 
     gravityTick: 0, lockTimer: 0
   });
 
-  const hardBtn = page.locator('[data-action="hard-drop"]');
-  await hardBtn.dispatchEvent('pointerdown');
+  await page.keyboard.press('Space');
   await advanceFrames(page, 1);
-  await hardBtn.dispatchEvent('pointerup');
   await advanceFrames(page, 25);
 
   const after = await getState(page);
@@ -618,7 +614,7 @@ test('control deck buttons are keyboard-activatable via Enter', async ({ page })
   await openGame(page);
   const initial = await getState(page);
 
-  await page.locator('[data-action="rotate-cw"]').focus();
+  await page.locator('.rotate-cluster [data-action="rotate-cw"]').focus();
   await page.keyboard.press('Enter');
   const afterRotate = await getState(page);
   expect(afterRotate.current.rotation).toBe((initial.current.rotation + 1) % 4);
@@ -696,7 +692,7 @@ test('control deck buttons are keyboard-activatable via Space', async ({ page })
   const initial = await getState(page);
 
   // Tab to the rotate-cw button and press Space — should rotate CW
-  await page.locator('[data-action="rotate-cw"]').focus();
+  await page.locator('.rotate-cluster [data-action="rotate-cw"]').focus();
   await page.keyboard.press('Space');
   const afterRotate = await getState(page);
   expect(afterRotate.current.rotation).toBe((initial.current.rotation + 1) % 4);
@@ -722,11 +718,9 @@ test('hold-preview div is keyboard-activatable via Space and Enter', async ({ pa
   expect(afterSpace.nextPieceType).not.toBeNull();
 
   // Drop the current piece so holdUsed resets, then test Enter path
-  const hardBtn = page.locator('[data-action="hard-drop"]');
-  await hardBtn.dispatchEvent('pointerdown');
-  await advanceFrames(page, 1);
-  await hardBtn.dispatchEvent('pointerup');
-  await advanceFrames(page, 2);
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await page.keyboard.press('Space');
+  await advanceFrames(page, 3);
 
   // Verify the new piece has spawned and holdUsed was reset before proceeding
   const afterDrop = await getState(page);
@@ -792,26 +786,55 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   await expect(page.locator('#status')).toHaveText(afterSwap.statusMessage);
 });
 
-test('touch hard-drop does not chain-drop subsequent pieces while button is held', async ({ page }) => {
+test('long-press on soft-drop button triggers hard-drop and does not chain', async ({ page }) => {
   await openGame(page);
-  const state = await getState(page);
+  const initial = await getState(page);
   await setState(page, {
-    ...state,
+    ...initial,
     board: Array.from({ length: 20 }, () => Array(10).fill(0)),
     gravityFrames: 48, gravityTick: 0, lockTimer: 0, score: 0
   });
+  // Shrink the long-press window so the test stays fast.
+  await page.evaluate(() => window.__tetrisTest.setLongPressHardDropMs(40));
 
-  const hardDropBtn = page.locator('[data-action="hard-drop"]');
-  await hardDropBtn.dispatchEvent('pointerdown');
-  await advanceFrames(page, 100);
-  await hardDropBtn.dispatchEvent('pointerup');
+  const softBtn = page.locator('[data-action="soft-drop"]');
+  await softBtn.dispatchEvent('pointerdown');
+  // Wait past the long-press threshold so hard-drop fires once.
+  await page.waitForTimeout(120);
+  // Keep the button held — hard-drop should not re-fire for subsequent pieces.
+  await advanceFrames(page, 60);
+  await softBtn.dispatchEvent('pointerup');
 
   const after = await getState(page);
-  // Without the fix, held.hardDrop stays true and every frame hard-drops a new piece;
-  // on an empty board 100 consecutive hard-drops fills the board and causes game over.
-  // With the fix, held.hardDrop is cleared on the first call so only one piece drops.
   expect(after.gameOver).toBe(false);
   expect(after.current).not.toBeNull();
+  // One piece worth of hard-drop points should have been awarded.
+  expect(after.score).toBeGreaterThan(0);
+});
+
+test('quick tap on soft-drop button only soft-drops, never hard-drops', async ({ page }) => {
+  await openGame(page);
+  const initial = await getState(page);
+  await setState(page, {
+    ...initial,
+    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+    gravityFrames: 48, gravityTick: 0, lockTimer: 0, score: 0,
+    current: { ...initial.current, y: 0 }
+  });
+  await page.evaluate(() => window.__tetrisTest.setLongPressHardDropMs(200));
+
+  const softBtn = page.locator('[data-action="soft-drop"]');
+  const beforeY = (await getState(page)).current.y;
+  await softBtn.dispatchEvent('pointerdown');
+  await advanceFrames(page, 4);
+  // Release well before the 200ms long-press threshold.
+  await softBtn.dispatchEvent('pointerup');
+
+  const after = await getState(page);
+  // Piece advanced via soft-drop but did not slam to the floor.
+  expect(after.current).not.toBeNull();
+  expect(after.current.y).toBeGreaterThan(beforeY);
+  expect(after.current.y).toBeLessThan(15);
 });
 
 test('keyboard Space held does not chain hard-drop multiple pieces', async ({ page }) => {
@@ -1059,11 +1082,8 @@ test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
   expect(hasGhostPixel).toBe(true);
 
   // Also verify hard-drop lands at ghost position
-  const hardDropBtn = '[data-action="hard-drop"]';
-  await page.locator(hardDropBtn).dispatchEvent('pointerdown');
-  await advanceFrames(page, 1);
-  await page.locator(hardDropBtn).dispatchEvent('pointerup');
-  await advanceFrames(page, 2);
+  await page.keyboard.press('Space');
+  await advanceFrames(page, 3);
 
   const dropped = await getState(page);
   // After hard drop from y=2, piece locks at y=13 (row 15 blocks the cell below y=14)
@@ -1101,26 +1121,30 @@ test.describe('mobile touch controls', () => {
     const moved = await getState(page);
     expect(moved.current.x).toBeGreaterThan(start.current.x);
 
-    const rotateCw = page.locator('[data-action="rotate-cw"]');
+    const rotateCw = page.locator('.rotate-cluster [data-action="rotate-cw"]');
     const beforeRotate = moved.current.rotation;
     await rotateCw.dispatchEvent('pointerdown');
     await rotateCw.dispatchEvent('pointerup');
     const rotated = await getState(page);
     expect(rotated.current.rotation).not.toBe(beforeRotate);
 
+    await page.evaluate(() => window.__tetrisTest.setLongPressHardDropMs(200));
     const soft = page.locator('[data-action="soft-drop"]');
     const beforeSoftY = rotated.current.y;
     await soft.dispatchEvent('pointerdown');
     await advanceFrames(page, 6);
+    // Release before the 200ms long-press threshold so this stays a soft-drop.
     await soft.dispatchEvent('pointerup');
     const softened = await getState(page);
     expect(softened.current.y).toBeGreaterThan(beforeSoftY);
 
-    const hard = page.locator('[data-action="hard-drop"]');
+    // Long-press the soft-drop button to trigger hard-drop.
+    await page.evaluate(() => window.__tetrisTest.setLongPressHardDropMs(40));
     const scoreBeforeHard = softened.score;
-    await hard.dispatchEvent('pointerdown');
-    await advanceFrames(page, 1);
-    await hard.dispatchEvent('pointerup');
+    await soft.dispatchEvent('pointerdown');
+    await page.waitForTimeout(120);
+    await soft.dispatchEvent('pointerup');
+    await advanceFrames(page, 2);
     const hardened = await getState(page);
     expect(hardened.score).toBeGreaterThan(scoreBeforeHard);
   });
@@ -1130,7 +1154,7 @@ test.describe('mobile touch controls', () => {
     const initial = await getState(page);
     const initialRotation = initial.current.rotation;
 
-    const cw = page.locator('[data-action="rotate-cw"]');
+    const cw = page.locator('.rotate-cluster [data-action="rotate-cw"]');
     await cw.dispatchEvent('pointerdown');
     await cw.dispatchEvent('pointerup');
     const afterCw = await getState(page);
@@ -1183,12 +1207,9 @@ test.describe('mobile touch controls', () => {
     expect(afterFirst.holdUsed).toBe(true);
 
     // Hard-drop the new piece to get a fresh spawn with holdUsed reset.
-    // Must advance frames between pointerdown and pointerup so the frame loop fires.
-    const hardBtn = page.locator('[data-action="hard-drop"]');
-    await hardBtn.dispatchEvent('pointerdown');
-    await advanceFrames(page, 1);
-    await hardBtn.dispatchEvent('pointerup');
-    await advanceFrames(page, 2);
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
+    await page.keyboard.press('Space');
+    await advanceFrames(page, 3);
     const fresh = await getState(page);
     expect(fresh.holdUsed).toBe(false);
 
