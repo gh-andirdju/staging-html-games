@@ -717,10 +717,34 @@
     else if (event.key === 'ArrowDown') held.softDrop = false;
   }
 
+  let longPressHardDropMs = 350;
+  let softDropLongPressTimer = null;
+
+  function cancelSoftDropLongPress() {
+    if (softDropLongPressTimer !== null) {
+      clearTimeout(softDropLongPressTimer);
+      softDropLongPressTimer = null;
+    }
+  }
+
+  function startSoftDropLongPress() {
+    cancelSoftDropLongPress();
+    softDropLongPressTimer = setTimeout(() => {
+      softDropLongPressTimer = null;
+      if (!held.softDrop) return;
+      held.softDrop = false;
+      hardDrop();
+    }, longPressHardDropMs);
+  }
+
   function setTouchHeld(action, isHeld) {
     if (action === 'left') setHorizontalHold('left', isHeld);
     else if (action === 'right') setHorizontalHold('right', isHeld);
-    else if (action === 'soft-drop') held.softDrop = isHeld;
+    else if (action === 'soft-drop') {
+      held.softDrop = isHeld;
+      if (isHeld) startSoftDropLongPress();
+      else cancelSoftDropLongPress();
+    }
   }
 
   function onTouchButtonDown(action) {
@@ -801,6 +825,9 @@
     }),
     setHandedness: (_value) => {
       // no-op stub for test API compatibility
+    },
+    setLongPressHardDropMs: (ms) => {
+      longPressHardDropMs = ms;
     },
     getBoardSize: () => ({ cols: boardCols, rows: boardRows, cellSize }),
     setBoardSize: (cols, rows) => {
