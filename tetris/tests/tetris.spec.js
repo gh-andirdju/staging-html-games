@@ -150,7 +150,7 @@ function expectPortraitErgonomics(layout) {
   expect(scrollHeight).toBeLessThanOrEqual(viewport.height + 1);
   expect(controlDeck.y).toBeGreaterThanOrEqual(board.bottom - 2);
   expect(controlDeck.height).toBeLessThanOrEqual(viewport.height * 0.30);
-  expect(centerX(dpadCluster)).toBeLessThan(centerX(rotateCluster));
+  expect(centerX(dpadCluster)).toBeGreaterThan(centerX(rotateCluster));
   expectInside(left, dpadCluster);
   expectInside(right, dpadCluster);
   expectInside(softDrop, dpadCluster);

@@ -49,6 +49,14 @@
       </div>
 
       <div class="control-deck" role="group" aria-label="Touch controls">
+        <div class="rotate-area">
+          <div class="rotate-cluster" role="group" aria-label="Rotation controls">
+            <button type="button" class="rotate-btn ccw" data-action="rotate-ccw" aria-label="Rotate Left">↺</button>
+            <button type="button" class="rotate-btn cw" data-action="rotate-cw" aria-label="Rotate Right">↻</button>
+          </div>
+          <p class="cluster-label">rotate left · rotate right</p>
+        </div>
+
         <div class="dpad-cluster">
           <div class="dpad" role="group" aria-label="Directional pad">
             <div class="dpad-v-bar"></div>
@@ -59,14 +67,6 @@
             <button type="button" class="dpad-btn dpad-down" data-action="soft-drop" aria-label="Soft Drop">▼</button>
           </div>
           <p class="cluster-label">◀▶ move · ▼ soft drop / <span class="accent-text">▲ HARD DROP</span></p>
-        </div>
-
-        <div class="rotate-area">
-          <div class="rotate-cluster" role="group" aria-label="Rotation controls">
-            <button type="button" class="rotate-btn ccw" data-action="rotate-ccw" aria-label="Rotate Left">↺</button>
-            <button type="button" class="rotate-btn cw" data-action="rotate-cw" aria-label="Rotate Right">↻</button>
-          </div>
-          <p class="cluster-label">rotate left · rotate right</p>
         </div>
       </div>
     </main>
