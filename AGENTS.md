@@ -1,15 +1,21 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repo is a static HTML games collection. Each game lives in its own top-level folder (`brickbreaker/`, `tetris/`) with local runtime code in `src/`, page entrypoint in `index.html`, Playwright tests in `tests/`, config in `playwright.config.js`, and a Bun static server in `server.js`. Root `index.html` lists game links for GitHub Pages. Keep generated files such as `node_modules/` and `test-results/` out of git.
+This repo is a static HTML games collection. Each game lives in its own top-level folder (`brickbreaker/`, `tetris/`) with local runtime code in `src/`, page entrypoint in `index.html`, Playwright tests in `tests/`, config in `playwright.config.js`, a Bun static server in `server.js`, and its own `AGENTS.md` with game-specific hooks, ports, and conventions — read that file when working inside a game directory. Root `index.html` lists game links for GitHub Pages; `README.md` only lists entrypoints, so this file is the authoritative guide. Keep generated files such as `node_modules/` and `test-results/` out of git.
 The repository is deployed on GitHub Pages at `https://gh-andirdju.github.io/html-games`, so paths and hosted behavior must remain compatible with that base URL.
 
+Both `server.js` files (root and per-game) share the same conventions: 308 permanent redirects normalize directory paths to a trailing slash, any path segment beginning with `.` is blocked (so `.git`, `.cache`, and even `.nojekyll` cannot be served by the dev server — `.nojekyll` is a GitHub Pages marker, not a runtime asset), and the `BASE_PATH` env var rewrites the URL prefix for GitHub Pages parity (`/html-games/`).
+
 ## Build, Test, and Development Commands
-Run commands from the repo root when serving the whole collection, or from the target game folder when working on a single game.
+Run commands from the repo root when serving the whole collection, or from the target game folder when working on a single game. Each game owns its own `bun.lock`, so `bun install` is per-game (there is no root install).
+
+### Root (whole collection)
 - `bun run dev`: serve the root landing page and all game directories from one Bun server.
 - `bun run dev:pages`: serve the collection using the GitHub Pages base path `/html-games/`.
 - `bun run test:all`: run both game Playwright suites from the root.
-- `bun install`: install dependencies from `bun.lock`.
+
+### Per-game (`cd brickbreaker/` or `cd tetris/`)
+- `bun install`: install that game's dependencies from its local `bun.lock`.
 - `bun run dev`: serve the game on its configured local port.
 - `bun run test`: run headless Chromium Playwright tests.
 - `bun run test:headed`: run tests with a visible browser.
@@ -17,7 +23,7 @@ Run commands from the repo root when serving the whole collection, or from the t
 - `bun run playwright:install`: install Playwright browsers if missing.
 
 ## Coding Style & Naming Conventions
-Use plain HTML, CSS, and JavaScript. Match local style: two-space indentation, descriptive camelCase for JS functions and state (`makeBricksForLevel`, `activeEffects`), and kebab-case CSS classes. Keep gameplay logic deterministic; avoid randomness unless it is seeded and exposed to tests. Preserve `window.__brickbreakerTest` hook names unless intentionally updating tests.
+Use plain HTML, CSS, and JavaScript. Match local style: two-space indentation, descriptive camelCase for JS functions and state (`makeBricksForLevel`, `activeEffects`), and kebab-case CSS classes. Keep gameplay logic deterministic; avoid randomness unless it is seeded and exposed to tests. Preserve each game's `window.__<game>Test` hook (`window.__brickbreakerTest`, `window.__tetrisTest`) unless intentionally updating tests.
 Mobile web layouts should be portrait-first, use screen real estate efficiently, and keep controls outside the gameplay area. Touch controls should follow familiar arcade thumb ergonomics, with distinct off-canvas control zones that do not overlap the game board or canvas.
 
 ## Testing Guidelines
