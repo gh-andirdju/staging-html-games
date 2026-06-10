@@ -278,8 +278,10 @@
 
   // Keyboard controls
   document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
     if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
+    if (e.key === 'r' || e.key === 'R') gameRestart();
   });
   document.addEventListener('keyup', function (e) {
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = false;

@@ -611,6 +611,18 @@ test('moves the paddle with keyboard controls', async ({ page }) => {
   expect(paddleX(await getState(page))).toBeLessThan(rightX);
 });
 
+test('pressing R restarts the game', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { score: 250, lives: 1, level: 3 });
+
+  await page.keyboard.press('r');
+
+  const state = await getState(page);
+  expect(state.score).toBe(0);
+  expect(lives(state)).toBe(3);
+  expect(levelNumber(state)).toBe(1);
+});
+
 test('moves the paddle with desktop pointer control', async ({ page }) => {
   await openGame(page);
   await mutateState(page, 'centerPaddle');

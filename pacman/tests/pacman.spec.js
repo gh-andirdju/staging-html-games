@@ -264,6 +264,17 @@ test('restart resets score, lives, and level', async ({ page }) => {
   expect(after.status).toBe('playing');
 });
 
+test('pressing R restarts the game', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { score: 9999, lives: 1, level: 5 });
+  await page.keyboard.press('r');
+  const after = await getState(page);
+  expect(after.score).toBe(0);
+  expect(after.lives).toBe(3);
+  expect(after.level).toBe(1);
+  expect(after.status).toBe('playing');
+});
+
 test('eating a frightened ghost awards points and marks ghost eaten', async ({ page }) => {
   await openGame(page);
   const s = await getState(page);

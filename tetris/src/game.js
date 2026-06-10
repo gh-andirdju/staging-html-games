@@ -688,6 +688,9 @@
   }
 
   function onKeyDown(event) {
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+    }
     if (event.key === 'r' || event.key === 'R') {
       restartGame();
       return;

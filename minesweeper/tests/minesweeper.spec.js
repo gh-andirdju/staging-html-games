@@ -250,6 +250,26 @@ test('restart resets all state', async ({ page }) => {
   }
 });
 
+test('pressing R starts a new game at the current difficulty', async ({ page }) => {
+  await openGame(page);
+  await page.click('[data-difficulty="normal"]');
+  const board = makeEmptyBoard(12, 12);
+  board[4][4].mine = true;
+  await page.evaluate((b) => window.__minesweeperTest.setBoard(b), board);
+  await page.evaluate(() => window.__minesweeperTest.revealCell(0, 0));
+
+  await page.keyboard.press('r');
+  const state = await getState(page);
+  expect(state.gameOver).toBe(false);
+  expect(state.won).toBe(false);
+  expect(state.revealed).toBe(0);
+  expect(state.flagged).toBe(0);
+  expect(state.started).toBe(false);
+  expect(state.difficulty).toBe('normal');
+  expect(state.rows).toBe(12);
+  expect(state.cols).toBe(12);
+});
+
 test('timer increments after advancing frames once started', async ({ page }) => {
   await openGame(page);
   // Set started=true without revealing cells to avoid triggering cascade win

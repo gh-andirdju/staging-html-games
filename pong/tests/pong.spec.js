@@ -302,6 +302,19 @@ test('restart resets scores and state', async ({ page }) => {
   expect(state.winner).toBeNull();
 });
 
+test('pressing R restarts the match', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { playerScore: 4, aiScore: 3, gameState: 'playing' });
+
+  await page.keyboard.press('r');
+
+  const state = await getState(page);
+  expect(state.playerScore).toBe(0);
+  expect(state.aiScore).toBe(0);
+  expect(state.gameState).toBe('serving');
+  expect(state.winner).toBeNull();
+});
+
 test('game transitions to won state when player reaches win score', async ({ page }) => {
   await openGame(page);
   await setState(page, {

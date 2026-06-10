@@ -393,7 +393,7 @@
   // ── Controls ──────────────────────────────────────────────────────────────
   document.addEventListener('keydown', (e) => {
     keys[e.code] = true;
-    if (e.code === 'Space') e.preventDefault();
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'ArrowLeft' || e.code === 'ArrowRight') e.preventDefault();
     if (e.code === 'KeyR' && state.status === 'gameOver') {
       restart();
     }
