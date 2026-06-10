@@ -6,6 +6,7 @@
   --bg-top: #1a0e00;
   --bg-bottom: #080400;
   --panel: rgba(20, 10, 0, 0.78);
+  --panel-strong: rgba(25, 12, 0, 0.92);
   --panel-border: rgba(245, 158, 11, 0.28);
   --text-main: #fef9f0;
   --text-dim: #c4a46b;
@@ -22,6 +23,7 @@ body {
   min-height: 100vh;
   background:
     radial-gradient(circle at top, rgba(var(--accent-rgb), 0.12), transparent 34%),
+    radial-gradient(120% 70% at 50% 110%, rgba(var(--accent-rgb), 0.05), transparent 60%),
     linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
   color: var(--text-main);
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
@@ -82,6 +84,10 @@ body {
   background: var(--button-bg);
   color: #fff7ed;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  min-height: 44px;
+  min-width: 44px;
+  transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease,
+    border-color 0.15s ease, color 0.15s ease;
 }
 
 .playfield {
@@ -103,7 +109,7 @@ body {
 .status-wrap {
   border: 1px solid var(--panel-border);
   border-radius: 14px;
-  background: rgba(25, 12, 0, 0.9);
+  background: var(--panel-strong);
   min-height: 0;
   display: grid;
   gap: 2px;
@@ -129,11 +135,13 @@ body {
 .hud strong {
   font-size: 18px;
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 #status {
   font-size: 16px;
   line-height: 1.25;
+  font-variant-numeric: normal;
 }
 
 #restart,
@@ -150,12 +158,33 @@ body {
 }
 
 #restart:hover,
-#restart:focus-visible,
 .touch-controls button:hover,
-.touch-controls button:focus-visible,
-.diff-btn:hover,
-.diff-btn:focus-visible {
+.diff-btn:hover {
   filter: brightness(1.08);
+}
+
+#restart:active,
+.touch-controls button:active,
+.diff-btn:active {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+#restart:focus-visible,
+.touch-controls button:focus-visible,
+.diff-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#restart:disabled,
+.touch-controls button:disabled,
+.diff-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
 }
 
 .difficulty-select {
@@ -168,18 +197,30 @@ body {
   padding: 6px 4px;
   font-size: 12px;
   background: rgba(20, 10, 0, 0.6);
-  border-color: rgba(var(--accent-rgb), 0.28);
+  border-color: var(--panel-border);
   border-radius: 10px;
-  opacity: 0.7;
+  color: var(--text-dim);
+  box-shadow: none;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
 }
 
+.diff-btn:hover {
+  filter: none;
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
 .diff-btn.active {
   background: var(--button-bg);
   border-color: var(--accent);
-  opacity: 1;
+  color: #fff7ed;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.diff-btn.active:hover {
+  filter: brightness(1.08);
 }
 
 .board-wrap {
@@ -196,7 +237,7 @@ body {
   max-height: 100%;
   border: 1px solid rgba(var(--accent-rgb), 0.35);
   border-radius: 8px;
-  background: #1e293b;
+  background: var(--bg-bottom);
   box-shadow:
     inset 0 0 0 1px rgba(var(--accent-rgb), 0.06),
     0 0 18px rgba(var(--accent-rgb), 0.1);
@@ -234,14 +275,26 @@ body {
   -webkit-user-select: none;
   user-select: none;
   background: rgba(20, 10, 0, 0.6);
-  border-color: rgba(var(--accent-rgb), 0.28);
-  opacity: 0.7;
+  border-color: var(--panel-border);
+  color: var(--text-dim);
+  box-shadow: none;
+}
+
+.mode-buttons button:hover {
+  filter: none;
+  color: var(--text-main);
+  border-color: var(--accent);
 }
 
 .mode-buttons button.active {
   background: var(--button-bg);
   border-color: var(--accent);
-  opacity: 1;
+  color: #fff7ed;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.mode-buttons button.active:hover {
+  filter: brightness(1.08);
 }
 
 @media (max-width: 520px) {
@@ -323,5 +376,21 @@ body {
 
   .diff-btn {
     font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  #restart:active,
+  .touch-controls button:active,
+  .diff-btn:active {
+    transform: none;
   }
 }

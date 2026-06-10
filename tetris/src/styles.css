@@ -4,8 +4,10 @@
 
 :root {
   --bg-top: #1a0e00;
-  --bg-bottom: #020617;
+  --bg-bottom: #080400;
+  --board-bg: #020617;
   --panel: rgba(20, 10, 0, 0.78);
+  --panel-strong: rgba(25, 12, 0, 0.92);
   --panel-border: rgba(245, 158, 11, 0.28);
   --text-main: #fef9f0;
   --text-dim: #c4a46b;
@@ -21,6 +23,7 @@ body {
   min-height: 100vh;
   background:
     radial-gradient(circle at top, rgba(var(--accent-rgb), 0.12), transparent 34%),
+    radial-gradient(120% 70% at 50% 110%, rgba(var(--accent-rgb), 0.05), transparent 60%),
     linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
   color: var(--text-main);
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
@@ -76,12 +79,32 @@ body {
   font-weight: 700;
   cursor: pointer;
   padding: 10px 14px;
+  min-height: 44px;
+  min-width: 44px;
   white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-#restart:hover,
-#restart:focus-visible {
+#restart:hover {
   filter: brightness(1.08);
+}
+
+#restart:active {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+#restart:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#restart:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
 }
 
 /* ── Game area: board + side rail ─────────────────────────────── */
@@ -107,7 +130,7 @@ body {
   display: block;
   border: 1px solid rgba(var(--accent-rgb), 0.35);
   border-radius: 8px;
-  background: var(--bg-bottom);
+  background: var(--board-bg);
   box-shadow:
     inset 0 0 0 1px rgba(var(--accent-rgb), 0.06),
     0 0 18px rgba(var(--accent-rgb), 0.1);
@@ -125,11 +148,11 @@ body {
 }
 
 .preview-box {
-  border: 1.5px solid var(--panel-border);
-  border-radius: 4px;
-  padding: 3px 2px 2px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 4px 2px 3px;
   text-align: center;
-  background: rgba(20, 10, 0, 0.6);
+  background: var(--panel-strong);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -148,8 +171,17 @@ body {
   user-select: none;
 }
 
+.hold-preview {
+  transition: filter 0.15s ease, transform 0.12s ease, border-color 0.15s ease;
+}
+
 .hold-preview:hover {
   filter: brightness(1.15);
+}
+
+.hold-preview:active {
+  filter: brightness(0.95);
+  transform: translateY(1px);
 }
 
 .hold-preview:focus-visible {
@@ -169,7 +201,9 @@ body {
 .preview-label,
 .stat-label {
   display: block;
-  font: 700 7px/1 monospace;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-dim);
@@ -178,13 +212,16 @@ body {
 .stat-block {
   text-align: center;
   padding: 3px 2px;
+  display: grid;
+  gap: 2px;
 }
 
 .stat-block strong {
   display: block;
-  font-size: 15px;
+  font-size: 18px;
   line-height: 1.1;
   color: var(--text-main);
+  font-variant-numeric: tabular-nums;
 }
 
 .status-wrap {
@@ -195,7 +232,7 @@ body {
 
 #status {
   display: block;
-  font: 700 7px/1.3 monospace;
+  font: 700 9px/1.3 monospace;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-dim);
@@ -281,16 +318,32 @@ body {
   -webkit-user-select: none;
   user-select: none;
   padding: 0;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+
+/* Expand the touch target to at least 44px without changing the visual size. */
+.dpad-btn::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
 }
 
 .dpad-btn:active {
   filter: brightness(1.3);
+  transform: translateY(1px);
 }
 
 .dpad-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+.dpad-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
 }
 
 .dpad-up {
@@ -301,6 +354,11 @@ body {
   border: 2px solid rgba(0, 0, 0, 0.4);
   border-radius: 6px 6px 0 0;
   z-index: 3;
+}
+
+.dpad-up:active {
+  filter: brightness(0.95);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .dpad-left {
@@ -349,6 +407,7 @@ body {
   -webkit-user-select: none;
   user-select: none;
   padding: 0;
+  transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .rotate-btn:hover {
@@ -356,14 +415,21 @@ body {
 }
 
 .rotate-btn:focus-visible {
-  filter: brightness(1.14);
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
 .rotate-btn:active {
-  filter: brightness(1.3);
-  transform: scale(0.96);
+  filter: brightness(0.95);
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.rotate-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
 }
 
 .rotate-btn.ccw {
@@ -426,6 +492,10 @@ body {
   #restart {
     padding: 8px 12px;
     font-size: 13px;
+  }
+
+  .stat-block strong {
+    font-size: 16px;
   }
 
   .control-deck {
@@ -494,5 +564,24 @@ body {
   .rotate-btn.cw {
     left: 64px;
     top: 8px;
+  }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  #restart:active,
+  .dpad-btn:active,
+  .rotate-btn:active,
+  .hold-preview:active {
+    transform: none;
   }
 }

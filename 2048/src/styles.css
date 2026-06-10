@@ -20,6 +20,7 @@ body {
   min-height: 100vh;
   background:
     radial-gradient(circle at top, rgba(var(--accent-rgb), 0.12), transparent 34%),
+    radial-gradient(120% 70% at 50% 110%, rgba(var(--accent-rgb), 0.05), transparent 60%),
     linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
   color: var(--text-main);
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
@@ -68,6 +69,7 @@ body {
 .title {
   font-size: 22px;
   line-height: 1;
+  letter-spacing: 0.02em;
 }
 
 #restart {
@@ -80,12 +82,31 @@ body {
   font-weight: 700;
   cursor: pointer;
   padding: 10px 14px;
+  min-height: 44px;
   white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-#restart:hover,
-#restart:focus-visible {
+#restart:hover {
   filter: brightness(1.08);
+}
+
+#restart:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#restart:active {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+#restart:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
 }
 
 .playfield {
@@ -133,11 +154,13 @@ body {
 .hud strong {
   font-size: 18px;
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 #status {
   font-size: 16px;
   line-height: 1.25;
+  font-variant-numeric: normal;
 }
 
 .board-wrap {
@@ -245,12 +268,25 @@ body {
   font-weight: 700;
   cursor: pointer;
   padding: 8px 12px;
+  min-height: 44px;
+  min-width: 44px;
   white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-#guide-help:hover,
-#guide-help:focus-visible {
+#guide-help:hover {
   filter: brightness(1.08);
+}
+
+#guide-help:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#guide-help:active {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .guide-overlay {
@@ -295,10 +331,16 @@ body {
   border-radius: 8px;
 }
 
-.guide-close:hover,
+.guide-close:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .guide-close:focus-visible {
   color: var(--text-main);
   background: rgba(255, 255, 255, 0.08);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .guide-icon {
@@ -412,12 +454,20 @@ body {
   font-size: 13px;
   cursor: pointer;
   padding: 8px 14px;
+  min-height: 44px;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-#guide-prev:hover,
+#guide-prev:hover {
+  color: var(--text-main);
+  border-color: var(--accent);
+}
+
 #guide-prev:focus-visible {
   color: var(--text-main);
   border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 #guide-next {
@@ -430,12 +480,24 @@ body {
   font-weight: 700;
   cursor: pointer;
   padding: 8px 18px;
+  min-height: 44px;
   white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-#guide-next:hover,
-#guide-next:focus-visible {
+#guide-next:hover {
   filter: brightness(1.08);
+}
+
+#guide-next:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#guide-next:active {
+  filter: brightness(0.95);
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────── */
@@ -533,5 +595,21 @@ body {
   .cell[data-value="16384"],
   .cell[data-value]:not([data-value=""]):not([data-value="2"]):not([data-value="4"]):not([data-value="8"]):not([data-value="16"]):not([data-value="32"]):not([data-value="64"]):not([data-value="128"]):not([data-value="256"]):not([data-value="512"]):not([data-value="1024"]):not([data-value="2048"]):not([data-value="4096"]):not([data-value="8192"]):not([data-value="16384"]) {
     font-size: clamp(8px, 2.2vw, 12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  #restart:active,
+  #guide-help:active,
+  #guide-next:active {
+    transform: none;
   }
 }

@@ -1,26 +1,29 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 :root {
-  --bg-top: #0a0a1a;
-  --bg-bottom: #04040e;
+  --bg-top: #1a0e00;
+  --bg-bottom: #080400;
+  --panel: rgba(20, 10, 0, 0.78);
+  --panel-strong: rgba(25, 12, 0, 0.92);
   --accent: #ffff00;
   --accent-rgb: 255, 255, 0;
-  --panel-border: rgba(var(--accent-rgb), 0.22);
+  --panel-border: rgba(var(--accent-rgb), 0.28);
   --text-main: #fef9f0;
-  --shadow: 0 14px 36px rgba(4, 4, 14, 0.6);
-  --button-bg: rgba(30, 30, 80, 0.9);
-  --button-hover: rgba(50, 50, 120, 0.95);
-  --chip-bg: rgba(10, 10, 40, 0.85);
+  --text-dim: #c4a46b;
+  --button-bg: linear-gradient(180deg, #ffff00, #eab308);
+  --button-ink: #201500;
+  --shadow: 0 18px 40px rgba(8, 3, 0, 0.34);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(var(--accent-rgb), 0.08), transparent 30%),
-    linear-gradient(180deg, var(--bg-top), var(--bg-bottom) 62%);
+    radial-gradient(circle at top, rgba(var(--accent-rgb), 0.12), transparent 34%),
+    radial-gradient(120% 70% at 50% 110%, rgba(var(--accent-rgb), 0.05), transparent 60%),
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
   color: var(--text-main);
-  font-family: "Trebuchet MS", "Arial Narrow", Arial, sans-serif;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   display: grid;
   place-items: start center;
 }
@@ -49,37 +52,40 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 6px 18px;
+  padding: 8px 18px;
   border: 1px solid var(--panel-border);
-  border-radius: 999px;
-  background: var(--chip-bg);
+  border-radius: 14px;
+  background: var(--panel-strong);
   box-shadow: var(--shadow);
   min-width: 80px;
 }
 
 .stat-chip .label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(var(--accent-rgb), 0.7);
+  color: var(--text-dim);
 }
 
 .stat-chip strong {
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 700;
   color: var(--accent);
-  line-height: 1;
-  letter-spacing: 0.04em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Canvas ──────────────────────────────────────────── */
 
 canvas {
   display: block;
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  box-shadow: 0 0 32px rgba(var(--accent-rgb), 0.08), var(--shadow);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border-radius: 16px;
+  background: var(--bg-bottom);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--accent-rgb), 0.06),
+    0 0 18px rgba(var(--accent-rgb), 0.1);
   max-width: 100%;
   height: auto;
 }
@@ -101,16 +107,17 @@ canvas {
   gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--panel-border);
-  border-radius: 16px;
-  background: rgba(10, 10, 30, 0.7);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
 }
 
 .control-label {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(var(--accent-rgb), 0.5);
+  color: var(--text-dim);
 }
 
 /* D-pad grid */
@@ -127,11 +134,13 @@ canvas {
 
 .dpad-btn {
   border: 1px solid var(--panel-border);
-  border-radius: 12px;
-  background: var(--button-bg);
+  border-radius: 999px;
+  background: var(--panel-strong);
   color: var(--text-main);
   font-size: 18px;
   line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-user-select: none;
@@ -139,12 +148,34 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.1s, transform 0.08s;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: border-color 0.15s ease, filter 0.15s ease,
+    transform 0.12s ease, box-shadow 0.12s ease, background-color 0.15s ease;
+}
+
+.dpad-btn:hover {
+  filter: brightness(1.08);
+  border-color: rgba(var(--accent-rgb), 0.5);
 }
 
 .dpad-btn:active {
-  background: var(--button-hover);
-  transform: scale(0.93);
+  background: rgba(var(--accent-rgb), 0.16);
+  border-color: rgba(var(--accent-rgb), 0.6);
+  filter: brightness(0.95);
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.dpad-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dpad-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
 }
 
 .dpad-btn[data-action="up"]    { grid-area: up; }
@@ -159,10 +190,12 @@ canvas {
 
 .action-button {
   padding: 12px 18px;
-  border: 1px solid var(--panel-border);
+  min-height: 44px;
+  min-width: 44px;
+  border: 1px solid var(--accent);
   border-radius: 12px;
   background: var(--button-bg);
-  color: var(--text-main);
+  color: var(--button-ink);
   font: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -171,13 +204,31 @@ canvas {
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
-  transition: background 0.1s, transform 0.08s;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
   white-space: nowrap;
 }
 
+.action-button:hover {
+  filter: brightness(1.08);
+}
+
 .action-button:active {
-  background: var(--button-hover);
-  transform: scale(0.95);
+  filter: brightness(0.95);
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.action-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.action-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
 }
 
 /* ── Responsive — portrait (mobile) ─────────────────── */
@@ -198,6 +249,10 @@ canvas {
     align-items: center;
   }
 
+  .thumb-zone {
+    border-radius: 16px;
+  }
+
   .dpad {
     grid-template-columns: repeat(3, 46px);
     grid-template-rows: repeat(3, 46px);
@@ -205,15 +260,30 @@ canvas {
 
   .dpad-btn {
     font-size: 16px;
-    border-radius: 10px;
   }
 
   .stat-chip {
-    padding: 5px 12px;
+    padding: 6px 12px;
     min-width: 64px;
+    border-radius: 12px;
   }
 
   .stat-chip strong {
     font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .dpad-btn:active,
+  .action-button:active {
+    transform: none;
   }
 }
