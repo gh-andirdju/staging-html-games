@@ -794,6 +794,10 @@
   var pressedDirs = {};
 
   window.addEventListener("keydown", function (e) {
+    if (e.key === "r" || e.key === "R") {
+      restart();
+      return;
+    }
     var dir = KEY_DIR[e.key];
     if (dir) {
       pressedDirs[dir] = true;

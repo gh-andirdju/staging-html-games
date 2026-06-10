@@ -468,6 +468,10 @@
     });
   });
 
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') restartGame();
+  });
+
   window.addEventListener('resize', () => {
     resizeCanvas();
     draw();

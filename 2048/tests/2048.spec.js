@@ -441,6 +441,43 @@ test('restart clears board and resets score', async ({ page }) => {
   expect(tileCount).toBe(2);
 });
 
+test('pressing R does nothing mid-game', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [
+      [2, 4, 8, 16],
+      [32, 64, 128, 256],
+      [512, 256, 64, 32],
+      [16, 8, 4, 2]
+    ],
+    score: 9999, best: 9999, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+  await page.keyboard.press('r');
+  const state = await getState(page);
+  expect(state.score).toBe(9999);
+  expect(state.gameOver).toBe(false);
+  expect(state.grid[0]).toEqual([2, 4, 8, 16]);
+});
+
+test('pressing R restarts after game over', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [
+      [2, 4, 8, 16],
+      [32, 64, 128, 256],
+      [512, 256, 64, 32],
+      [16, 8, 4, 2]
+    ],
+    score: 9999, best: 9999, gameOver: true, won: false, statusMessage: 'Game Over'
+  });
+  await page.keyboard.press('r');
+  const state = await getState(page);
+  expect(state.score).toBe(0);
+  expect(state.gameOver).toBe(false);
+  const tileCount = state.grid.flat().filter(v => v !== 0).length;
+  expect(tileCount).toBe(2);
+});
+
 // Best score persistence
 
 test('best score persists across restart', async ({ page }) => {

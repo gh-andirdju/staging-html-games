@@ -332,6 +332,11 @@
       ArrowUp: 'up',
       ArrowDown: 'down'
     };
+    if (event.key === 'r' || event.key === 'R') {
+      if (!guideOverlayEl.hidden) return;
+      if (state.gameOver) restartGame();
+      return;
+    }
     const direction = directionMap[event.key];
     if (!direction) return;
     event.preventDefault();

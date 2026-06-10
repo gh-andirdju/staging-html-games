@@ -830,6 +830,9 @@
       keys.right = pressed;
       event.preventDefault();
     }
+    if ((event.key === "r" || event.key === "R") && pressed) {
+      restart();
+    }
   }
 
   function updatePaddlePositionFromCanvasClientX(clientX) {
