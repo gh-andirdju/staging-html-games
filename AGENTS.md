@@ -15,7 +15,15 @@ Current games:
 |------|--------|
 | Brick Breaker | `brickbreaker/` |
 | Tetris | `tetris/` |
+| 2048 | `2048/` |
 | Snake | `snake/` |
+| Asteroids | `asteroids/` |
+| Pinball | `pinball/` |
+| Space Invaders | `space-invaders/` |
+| Sokoban | `sokoban/` |
+| Pong | `pong/` |
+| Pac-Man | `pacman/` |
+| Minesweeper | `minesweeper/` |
 
 Keep all asset paths and routing compatible with the `/html-games/` base URL, as that is the production base path used by both `bun run dev:pages` and the live site.
 
