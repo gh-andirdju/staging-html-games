@@ -14,6 +14,7 @@
         --accent-rgb: 245, 158, 11;
         --panel-border: rgba(var(--accent-rgb), 0.28);
         --text-main: #fef9f0;
+        --text-dim: #c4a46b;
         --shadow: 0 14px 36px rgba(8, 3, 0, 0.48);
       }
 
@@ -22,6 +23,7 @@
         min-height: 100vh;
         background:
           radial-gradient(circle at top, rgba(var(--accent-rgb), 0.15), transparent 30%),
+          radial-gradient(120% 70% at 50% 110%, rgba(var(--accent-rgb), 0.05), transparent 60%),
           linear-gradient(180deg, var(--bg-top), var(--bg-bottom) 62%);
         color: var(--text-main);
         font-family: "Trebuchet MS", "Arial Narrow", Arial, sans-serif;
@@ -37,6 +39,11 @@
         text-align: center;
       }
 
+      .masthead {
+        display: grid;
+        gap: 8px;
+      }
+
       h1 {
         margin: 0;
         font-size: clamp(28px, 8vw, 48px);
@@ -46,52 +53,123 @@
         text-shadow: 0 0 24px rgba(var(--accent-rgb), 0.45);
       }
 
+      .tagline {
+        margin: 0;
+        font-size: 14px;
+        letter-spacing: 0.04em;
+        color: var(--text-dim);
+      }
+
       ul {
         list-style: none;
         margin: 0;
         padding: 0;
         display: grid;
-        gap: 14px;
+        gap: 12px;
       }
 
-      li a {
-        display: block;
-        padding: 16px 24px;
+      li {
+        position: relative;
+        display: grid;
+        gap: 4px;
+        padding: 14px 44px 14px 24px;
         border: 1px solid var(--panel-border);
         border-radius: 18px;
         background: rgba(20, 10, 0, 0.9);
         box-shadow: var(--shadow);
+        text-align: left;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+      }
+
+      li::after {
+        content: "›";
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 22px;
+        line-height: 1;
+        color: var(--text-dim);
+        transition: color 0.15s ease, transform 0.15s ease;
+      }
+
+      li a {
         color: var(--text-main);
         text-decoration: none;
         font-size: 18px;
         font-weight: 700;
         letter-spacing: 0.04em;
-        transition: border-color 0.15s, box-shadow 0.15s;
+        outline: none;
       }
 
-      li a:hover,
-      li a:focus-visible {
+      /* Stretch each link over its whole card */
+      li a::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 18px;
+      }
+
+      .hint {
+        font-size: 12px;
+        letter-spacing: 0.03em;
+        color: var(--text-dim);
+      }
+
+      li:hover,
+      li:focus-within {
         border-color: rgba(var(--accent-rgb), 0.55);
         box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.18), var(--shadow);
-        outline: none;
+        transform: translateY(-2px);
+      }
+
+      li:hover::after,
+      li:focus-within::after {
+        color: var(--accent);
+        transform: translateY(-50%) translateX(2px);
+      }
+
+      li:active {
+        transform: translateY(0);
+      }
+
+      li a:focus-visible::after {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+
+        li:hover,
+        li:focus-within {
+          transform: none;
+        }
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>HTML Games</h1>
+      <header class="masthead">
+        <h1>HTML Games</h1>
+        <p class="tagline">Eleven tiny arcade classics. No installs, no ads — just play.</p>
+      </header>
       <ul>
-        <li><a href="./brickbreaker/">Brick Breaker</a></li>
-        <li><a href="./tetris/">Tetris</a></li>
-        <li><a href="./2048/">2048</a></li>
-        <li><a href="./snake/">Snake</a></li>
-        <li><a href="./asteroids/">Asteroids</a></li>
-        <li><a href="./pinball/">Pinball</a></li>
-        <li><a href="./space-invaders/">Space Invaders</a></li>
-        <li><a href="./sokoban/">Sokoban</a></li>
-        <li><a href="./pong/">Pong</a></li>
-        <li><a href="./pacman/">Pac-Man</a></li>
-        <li><a href="./minesweeper/">Minesweeper</a></li>
+        <li><a href="./brickbreaker/">Brick Breaker</a><span class="hint">Arrows / mouse · R restarts</span></li>
+        <li><a href="./tetris/">Tetris</a><span class="hint">Arrows move · Space drops</span></li>
+        <li><a href="./2048/">2048</a><span class="hint">Arrows / swipe · R restarts</span></li>
+        <li><a href="./snake/">Snake</a><span class="hint">Arrows / WASD · R restarts</span></li>
+        <li><a href="./asteroids/">Asteroids</a><span class="hint">Arrows steer · Space fires</span></li>
+        <li><a href="./pinball/">Pinball</a><span class="hint">Z / X flippers · Space launches</span></li>
+        <li><a href="./space-invaders/">Space Invaders</a><span class="hint">Arrows · Space fires</span></li>
+        <li><a href="./sokoban/">Sokoban</a><span class="hint">Arrows push · Z undoes</span></li>
+        <li><a href="./pong/">Pong</a><span class="hint">Up / Down or W / S · R restarts</span></li>
+        <li><a href="./pacman/">Pac-Man</a><span class="hint">Arrows / swipe · R restarts</span></li>
+        <li><a href="./minesweeper/">Minesweeper</a><span class="hint">Click reveals · right-click flags</span></li>
       </ul>
     </main>
   </body>
