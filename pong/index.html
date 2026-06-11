@@ -25,6 +25,12 @@
         </div>
       </header>
 
+      <section class="difficulty-select" aria-label="Difficulty">
+        <button type="button" data-difficulty="easy" class="diff-btn" aria-pressed="false">Easy</button>
+        <button type="button" data-difficulty="normal" class="diff-btn active" aria-pressed="true">Normal</button>
+        <button type="button" data-difficulty="hard" class="diff-btn" aria-pressed="false">Hard</button>
+      </section>
+
       <section class="playfield">
         <canvas id="game" width="800" height="520" aria-label="Pong game area"></canvas>
       </section>

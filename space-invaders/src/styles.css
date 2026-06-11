@@ -87,6 +87,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.hud-lives {
+  font-size: 14px;
+  letter-spacing: 3px;
+}
+
 @keyframes stat-pop {
   0% { transform: scale(1); }
   45% { transform: scale(1.18); }

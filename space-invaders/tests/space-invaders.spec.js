@@ -31,7 +31,12 @@ async function openGame(page) {
       typeof api.getControlsState === 'function'
     );
   });
-  await page.evaluate(() => window.__spaceInvadersTest.setAutoStep(false));
+  await page.evaluate(() => {
+    window.__spaceInvadersTest.setAutoStep(false);
+    // Suite default: skip the WAVE banner freeze so tests drive gameplay
+    // immediately. Banner tests re-enable it explicitly.
+    window.__spaceInvadersTest.setBannerDuration(0);
+  });
   await expect(page.locator('canvas')).toBeVisible();
 }
 
@@ -606,6 +611,89 @@ test('shields reset to full health when a new wave starts', async ({ page }) => 
   const stateAfter = await getState(page);
   expect(stateAfter.wave).toBe(stateBefore.wave + 1);
   expect(stateAfter.shields[0].cells[0]).toBe(3);
+});
+
+// ─── Wave banner ──────────────────────────────────────────────────────────────
+
+test('bannerFrames decays one per frame and freezes enemies while it shows', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { bannerFrames: 75, enemyMoveTimer: 1, enemyFireTimer: 1, enemyBullets: [] });
+  const before = await getState(page);
+  expect(before.bannerFrames).toBe(75);
+
+  await advanceFrames(page, 30);
+  const during = await getState(page);
+  expect(during.bannerFrames).toBe(45);
+  expect(during.enemies).toEqual(before.enemies);
+  expect(during.enemyMoveTimer).toBe(before.enemyMoveTimer);
+  expect(during.enemyBullets.length).toBe(0);
+
+  await advanceFrames(page, 50);
+  const after = await getState(page);
+  expect(after.bannerFrames).toBe(0);
+  expect(after.enemies[0].x).not.toBe(before.enemies[0].x);
+});
+
+test('player can move during the wave banner but cannot fire', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { bannerFrames: 75 });
+  const before = await getState(page);
+
+  await page.keyboard.down('ArrowLeft');
+  await page.keyboard.down(' ');
+  await advanceFrames(page, 20);
+  await page.keyboard.up(' ');
+  await page.keyboard.up('ArrowLeft');
+
+  const after = await getState(page);
+  expect(after.player.x).toBeLessThan(before.player.x);
+  expect(after.bullets.length).toBe(0);
+  expect(after.bannerFrames).toBe(55);
+});
+
+test('clearing a wave restarts the banner for the next wave', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => window.__spaceInvadersTest.setBannerDuration(75));
+  const stateBefore = await getState(page);
+
+  const last = stateBefore.enemies[stateBefore.enemies.length - 1];
+  const killedEnemies = stateBefore.enemies.map((e, i) =>
+    i < stateBefore.enemies.length - 1 ? { ...e, alive: false } : e
+  );
+  await setState(page, {
+    bannerFrames: 0,
+    enemies: killedEnemies,
+    bullets: [{ x: last.x + 8, y: last.y + 4 }],
+    enemyBullets: [],
+    bulletCooldown: 30,
+    enemyMoveTimer: 999
+  });
+
+  await advanceFrames(page, 3);
+
+  const state = await getState(page);
+  expect(state.wave).toBe(stateBefore.wave + 1);
+  expect(state.bannerFrames).toBeGreaterThan(0);
+});
+
+// ─── Lives icons ──────────────────────────────────────────────────────────────
+
+test('lives HUD renders one ship glyph per remaining life', async ({ page }) => {
+  await openGame(page);
+  await expect(page.locator('#lives')).toHaveText('▲▲▲');
+  await expect(page.locator('#lives')).toHaveAttribute('aria-label', '3 lives');
+
+  await setState(page, { enemyBullets: [{ x: 280, y: 436 }] });
+  await advanceFrames(page, 1);
+  const state = await getState(page);
+  expect(state.lives).toBe(2);
+  await expect(page.locator('#lives')).toHaveText('▲▲');
+  await expect(page.locator('#lives')).toHaveAttribute('aria-label', '2 lives');
+
+  await setState(page, { lives: 1 });
+  await advanceFrames(page, 1);
+  await expect(page.locator('#lives')).toHaveText('▲');
+  await expect(page.locator('#lives')).toHaveAttribute('aria-label', '1 life');
 });
 
 // ─── Pause ────────────────────────────────────────────────────────────────────

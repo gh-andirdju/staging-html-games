@@ -9,8 +9,12 @@
   const PLAYER_X = 24;
   const AI_X = WIDTH - 24 - PADDLE_W;
   const PADDLE_SPEED = 320;
-  const AI_SPEED_MIN = 200;
-  const AI_SPEED_MAX = 420;
+  const DIFFICULTY_PRESETS = {
+    easy: { aiSpeedMin: 140, aiSpeedMax: 300 },
+    normal: { aiSpeedMin: 200, aiSpeedMax: 420 },
+    hard: { aiSpeedMin: 280, aiSpeedMax: 540 }
+  };
+  const DEFAULT_DIFFICULTY = 'normal';
   const BALL_SPEED_SERVE_MIN = 250;
   const BALL_SPEED_SERVE_MAX = 450;
   const WIN_SCORE = 7;
@@ -36,8 +40,26 @@
   const helpCloseBtn = document.getElementById('help-close');
   const gameShellEl = document.querySelector('.game-shell');
 
+  const diffBtns = Array.from(document.querySelectorAll('.diff-btn'));
+
   const HELP_SEEN_KEY = 'pong-help-seen';
   const MUTED_KEY = 'pong-muted';
+  const DIFFICULTY_KEY = 'pong-difficulty';
+
+  function readDifficulty() {
+    try {
+      const stored = window.localStorage.getItem(DIFFICULTY_KEY);
+      return DIFFICULTY_PRESETS[stored] ? stored : DEFAULT_DIFFICULTY;
+    } catch {
+      return DEFAULT_DIFFICULTY;
+    }
+  }
+
+  function writeDifficulty(value) {
+    try {
+      window.localStorage.setItem(DIFFICULTY_KEY, value);
+    } catch {}
+  }
 
   function createSfx() {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -147,7 +169,8 @@
     serveTimer: SERVE_DELAY,
     serveCount: 0,
     serveToward: 'ai',
-    paused: false
+    paused: false,
+    difficulty: readDifficulty()
   };
 
   function clamp(v, lo, hi) {
@@ -163,6 +186,25 @@
 
   function getDifficulty() {
     return Math.min((state.playerScore + state.aiScore) / 12, 1);
+  }
+
+  function serveCountdownDigit() {
+    return clamp(Math.ceil(state.serveTimer / (SERVE_DELAY / 3)), 1, 3);
+  }
+
+  function updateDifficultyButtons() {
+    diffBtns.forEach(function (btn) {
+      const active = btn.dataset.difficulty === state.difficulty;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  function setDifficulty(level) {
+    if (!DIFFICULTY_PRESETS[level]) return;
+    state.difficulty = level;
+    writeDifficulty(level);
+    gameRestart();
   }
 
   function launchBall(towardPlayer) {
@@ -225,7 +267,8 @@
     const aiCenter = ap.y + PADDLE_H / 2;
     const diff = ball.y - aiCenter;
     if (Math.abs(diff) > 4) {
-      const aiSpeed = AI_SPEED_MIN + (AI_SPEED_MAX - AI_SPEED_MIN) * getDifficulty();
+      const preset = DIFFICULTY_PRESETS[state.difficulty] || DIFFICULTY_PRESETS[DEFAULT_DIFFICULTY];
+      const aiSpeed = preset.aiSpeedMin + (preset.aiSpeedMax - preset.aiSpeedMin) * getDifficulty();
       const move = Math.min(Math.abs(diff), aiSpeed * dt) * Math.sign(diff);
       ap.y = clamp(ap.y + move, 0, HEIGHT - PADDLE_H);
     }
@@ -314,12 +357,12 @@
       ctx.textAlign = 'left';
     }
 
-    // Serving overlay
+    // Serve countdown overlay — digit derived deterministically from serveTimer frames
     if (state.gameState === 'serving') {
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      ctx.font = '18px "Trebuchet MS", Arial, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.32)';
+      ctx.font = 'bold 56px "Trebuchet MS", Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('Serving…', WIDTH / 2, HEIGHT / 2 - 30);
+      ctx.fillText(String(serveCountdownDigit()), WIDTH / 2, HEIGHT / 2 - 30);
       ctx.textAlign = 'left';
     }
 
@@ -370,6 +413,7 @@
     pauseBtn.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
     muteBtn.textContent = sfx.isMuted() ? '🔇' : '🔊';
     muteBtn.setAttribute('aria-pressed', sfx.isMuted() ? 'true' : 'false');
+    updateDifficultyButtons();
   }
 
   function togglePause() {
@@ -468,6 +512,7 @@
     snap.aiPaddle.height = PADDLE_H;
     snap.helpOpen = !helpOverlayEl.hidden;
     snap.muted = sfx.isMuted();
+    snap.serveCountdown = state.gameState === 'serving' ? serveCountdownDigit() : null;
     return snap;
   }
 
@@ -514,6 +559,13 @@
   // Restart button
   restartBtn.addEventListener('click', gameRestart);
 
+  // Difficulty buttons — switching restarts the match
+  diffBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setDifficulty(btn.dataset.difficulty);
+    });
+  });
+
   // Pause button
   pauseBtn.addEventListener('click', togglePause);
 
@@ -537,7 +589,7 @@
       if (nextState.ball) Object.assign(state.ball, nextState.ball);
       if (nextState.playerPaddle) Object.assign(state.playerPaddle, nextState.playerPaddle);
       if (nextState.aiPaddle) Object.assign(state.aiPaddle, nextState.aiPaddle);
-      ['playerScore', 'aiScore', 'gameState', 'winner', 'serveTimer', 'serveCount', 'serveToward', 'paused'].forEach(function (k) {
+      ['playerScore', 'aiScore', 'gameState', 'winner', 'serveTimer', 'serveCount', 'serveToward', 'paused', 'difficulty'].forEach(function (k) {
         if (nextState[k] !== undefined) state[k] = nextState[k];
       });
       updateHud();

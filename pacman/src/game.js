@@ -20,6 +20,7 @@
   var CHASE_FRAMES = 1200;
   var DEATH_FRAMES = 90;
   var LEVEL_COMPLETE_FRAMES = 120;
+  var READY_FRAMES = 90;
   var COLLISION_RADIUS = TILE * 0.6;
 
   // Ghost house region — non-eaten/non-house ghosts and Pac-Man cannot enter
@@ -244,6 +245,9 @@
   var autoStep = true;
   var renderTick = 0;
   var lastTimestamp = 0;
+  // Frames of the frozen "READY!" phase at level start / respawn.
+  // Test API can shorten it via setReadyDuration.
+  var readyDuration = READY_FRAMES;
 
   // ── Tile helpers ───────────────────────────────────────────────────────────
   function tileCenter(row, col) {
@@ -366,7 +370,8 @@
       modePhase: 0,
       modeTimer: 0,
       pelletsRemaining: countFood(maze),
-      deathTimer: 0
+      deathTimer: 0,
+      readyFrames: readyDuration
     };
     updateHud();
     draw();
@@ -386,6 +391,12 @@
     if (state.status === "levelComplete") {
       state.deathTimer--;
       if (state.deathTimer < 0) advanceLevel();
+      return;
+    }
+
+    // Frozen "READY!" phase — entities hold position, input stays buffered
+    if (state.readyFrames > 0) {
+      state.readyFrames--;
       return;
     }
 
@@ -751,6 +762,7 @@
     state.modePhase = 0;
     state.modeTimer = 0;
     state.deathTimer = 0;
+    state.readyFrames = readyDuration;
   }
 
   function advanceLevel() {
@@ -768,6 +780,7 @@
     state.modePhase = 0;
     state.modeTimer = 0;
     state.status = "playing";
+    state.readyFrames = readyDuration;
   }
 
   // ── High score ─────────────────────────────────────────────────────────────
@@ -786,6 +799,7 @@
     if (state.status === "gameOver") return state.newRecord ? "New record!" : "Game Over";
     if (state.paused) return "Paused";
     if (state.status === "levelComplete") return "Level Complete";
+    if (state.status === "playing" && state.readyFrames > 0) return "Ready";
     return "Playing";
   }
 
@@ -862,6 +876,10 @@
       drawGhost(state.ghosts[i]);
     }
     drawPacman();
+
+    if (state.status === "playing" && state.readyFrames > 0) {
+      drawReadyText();
+    }
 
     if (state.status === "gameOver") {
       drawOverlay("GAME OVER", "Score " + state.score + " · Best " + state.highScore, "Press R or tap Restart");
@@ -1003,6 +1021,15 @@
     ctx.fill();
   }
 
+  function drawReadyText() {
+    var pos = tileCenter(9, 10);
+    ctx.fillStyle = "#ffff00";
+    ctx.font = "bold 20px Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("READY!", pos.x, pos.y + 6);
+    ctx.textAlign = "left";
+  }
+
   function drawOverlay(message, subtitle, subtitle2) {
     ctx.fillStyle = "rgba(0,0,0,0.6)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1049,6 +1076,8 @@
       if (state.paused) return;
       pressedDirs[dir] = true;
       state.pacman.nextDirection = dir;
+      // During the READY! freeze, input stays buffered — no immediate movement
+      if (state.readyFrames > 0) return;
       // Start immediately if stopped at current tile — no wait for moveProgress to cycle
       var pm = state.pacman;
       if (pm.targetRow === pm.tileRow && pm.targetCol === pm.tileCol) {
@@ -1156,7 +1185,8 @@
         helpOpen: !helpOverlayEl.hidden,
         muted: sfx.isMuted(),
         frightenedTimer: state.frightenedTimer,
-        pelletsRemaining: state.pelletsRemaining
+        pelletsRemaining: state.pelletsRemaining,
+        readyFrames: state.readyFrames
       };
     },
 
@@ -1183,6 +1213,9 @@
       }
       if (typeof partial.pelletsRemaining === "number") {
         state.pelletsRemaining = partial.pelletsRemaining;
+      }
+      if (typeof partial.readyFrames === "number") {
+        state.readyFrames = partial.readyFrames;
       }
       if (partial.pacman) {
         Object.assign(state.pacman, partial.pacman);
@@ -1230,6 +1263,16 @@
       updateHud();
       draw();
       return autoStep;
+    },
+
+    // Sets the READY! freeze length used by restart/respawn/level start.
+    // Also clamps the current counter so suites can opt out of the freeze.
+    setReadyDuration: function (frames) {
+      readyDuration = Math.max(0, Math.floor(frames));
+      if (state.readyFrames > readyDuration) state.readyFrames = readyDuration;
+      updateHud();
+      draw();
+      return readyDuration;
     },
 
     setMuted: function (value) {

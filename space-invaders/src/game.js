@@ -44,6 +44,7 @@
   var DEATH_TIMER_FRAMES = 60;
   var DEATH_FLASH_PERIOD = 6;
   var PLAYER_HIT_SHAKE_FRAMES = 12;
+  var WAVE_BANNER_FRAMES = 75;
 
   var reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   var ENEMY_SPEED_SCALE = 0.9; // frames saved per enemy killed (controls acceleration)
@@ -303,6 +304,10 @@
     };
   }
 
+  // Frames of the "WAVE N" banner at each wave start.
+  // Test API can shorten it via setBannerDuration.
+  var bannerDuration = WAVE_BANNER_FRAMES;
+
   function initialState() {
     return {
       player: { x: WIDTH / 2 - PLAYER_WIDTH / 2 },
@@ -324,6 +329,7 @@
       enemyFireTimer: FIRE_COOLDOWN_MIN,
       rngSeed: 12345,
       deathTimer: 0,
+      bannerFrames: bannerDuration,
       // Galaga features
       waveConfig: null,
       ufo: null,
@@ -565,6 +571,13 @@
     if (keys.right) px += PLAYER_SPEED * dt;
     px = Math.max(0, Math.min(WIDTH - PLAYER_WIDTH, px));
     state.player.x = px;
+
+    // Wave banner — enemies hold formation and don't fire while it shows;
+    // the player may still move
+    if (state.bannerFrames > 0) {
+      state.bannerFrames--;
+      return;
+    }
 
     // Player fire
     if (state.bulletCooldown > 0) state.bulletCooldown--;
@@ -833,6 +846,7 @@
     if (allClear()) {
       sfx.playWaveClear();
       state.wave++;
+      state.bannerFrames = bannerDuration;
       state.waveConfig = getWaveConfig(state.wave);
       state.enemies = buildEnemies(state.waveConfig.formation);
       state.diveBombers = [];
@@ -869,7 +883,10 @@
     lastPopScore = state.score;
     scoreEl.textContent = state.score;
     bestEl.textContent = state.highScore;
-    livesEl.textContent = state.lives;
+    var livesIcons = '';
+    for (var li = 0; li < Math.max(0, state.lives); li++) livesIcons += '▲';
+    livesEl.textContent = livesIcons;
+    livesEl.setAttribute('aria-label', state.lives + (state.lives === 1 ? ' life' : ' lives'));
     waveEl.textContent = state.wave;
     if (state.status === 'gameover') {
       statusEl.textContent = state.newRecord ? 'New record!' : 'Game Over — Press R to restart';
@@ -1043,6 +1060,14 @@
 
     ctx.restore();
 
+    // Wave banner
+    if (state.bannerFrames > 0) {
+      ctx.font = 'bold 32px monospace';
+      ctx.fillStyle = '#22d3ee';
+      ctx.textAlign = 'center';
+      ctx.fillText('WAVE ' + state.wave, WIDTH / 2, HEIGHT / 2 - 40);
+    }
+
     // Paused overlay
     if (state.paused) {
       ctx.fillStyle = 'rgba(0, 10, 26, 0.62)';
@@ -1214,6 +1239,14 @@
 
     setAutoStep: function (enabled) {
       autoStep = enabled;
+    },
+
+    // Sets the WAVE banner length used at wave starts.
+    // Also clamps the current counter so suites can opt out of the freeze.
+    setBannerDuration: function (frames) {
+      bannerDuration = Math.max(0, Math.floor(frames));
+      if (state.bannerFrames > bannerDuration) state.bannerFrames = bannerDuration;
+      return bannerDuration;
     },
 
     restart: restart,

@@ -12,6 +12,7 @@
   const statusEl = document.getElementById('status');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl = document.getElementById('restart');
+  const undoEl = document.getElementById('undo');
   const muteEl = document.getElementById('mute');
   const guideOverlayEl = document.getElementById('guide-overlay');
   const guideNextEl = document.getElementById('guide-next');
@@ -166,6 +167,7 @@
   }
 
   let state = null;
+  let undoState = null;
   let autoStep = true;
   let rafId = null;
   let guideStep = -1;
@@ -294,6 +296,30 @@
     }
   }
 
+  // Single-step undo — snapshot taken before each successful move
+  function snapshotForUndo() {
+    return {
+      grid: state.grid.map(row => row.slice()),
+      score: state.score,
+      gameOver: state.gameOver,
+      won: state.won,
+      statusMessage: state.statusMessage
+    };
+  }
+
+  function undoMove() {
+    if (!undoState) return;
+    state.grid = undoState.grid.map(row => row.slice());
+    state.score = undoState.score;
+    state.gameOver = undoState.gameOver;
+    state.won = undoState.won;
+    state.statusMessage = undoState.statusMessage;
+    state.newTilePos = null;
+    state.mergedCells = new Set();
+    undoState = null;
+    render();
+  }
+
   function render() {
     cells.forEach(cell => cell.classList.remove('tile-new', 'tile-merged'));
     for (let r = 0; r < GRID_SIZE; r++) {
@@ -326,6 +352,7 @@
         cells[r * GRID_SIZE + c].classList.add('tile-merged');
       });
     }
+    undoEl.disabled = undoState === null;
   }
 
   const gameShellEl = document.querySelector('.game-shell');
@@ -408,6 +435,7 @@
 
   function restartGame() {
     rngSeed = (Math.random() * 4294967296) >>> 0;
+    undoState = null;
     state = {
       grid: createGrid(),
       score: 0,
@@ -436,13 +464,20 @@
       if (state.gameOver) restartGame();
       return;
     }
+    if (event.key === 'z' || event.key === 'Z') {
+      if (!guideOverlayEl.hidden) return;
+      undoMove();
+      return;
+    }
     const direction = directionMap[event.key];
     if (!direction) return;
     event.preventDefault();
     if (!guideOverlayEl.hidden) return;
     if (state.gameOver) return;
+    const snapshot = snapshotForUndo();
     const moved = slide(direction);
     if (moved) {
+      undoState = snapshot;
       playMoveSound();
       spawnTile();
       checkWin();
@@ -467,8 +502,10 @@
     } else {
       direction = dy > 0 ? 'down' : 'up';
     }
+    const snapshot = snapshotForUndo();
     const moved = slide(direction);
     if (moved) {
+      undoState = snapshot;
       playMoveSound();
       spawnTile();
       checkWin();
@@ -484,6 +521,7 @@
   }, { passive: true });
   document.addEventListener('touchend', handleTouchEnd, { passive: true });
   restartEl.addEventListener('click', restartGame);
+  undoEl.addEventListener('click', undoMove);
 
   function updateMuteButton() {
     muteEl.textContent = sfx.isMuted() ? '🔇' : '🔊';
@@ -526,7 +564,8 @@
         won: state.won,
         rngSeed,
         statusMessage: state.statusMessage,
-        muted: sfx.isMuted()
+        muted: sfx.isMuted(),
+        canUndo: undoState !== null
       };
     },
     setState(nextState) {
@@ -542,6 +581,7 @@
       if (typeof nextState.won === 'boolean') state.won = nextState.won;
       if (typeof nextState.rngSeed === 'number') rngSeed = nextState.rngSeed;
       if (typeof nextState.statusMessage === 'string') state.statusMessage = nextState.statusMessage;
+      undoState = null;
       state.newTilePos = null;
       state.mergedCells = new Set();
       render();

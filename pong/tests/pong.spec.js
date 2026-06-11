@@ -492,6 +492,95 @@ test('serve speed increases with score', async ({ page }) => {
   expect(lateSpeed).toBeGreaterThan(earlySpeed);
 });
 
+test.describe('difficulty selector', () => {
+  test('hard preset moves the AI paddle faster than easy', async ({ page }) => {
+    await openGame(page);
+
+    await setState(page, {
+      ball: { x: 600, y: 50, dx: 100, dy: 0 },
+      aiPaddle: { y: 300 },
+      playerScore: 0,
+      aiScore: 0,
+      gameState: 'playing',
+      difficulty: 'easy'
+    });
+    const beforeEasy = await getState(page);
+    await advanceFrames(page, 20);
+    const afterEasy = await getState(page);
+    const easyMovement = beforeEasy.aiPaddle.y - afterEasy.aiPaddle.y;
+
+    await setState(page, {
+      ball: { x: 600, y: 50, dx: 100, dy: 0 },
+      aiPaddle: { y: 300 },
+      playerScore: 0,
+      aiScore: 0,
+      gameState: 'playing',
+      difficulty: 'hard'
+    });
+    const beforeHard = await getState(page);
+    await advanceFrames(page, 20);
+    const afterHard = await getState(page);
+    const hardMovement = beforeHard.aiPaddle.y - afterHard.aiPaddle.y;
+
+    expect(easyMovement).toBeGreaterThan(0);
+    expect(hardMovement).toBeGreaterThan(easyMovement);
+  });
+
+  test('clicking a difficulty button activates it, restarts the match, and persists the choice', async ({ page }) => {
+    await openGame(page);
+    await setState(page, { playerScore: 3, aiScore: 2, gameState: 'playing' });
+
+    await page.locator('[data-difficulty="hard"]').click();
+
+    let state = await getState(page);
+    expect(state.difficulty).toBe('hard');
+    expect(state.playerScore).toBe(0);
+    expect(state.aiScore).toBe(0);
+    expect(state.gameState).toBe('serving');
+    await expect(page.locator('[data-difficulty="hard"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-difficulty="normal"]')).toHaveAttribute('aria-pressed', 'false');
+
+    const stored = await page.evaluate(() => localStorage.getItem('pong-difficulty'));
+    expect(stored).toBe('hard');
+
+    await openGame(page);
+    state = await getState(page);
+    expect(state.difficulty).toBe('hard');
+    await expect(page.locator('[data-difficulty="hard"]')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('difficulty defaults to normal with the normal button active', async ({ page }) => {
+    await openGame(page);
+
+    const state = await getState(page);
+    expect(state.difficulty).toBe('normal');
+    await expect(page.locator('[data-difficulty="normal"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-difficulty="easy"]')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('[data-difficulty="hard"]')).toHaveAttribute('aria-pressed', 'false');
+  });
+});
+
+test('serve countdown digit counts 3-2-1 from serveTimer frames', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { gameState: 'serving', serveTimer: 60 });
+
+  let state = await getState(page);
+  expect(state.serveCountdown).toBe(3);
+
+  await advanceFrames(page, 20);
+  state = await getState(page);
+  expect(state.serveCountdown).toBe(2);
+
+  await advanceFrames(page, 20);
+  state = await getState(page);
+  expect(state.serveCountdown).toBe(1);
+
+  await advanceFrames(page, 20);
+  state = await getState(page);
+  expect(state.gameState).toBe('playing');
+  expect(state.serveCountdown).toBeNull();
+});
+
 test('pressing P pauses play and freezes the ball and serve timer', async ({ page }) => {
   await openGame(page);
   await setState(page, {

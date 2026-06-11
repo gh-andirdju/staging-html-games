@@ -476,6 +476,36 @@
     });
   }
 
+  // Swipe input on the board — pointer-based, dominant axis wins
+  const SWIPE_THRESHOLD = 30;
+  let swipeStartX = 0;
+  let swipeStartY = 0;
+  let swipePointerId = null;
+
+  canvas.addEventListener('pointerdown', (event) => {
+    swipePointerId = event.pointerId;
+    swipeStartX = event.clientX;
+    swipeStartY = event.clientY;
+  });
+
+  canvas.addEventListener('pointerup', (event) => {
+    if (swipePointerId === null || event.pointerId !== swipePointerId) return;
+    swipePointerId = null;
+    if (state.gameOver || state.paused) return;
+    const dx = event.clientX - swipeStartX;
+    const dy = event.clientY - swipeStartY;
+    if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      setNextDirection(dx > 0 ? 1 : -1, 0);
+    } else {
+      setNextDirection(0, dy > 0 ? 1 : -1);
+    }
+  });
+
+  canvas.addEventListener('pointercancel', () => {
+    swipePointerId = null;
+  });
+
   restartGame();
   setAutoStep(true);
   if (!hasSeenHelp()) openHelp();

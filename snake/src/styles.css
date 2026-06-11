@@ -284,6 +284,7 @@ body {
   display: block;
   width: 100%;
   aspect-ratio: 1 / 1;
+  touch-action: none;
   border: 1px solid rgba(var(--accent-rgb), 0.35);
   border-radius: 16px;
   background: var(--bg-bottom);

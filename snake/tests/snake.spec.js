@@ -343,6 +343,94 @@ test('180-degree reversal is blocked during movement', async ({ page }) => {
   expect(s.snake[0].x).toBe(11);
 });
 
+test('pointer swipe on the board updates nextDirection along the dominant axis', async ({ page }) => {
+  await openGame(page);
+  const board = page.locator('#game');
+
+  await board.dispatchEvent('pointerdown', { pointerId: 7, clientX: 200, clientY: 200 });
+  await board.dispatchEvent('pointerup', { pointerId: 7, clientX: 210, clientY: 270 });
+  let s = await getState(page);
+  expect(s.nextDirection).toEqual({ x: 0, y: 1 });
+
+  await board.dispatchEvent('pointerdown', { pointerId: 7, clientX: 200, clientY: 200 });
+  await board.dispatchEvent('pointerup', { pointerId: 7, clientX: 120, clientY: 215 });
+  s = await getState(page);
+  expect(s.nextDirection).toEqual({ x: -1, y: 0 });
+});
+
+test('swipe below the threshold leaves nextDirection unchanged', async ({ page }) => {
+  await openGame(page);
+  const before = await getState(page);
+  const board = page.locator('#game');
+
+  await board.dispatchEvent('pointerdown', { pointerId: 7, clientX: 200, clientY: 200 });
+  await board.dispatchEvent('pointerup', { pointerId: 7, clientX: 215, clientY: 212 });
+
+  const after = await getState(page);
+  expect(after.nextDirection).toEqual(before.nextDirection);
+});
+
+test('swipe 180-degree reversal stays blocked during movement', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__snakeTest.setState({
+      snake: [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }],
+      direction: { x: 1, y: 0 },
+      nextDirection: { x: 1, y: 0 },
+      food: { x: 15, y: 15 },
+      score: 0,
+      highScore: 0,
+      level: 1,
+      foodEaten: 0,
+      tickInterval: 12,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 0
+    });
+  });
+
+  const board = page.locator('#game');
+  await board.dispatchEvent('pointerdown', { pointerId: 7, clientX: 200, clientY: 200 });
+  await board.dispatchEvent('pointerup', { pointerId: 7, clientX: 120, clientY: 205 });
+  let s = await getState(page);
+  expect(s.nextDirection).toEqual({ x: -1, y: 0 });
+
+  await advanceFrames(page, 12);
+  s = await getState(page);
+  expect(s.gameOver).toBe(false);
+  expect(s.snake[0].x).toBe(11);
+});
+
+test('swipe is a no-op after gameOver', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__snakeTest.setState({
+      snake: [{ x: 19, y: 10 }, { x: 18, y: 10 }],
+      direction: { x: 1, y: 0 },
+      nextDirection: { x: 1, y: 0 },
+      food: { x: 5, y: 5 },
+      score: 0,
+      highScore: 0,
+      level: 1,
+      foodEaten: 0,
+      tickInterval: 12,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 0
+    });
+  });
+
+  await advanceFrames(page, 12);
+  let s = await getState(page);
+  expect(s.gameOver).toBe(true);
+
+  const board = page.locator('#game');
+  await board.dispatchEvent('pointerdown', { pointerId: 7, clientX: 200, clientY: 200 });
+  await board.dispatchEvent('pointerup', { pointerId: 7, clientX: 200, clientY: 270 });
+  s = await getState(page);
+  expect(s.nextDirection).toEqual({ x: 1, y: 0 });
+});
+
 test('direction keys are no-op after gameOver', async ({ page }) => {
   await openGame(page);
   await page.evaluate(() => {

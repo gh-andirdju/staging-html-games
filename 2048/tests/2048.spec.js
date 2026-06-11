@@ -525,6 +525,141 @@ test('HUD and grid are visible and properly positioned', async ({ page }) => {
 
 // Touch swipe controls
 
+test('undo button restores the previous grid and score then disables itself', async ({ page }) => {
+  await openGame(page);
+  const before = {
+    grid: [
+      [2, 2, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0]
+    ],
+    score: 100, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  };
+  await setState(page, before);
+  await expect(page.locator('#undo')).toBeDisabled();
+
+  await page.keyboard.press('ArrowLeft');
+  let state = await getState(page);
+  expect(state.grid[0][0]).toBe(4);
+  expect(state.score).toBe(104);
+  expect(state.canUndo).toBe(true);
+  await expect(page.locator('#undo')).toBeEnabled();
+
+  await page.locator('#undo').click();
+  state = await getState(page);
+  expect(state.grid).toEqual(before.grid);
+  expect(state.score).toBe(100);
+  expect(state.canUndo).toBe(false);
+  await expect(page.locator('#undo')).toBeDisabled();
+});
+
+test('pressing z undoes the last move', async ({ page }) => {
+  await openGame(page);
+  const before = {
+    grid: [
+      [0, 0, 0, 2],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 4]
+    ],
+    score: 60, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  };
+  await setState(page, before);
+
+  await page.keyboard.press('ArrowLeft');
+  let state = await getState(page);
+  expect(state.grid[0][0]).toBe(2);
+  expect(state.canUndo).toBe(true);
+
+  await page.keyboard.press('z');
+  state = await getState(page);
+  expect(state.grid).toEqual(before.grid);
+  expect(state.score).toBe(60);
+  expect(state.canUndo).toBe(false);
+});
+
+test('undo is disabled at game start and stays disabled after a no-op slide', async ({ page }) => {
+  await openGame(page);
+  let state = await getState(page);
+  expect(state.canUndo).toBe(false);
+  await expect(page.locator('#undo')).toBeDisabled();
+
+  await setState(page, {
+    grid: [
+      [2, 4, 2, 4],
+      [4, 2, 4, 2],
+      [2, 4, 2, 4],
+      [4, 2, 4, 2]
+    ],
+    score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+  await page.keyboard.press('ArrowUp');
+  state = await getState(page);
+  expect(state.canUndo).toBe(false);
+  await expect(page.locator('#undo')).toBeDisabled();
+
+  await page.keyboard.press('z');
+  state = await getState(page);
+  expect(state.gameOver).toBe(true);
+});
+
+test('only a single undo step is stored', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    grid: [
+      [0, 0, 2, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0]
+    ],
+    score: 0, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  });
+
+  await page.keyboard.press('ArrowLeft');
+  const afterFirst = await getState(page);
+  await page.keyboard.press('ArrowDown');
+
+  await page.keyboard.press('z');
+  let state = await getState(page);
+  expect(state.grid).toEqual(afterFirst.grid);
+  expect(state.score).toBe(afterFirst.score);
+  expect(state.canUndo).toBe(false);
+
+  await page.keyboard.press('z');
+  state = await getState(page);
+  expect(state.grid).toEqual(afterFirst.grid);
+  expect(state.canUndo).toBe(false);
+});
+
+test('undo revives the pre-move state after game over', async ({ page }) => {
+  await openGame(page);
+  const before = {
+    grid: [
+      [8, 16, 8, 16],
+      [16, 8, 16, 8],
+      [8, 16, 8, 16],
+      [0, 16, 8, 16]
+    ],
+    score: 500, best: 0, gameOver: false, won: false, statusMessage: 'Playing'
+  };
+  await setState(page, before);
+
+  await page.keyboard.press('ArrowLeft');
+  let state = await getState(page);
+  expect(state.gameOver).toBe(true);
+  expect(state.canUndo).toBe(true);
+  await expect(page.locator('#undo')).toBeEnabled();
+
+  await page.keyboard.press('z');
+  state = await getState(page);
+  expect(state.gameOver).toBe(false);
+  expect(state.grid).toEqual(before.grid);
+  expect(state.score).toBe(500);
+  expect(state.canUndo).toBe(false);
+  await expect(page.locator('#status')).toContainText('Playing');
+});
+
 test.describe('touch swipe controls', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 

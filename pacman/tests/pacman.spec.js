@@ -32,7 +32,12 @@ async function openGame(page) {
       typeof api.setAutoStep === 'function'
     );
   });
-  await page.evaluate(() => window.__pacmanTest.setAutoStep(false));
+  await page.evaluate(() => {
+    window.__pacmanTest.setAutoStep(false);
+    // Suite default: skip the READY! freeze so tests drive gameplay immediately.
+    // Ready-phase tests re-enable it explicitly.
+    window.__pacmanTest.setReadyDuration(0);
+  });
   await expect(page.locator('canvas')).toBeVisible();
 }
 
@@ -431,6 +436,77 @@ test('second power pellet while frightened resets timer and keeps ghosts frighte
   for (const g of activeGhosts) {
     expect(g.frightened).toBe(true);
   }
+});
+
+// ── Ready phase ────────────────────────────────────────────────────────────
+
+test('readyFrames counts down and freezes pacman and ghosts during the ready phase', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { readyFrames: 90 });
+  const before = await getState(page);
+  expect(before.readyFrames).toBe(90);
+  expect(before.status).toBe('playing');
+  await expect(page.locator('#status')).toHaveText('Ready');
+
+  await page.keyboard.down('ArrowRight');
+  await advanceFrames(page, 30);
+  await page.keyboard.up('ArrowRight');
+
+  const during = await getState(page);
+  expect(during.readyFrames).toBe(60);
+  expect(during.pacman.x).toBe(before.pacman.x);
+  expect(during.pacman.y).toBe(before.pacman.y);
+  for (let i = 0; i < before.ghosts.length; i++) {
+    expect(during.ghosts[i].x).toBe(before.ghosts[i].x);
+    expect(during.ghosts[i].y).toBe(before.ghosts[i].y);
+  }
+});
+
+test('input during the ready phase is buffered and applies once it ends', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { readyFrames: 10 });
+  const before = await getState(page);
+
+  await page.keyboard.down('ArrowRight');
+  await advanceFrames(page, 5);
+  const during = await getState(page);
+  expect(during.readyFrames).toBe(5);
+  expect(during.pacman.nextDirection).toBe('right');
+  expect(during.pacman.x).toBe(before.pacman.x);
+  expect(during.pacman.y).toBe(before.pacman.y);
+
+  await advanceFrames(page, 60);
+  await page.keyboard.up('ArrowRight');
+  const after = await getState(page);
+  expect(after.readyFrames).toBe(0);
+  expect(after.pacman.direction).toBe('right');
+  expect(after.pacman.x).toBeGreaterThan(before.pacman.x);
+});
+
+test('death respawn re-enters the ready phase with status Ready', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => window.__pacmanTest.setReadyDuration(90));
+  const s = await getState(page);
+  await setState(page, {
+    ghosts: [
+      { tileRow: s.pacman.tileRow, tileCol: s.pacman.tileCol, mode: 'scatter', frightened: false }
+    ]
+  });
+  await advanceFrames(page, 1);
+  const dying = await getState(page);
+  expect(dying.status).toBe('dying');
+
+  await advanceFrames(page, 95);
+  const respawned = await getState(page);
+  expect(respawned.status).toBe('playing');
+  expect(respawned.readyFrames).toBeGreaterThan(0);
+  await expect(page.locator('#status')).toHaveText('Ready');
+
+  await advanceFrames(page, 10);
+  const later = await getState(page);
+  expect(later.readyFrames).toBe(respawned.readyFrames - 10);
+  expect(later.pacman.x).toBe(respawned.pacman.x);
+  expect(later.pacman.y).toBe(respawned.pacman.y);
 });
 
 // ── Pause ──────────────────────────────────────────────────────────────────
