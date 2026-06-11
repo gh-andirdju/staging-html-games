@@ -48,9 +48,23 @@
         <div class="action-zone">
           <button id="pause" type="button" class="action-button" aria-pressed="false">Pause</button>
           <button id="restart" type="button" class="action-button">Restart</button>
+          <button id="help" type="button" class="action-button" aria-label="How to play">?</button>
         </div>
       </section>
     </main>
+
+    <div id="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+      <div class="help-panel">
+        <h2 id="help-title" class="help-title">Pinball — How to play</h2>
+        <ul class="help-list">
+          <li>Keep the ball in play — bumpers, pegs, slingshots, targets, and rollovers all score; you get 3 balls.</li>
+          <li>Hold Launch to compress the plunger, then release to fire the ball into the table.</li>
+          <li>Keyboard: Z or ← flips the left flipper · X, / or → flips the right · Space launches · P or Esc pauses · R restarts.</li>
+          <li>Touch: Left/Right Flipper buttons below the table flip; hold the Launch button between them to fire.</li>
+        </ul>
+        <button id="help-close" type="button" class="action-button">Got it</button>
+      </div>
+    </div>
 
     <script src="src/game.js"></script>
   </body>

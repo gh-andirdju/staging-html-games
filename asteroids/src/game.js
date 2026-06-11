@@ -66,8 +66,26 @@
     } catch {}
   }
 
+  // ── Help panel persistence ────────────────────────────────────────────────
+  const HELP_SEEN_KEY = 'asteroids-help-seen';
+
+  function hasSeenHelp() {
+    try {
+      return Boolean(window.localStorage.getItem(HELP_SEEN_KEY));
+    } catch {
+      return false;
+    }
+  }
+
+  function markHelpSeen() {
+    try {
+      window.localStorage.setItem(HELP_SEEN_KEY, '1');
+    } catch {}
+  }
+
   // ── State ─────────────────────────────────────────────────────────────────
   let state = null;
+  let helpDidPause = false;
 
   function recordHighScore() {
     if (state.score > state.highScore) {
@@ -326,6 +344,31 @@
     render();
   }
 
+  // ── Help panel ────────────────────────────────────────────────────────────
+  const helpBtn = document.getElementById('help');
+  const helpOverlayEl = document.getElementById('help-overlay');
+  const helpCloseBtn = document.getElementById('help-close');
+  const gameShellEl = document.querySelector('.game-shell');
+
+  function openHelp() {
+    if (!helpOverlayEl.hidden) return;
+    helpDidPause = state.status !== 'gameOver' && !state.paused;
+    if (helpDidPause) togglePause();
+    helpOverlayEl.hidden = false;
+    gameShellEl.setAttribute('inert', '');
+    helpCloseBtn.focus();
+  }
+
+  function closeHelp() {
+    if (helpOverlayEl.hidden) return;
+    helpOverlayEl.hidden = true;
+    gameShellEl.removeAttribute('inert');
+    markHelpSeen();
+    if (helpDidPause && state.paused) togglePause();
+    helpDidPause = false;
+    helpBtn.focus();
+  }
+
   // ── Rendering ─────────────────────────────────────────────────────────────
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
@@ -448,6 +491,13 @@
 
   // ── Controls ──────────────────────────────────────────────────────────────
   document.addEventListener('keydown', (e) => {
+    if (!helpOverlayEl.hidden) {
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        closeHelp();
+      }
+      return;
+    }
     if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'ArrowLeft' || e.code === 'ArrowRight') e.preventDefault();
     if (e.code === 'KeyP' || e.code === 'Escape') {
       togglePause();
@@ -489,6 +539,11 @@
 
   document.getElementById('pause').addEventListener('click', togglePause);
   document.getElementById('restart').addEventListener('click', () => restart());
+  helpBtn.addEventListener('click', openHelp);
+  helpCloseBtn.addEventListener('click', closeHelp);
+  helpOverlayEl.addEventListener('click', (e) => {
+    if (e.target === helpOverlayEl) closeHelp();
+  });
 
   // ── Restart ───────────────────────────────────────────────────────────────
   function restart() {
@@ -503,7 +558,7 @@
     isReady: false,
 
     getState() {
-      return structuredClone(state);
+      return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden };
     },
 
     setState(payload) {
@@ -550,5 +605,6 @@
   updateHUD();
   render();
   startLoop();
+  if (!hasSeenHelp()) openHelp();
   window.__asteroidsTest.isReady = true;
 })();

@@ -55,11 +55,25 @@
           <div class="action-btns">
             <button id="pause" type="button" class="action-button" aria-pressed="false">Pause</button>
             <button id="restart" type="button" class="action-button">Restart</button>
+            <button id="help" type="button" class="action-button" aria-label="How to play">?</button>
           </div>
           <p class="control-note">Lasers fire automatically when armed.</p>
         </div>
       </section>
     </main>
+
+    <div id="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+      <div class="help-panel">
+        <h2 id="help-title" class="help-title">Brick Breaker — How to play</h2>
+        <ul class="help-list">
+          <li>Bounce the ball to clear every brick — you have 3 lives.</li>
+          <li>Catch falling capsules: E widens the paddle, S slows the ball, L arms lasers, D doubles balls, P adds a life.</li>
+          <li>Keyboard: ← / → or A / D steer the paddle (the mouse works too) · P or Esc pauses · R restarts.</li>
+          <li>Touch: drag the lane below the board to steer the paddle.</li>
+        </ul>
+        <button id="help-close" type="button" class="action-button">Got it</button>
+      </div>
+    </div>
 
     <script src="src/game.js"></script>
   </body>

@@ -13,6 +13,10 @@
   var btnLeft = document.getElementById("btn-left");
   var btnRight = document.getElementById("btn-right");
   var btnLaunch = document.getElementById("btn-launch");
+  var helpBtn = document.getElementById("help");
+  var helpOverlayEl = document.getElementById("help-overlay");
+  var helpCloseBtn = document.getElementById("help-close");
+  var gameShellEl = document.querySelector(".game-shell");
 
   var WIDTH = canvas.width;
   var HEIGHT = canvas.height;
@@ -71,6 +75,7 @@
   var DRAIN_Y = HEIGHT + BALL_RADIUS + 4;
 
   var HIGH_SCORE_KEY = "pinball-high-score";
+  var HELP_SEEN_KEY = "pinball-help-seen";
 
   function readHighScore() {
     try {
@@ -86,8 +91,23 @@
     } catch {}
   }
 
+  function hasSeenHelp() {
+    try {
+      return Boolean(window.localStorage.getItem(HELP_SEEN_KEY));
+    } catch {
+      return false;
+    }
+  }
+
+  function markHelpSeen() {
+    try {
+      window.localStorage.setItem(HELP_SEEN_KEY, "1");
+    } catch {}
+  }
+
   var keys = { left: false, right: false, launch: false };
   var state;
+  var helpDidPause = false;
   var lastTime = 0;
   var autoStep = true;
 
@@ -221,6 +241,25 @@
     state.paused = !state.paused;
     updateHud();
     draw();
+  }
+
+  function openHelp() {
+    if (!helpOverlayEl.hidden) return;
+    helpDidPause = state.status !== "game_over" && !state.paused;
+    if (helpDidPause) togglePause();
+    helpOverlayEl.hidden = false;
+    gameShellEl.setAttribute("inert", "");
+    helpCloseBtn.focus();
+  }
+
+  function closeHelp() {
+    if (helpOverlayEl.hidden) return;
+    helpOverlayEl.hidden = true;
+    gameShellEl.removeAttribute("inert");
+    markHelpSeen();
+    if (helpDidPause && state.paused) togglePause();
+    helpDidPause = false;
+    helpBtn.focus();
   }
 
   function closestPointOnSegment(ax, ay, bx, by, px, py) {
@@ -885,6 +924,13 @@
   }
 
   window.addEventListener("keydown", function (event) {
+    if (!helpOverlayEl.hidden) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeHelp();
+      }
+      return;
+    }
     if (event.key === "r" || event.key === "R") {
       restart();
       return;
@@ -945,11 +991,18 @@
 
   restartButton.addEventListener("click", restart);
   pauseButton.addEventListener("click", togglePause);
+  helpBtn.addEventListener("click", openHelp);
+  helpCloseBtn.addEventListener("click", closeHelp);
+  helpOverlayEl.addEventListener("click", function (event) {
+    if (event.target === helpOverlayEl) closeHelp();
+  });
 
   window.__pinballTest = {
     isReady: false,
     getState: function () {
-      return clone(state);
+      var snapshot = clone(state);
+      snapshot.helpOpen = !helpOverlayEl.hidden;
+      return snapshot;
     },
     setState: function (nextState) {
       var incoming = clone(nextState);
@@ -1079,6 +1132,7 @@
   };
 
   restart();
+  if (!hasSeenHelp()) openHelp();
   window.__pinballTest.isReady = true;
   window.requestAnimationFrame(frame);
 }());

@@ -30,11 +30,18 @@
   const playerDownBtn = document.getElementById('player-down');
   const restartBtn = document.getElementById('restart');
   const pauseBtn = document.getElementById('pause');
+  const helpBtn = document.getElementById('help');
+  const helpOverlayEl = document.getElementById('help-overlay');
+  const helpCloseBtn = document.getElementById('help-close');
+  const gameShellEl = document.querySelector('.game-shell');
+
+  const HELP_SEEN_KEY = 'pong-help-seen';
 
   const keys = { up: false, down: false };
   let autoStep = true;
   let rafId = null;
   let prevTimestamp = null;
+  let helpDidPause = false;
 
   const state = {
     ball: { x: WIDTH / 2, y: HEIGHT / 2, dx: 0, dy: 0 },
@@ -254,6 +261,39 @@
     draw();
   }
 
+  function hasSeenHelp() {
+    try {
+      return Boolean(window.localStorage.getItem(HELP_SEEN_KEY));
+    } catch {
+      return false;
+    }
+  }
+
+  function markHelpSeen() {
+    try {
+      window.localStorage.setItem(HELP_SEEN_KEY, '1');
+    } catch {}
+  }
+
+  function openHelp() {
+    if (!helpOverlayEl.hidden) return;
+    helpDidPause = state.gameState !== 'won' && !state.paused;
+    if (helpDidPause) togglePause();
+    helpOverlayEl.hidden = false;
+    gameShellEl.setAttribute('inert', '');
+    helpCloseBtn.focus();
+  }
+
+  function closeHelp() {
+    if (helpOverlayEl.hidden) return;
+    helpOverlayEl.hidden = true;
+    gameShellEl.removeAttribute('inert');
+    markHelpSeen();
+    if (helpDidPause && state.paused) togglePause();
+    helpDidPause = false;
+    helpBtn.focus();
+  }
+
   function gameRestart() {
     state.ball.x = WIDTH / 2;
     state.ball.y = HEIGHT / 2;
@@ -303,11 +343,19 @@
     snap.aiPaddle.x = AI_X;
     snap.aiPaddle.width = PADDLE_W;
     snap.aiPaddle.height = PADDLE_H;
+    snap.helpOpen = !helpOverlayEl.hidden;
     return snap;
   }
 
   // Keyboard controls
   document.addEventListener('keydown', function (e) {
+    if (!helpOverlayEl.hidden) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeHelp();
+      }
+      return;
+    }
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
     if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
       togglePause();
@@ -344,6 +392,13 @@
 
   // Pause button
   pauseBtn.addEventListener('click', togglePause);
+
+  // Help panel
+  helpBtn.addEventListener('click', openHelp);
+  helpCloseBtn.addEventListener('click', closeHelp);
+  helpOverlayEl.addEventListener('click', function (e) {
+    if (e.target === helpOverlayEl) closeHelp();
+  });
 
   // Test API
   window.__pongTest = {
@@ -383,6 +438,7 @@
 
   // Start
   gameRestart();
+  if (!hasSeenHelp()) openHelp();
   window.__pongTest.isReady = true;
   rafId = requestAnimationFrame(frame);
 }());

@@ -61,6 +61,12 @@ body {
   gap: 2px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .eyebrow,
 .control-label,
 .label {
@@ -77,6 +83,8 @@ body {
 }
 
 #restart,
+#help,
+#help-close,
 .touch-controls button,
 .diff-btn {
   border: 1px solid var(--accent);
@@ -145,6 +153,8 @@ body {
 }
 
 #restart,
+#help,
+#help-close,
 .touch-controls button,
 .diff-btn {
   font: inherit;
@@ -152,18 +162,28 @@ body {
   cursor: pointer;
 }
 
-#restart {
+#restart,
+#help-close {
   padding: 10px 14px;
   white-space: nowrap;
 }
 
+#help {
+  padding: 10px 0;
+  font-size: 16px;
+}
+
 #restart:hover,
+#help:hover,
+#help-close:hover,
 .touch-controls button:hover,
 .diff-btn:hover {
   filter: brightness(1.08);
 }
 
 #restart:active,
+#help:active,
+#help-close:active,
 .touch-controls button:active,
 .diff-btn:active {
   filter: brightness(0.95);
@@ -172,6 +192,8 @@ body {
 }
 
 #restart:focus-visible,
+#help:focus-visible,
+#help-close:focus-visible,
 .touch-controls button:focus-visible,
 .diff-btn:focus-visible {
   outline: 2px solid var(--accent);
@@ -297,6 +319,51 @@ body {
   filter: brightness(1.08);
 }
 
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(8, 4, 0, 0.72);
+}
+
+.help-overlay[hidden] {
+  display: none;
+}
+
+.help-panel {
+  width: min(100%, 400px);
+  border: 1px solid var(--accent);
+  border-radius: 16px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.help-title {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.help-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+#help-close {
+  justify-self: end;
+}
+
 @media (max-width: 520px) {
   body {
     min-height: 100svh;
@@ -327,6 +394,10 @@ body {
 
   #restart {
     padding: 8px 12px;
+  }
+
+  #help {
+    padding: 8px 0;
   }
 
   .playfield {
@@ -390,6 +461,8 @@ body {
   }
 
   #restart:active,
+  #help:active,
+  #help-close:active,
   .touch-controls button:active,
   .diff-btn:active {
     transform: none;

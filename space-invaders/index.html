@@ -43,9 +43,22 @@
         <div class="system-row">
           <button class="restart-btn" id="btn-pause" aria-pressed="false" aria-label="Pause game (P)">Pause</button>
           <button class="restart-btn" id="btn-restart" aria-label="Restart game (R)">Restart</button>
+          <button class="restart-btn" id="help" aria-label="How to play">?</button>
         </div>
       </div>
     </main>
+    <div id="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+      <div class="help-panel">
+        <h2 id="help-title" class="help-title">Space Invaders — How to play</h2>
+        <ul class="help-list">
+          <li>Shoot down the whole alien wave before it reaches your ship — each new wave is faster and meaner.</li>
+          <li>The four green shields soak up shots and slowly crumble; watch for UFOs, dive bombers, and bosses.</li>
+          <li>Keyboard: ← / → or A / D move · Space fires · P or Esc pauses · R restarts.</li>
+          <li>Touch: ◀ / ▶ move and FIRE shoots below the board; Pause and Restart sit underneath.</li>
+        </ul>
+        <button id="help-close" class="restart-btn" type="button">Got it</button>
+      </div>
+    </div>
     <script src="src/game.js"></script>
   </body>
 </html>

@@ -514,8 +514,27 @@
   const statusEl = document.getElementById('status');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl = document.getElementById('restart');
+  const helpEl = document.getElementById('help');
+  const helpOverlayEl = document.getElementById('help-overlay');
+  const helpCloseEl = document.getElementById('help-close');
+  const gameShellEl = document.querySelector('.game-shell');
 
   const BEST_KEY = 'sokoban-best';
+  const HELP_SEEN_KEY = 'sokoban-help-seen';
+
+  function hasSeenHelp() {
+    try {
+      return Boolean(window.localStorage.getItem(HELP_SEEN_KEY));
+    } catch {
+      return false;
+    }
+  }
+
+  function markHelpSeen() {
+    try {
+      window.localStorage.setItem(HELP_SEEN_KEY, '1');
+    } catch {}
+  }
 
   function readBest() {
     try {
@@ -690,6 +709,21 @@
 
   function checkWin() {
     return state.targets.every((t) => boxAt(t.row, t.col) !== -1);
+  }
+
+  function openHelp() {
+    if (!helpOverlayEl.hidden) return;
+    helpOverlayEl.hidden = false;
+    gameShellEl.setAttribute('inert', '');
+    helpCloseEl.focus();
+  }
+
+  function closeHelp() {
+    if (helpOverlayEl.hidden) return;
+    helpOverlayEl.hidden = true;
+    gameShellEl.removeAttribute('inert');
+    markHelpSeen();
+    helpEl.focus();
   }
 
   function recordBest() {
@@ -889,6 +923,13 @@
   };
 
   document.addEventListener('keydown', (e) => {
+    if (!helpOverlayEl.hidden) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeHelp();
+      }
+      return;
+    }
     if (e.repeat) return;
     const dir = DIR[e.key];
     if (dir) {
@@ -919,6 +960,12 @@
     loadLevel(state.level);
   });
 
+  helpEl.addEventListener('click', openHelp);
+  helpCloseEl.addEventListener('click', closeHelp);
+  helpOverlayEl.addEventListener('click', (e) => {
+    if (e.target === helpOverlayEl) closeHelp();
+  });
+
   // ── RAF loop ────────────────────────────────────────────────────────────
 
   function scheduleFrame() {
@@ -934,7 +981,7 @@
     isReady: false,
 
     getState() {
-      return structuredClone(state);
+      return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden };
     },
 
     setState(next) {
@@ -983,6 +1030,7 @@
   // ── Init ─────────────────────────────────────────────────────────────────
 
   loadLevel(0);
+  if (!hasSeenHelp()) openHelp();
   window.__sokobanTest.isReady = true;
   scheduleFrame();
 })();
