@@ -744,3 +744,104 @@ test('bullet wraps from right edge to left edge', async ({ page }) => {
   expect(after.bullets.length).toBe(1);
   expect(after.bullets[0].x).toBeLessThan(20);
 });
+
+// ── High score persistence ────────────────────────────────────────────────────
+
+test('scoring past the stored best updates highScore live and persists to localStorage', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('asteroids-high-score', '60'));
+  await openGame(page);
+
+  let state = await getState(page);
+  expect(state.highScore).toBe(60);
+  await expect(page.locator('#hud-best')).toHaveText('60');
+
+  await setState(page, {
+    ...state,
+    ship: { ...state.ship, invincible: true, invincibleFrames: 999 },
+    asteroids: [{ x: 400, y: 200, vx: 0, vy: 0, radius: 20, size: 1, seed: 9001, vertices: [] }],
+    bullets: [{ x: 400, y: 200, vx: 0, vy: 0, life: 10 }],
+    score: 0
+  });
+
+  await advanceFrames(page, 1);
+
+  state = await getState(page);
+  expect(state.score).toBe(100);
+  expect(state.highScore).toBe(100);
+  await expect(page.locator('#hud-best')).toHaveText('100');
+  const stored = await page.evaluate(() => window.localStorage.getItem('asteroids-high-score'));
+  expect(stored).toBe('100');
+});
+
+test('game over after a scoring run reports gameOver with highScore intact', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('asteroids-high-score', '500'));
+  await openGame(page);
+
+  let state = await getState(page);
+  await setState(page, {
+    ...state,
+    ship: { ...state.ship, invincible: true, invincibleFrames: 999 },
+    asteroids: [
+      { x: 400, y: 200, vx: 0, vy: 0, radius: 20, size: 1, seed: 9002, vertices: [] },
+      { x: 100, y: 100, vx: 0, vy: 0, radius: 80, size: 3, seed: 9003, vertices: [] }
+    ],
+    bullets: [{ x: 400, y: 200, vx: 0, vy: 0, life: 10 }],
+    score: 0,
+    lives: 1
+  });
+  await advanceFrames(page, 1);
+
+  state = await getState(page);
+  expect(state.score).toBe(100);
+
+  await setState(page, {
+    ...state,
+    ship: { x: 400, y: 300, angle: 0, vx: 0, vy: 0, radius: 14, invincible: false, invincibleFrames: 0 },
+    asteroids: [{ x: 404, y: 300, vx: 0, vy: 0, radius: 20, size: 1, seed: 9004, vertices: [] }],
+    bullets: []
+  });
+  await advanceFrames(page, 1);
+
+  state = await getState(page);
+  expect(state.status).toBe('gameOver');
+  expect(state.highScore).toBe(500);
+  expect(state.newRecord).toBe(false);
+  await expect(page.locator('#hud-status')).toHaveText('Game Over');
+  const stored = await page.evaluate(() => window.localStorage.getItem('asteroids-high-score'));
+  expect(stored).toBe('500');
+});
+
+test('new-record run shows New record! status on game over', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('asteroids-high-score', '60'));
+  await openGame(page);
+
+  let state = await getState(page);
+  await setState(page, {
+    ...state,
+    ship: { ...state.ship, invincible: true, invincibleFrames: 999 },
+    asteroids: [
+      { x: 400, y: 200, vx: 0, vy: 0, radius: 20, size: 1, seed: 9005, vertices: [] },
+      { x: 100, y: 100, vx: 0, vy: 0, radius: 80, size: 3, seed: 9006, vertices: [] }
+    ],
+    bullets: [{ x: 400, y: 200, vx: 0, vy: 0, life: 10 }],
+    score: 0,
+    lives: 1
+  });
+  await advanceFrames(page, 1);
+
+  state = await getState(page);
+  expect(state.newRecord).toBe(true);
+
+  await setState(page, {
+    ...state,
+    ship: { x: 400, y: 300, angle: 0, vx: 0, vy: 0, radius: 14, invincible: false, invincibleFrames: 0 },
+    asteroids: [{ x: 404, y: 300, vx: 0, vy: 0, radius: 20, size: 1, seed: 9007, vertices: [] }],
+    bullets: []
+  });
+  await advanceFrames(page, 1);
+
+  state = await getState(page);
+  expect(state.status).toBe('gameOver');
+  expect(state.highScore).toBe(100);
+  await expect(page.locator('#hud-status')).toHaveText('New record!');
+});

@@ -181,10 +181,11 @@
       ctx.textBaseline = 'middle';
       ctx.fillStyle    = '#f59e0b';
       ctx.font         = 'bold 28px "Trebuchet MS", sans-serif';
-      ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 18);
+      ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 30);
       ctx.fillStyle = '#c4a46b';
       ctx.font      = '14px "Trebuchet MS", sans-serif';
-      ctx.fillText('Press R or Restart', canvas.width / 2, canvas.height / 2 + 14);
+      ctx.fillText(`Score ${state.score} · Best ${state.highScore}`, canvas.width / 2, canvas.height / 2 + 2);
+      ctx.fillText('Press R or Restart', canvas.width / 2, canvas.height / 2 + 26);
     } else if (state.paused) {
       ctx.fillStyle = 'rgba(2, 6, 23, 0.62)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);

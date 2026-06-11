@@ -4,6 +4,7 @@
   var canvas = document.getElementById("game");
   var ctx = canvas.getContext("2d");
   var scoreEl = document.getElementById("score");
+  var bestEl = document.getElementById("best");
   var ballsEl = document.getElementById("balls");
   var levelEl = document.getElementById("level");
   var statusEl = document.getElementById("status");
@@ -68,6 +69,22 @@
   var LAUNCH_X = WALL_RIGHT - BALL_RADIUS;
   var BALL_LAUNCH_Y = HEIGHT - 100;
   var DRAIN_Y = HEIGHT + BALL_RADIUS + 4;
+
+  var HIGH_SCORE_KEY = "pinball-high-score";
+
+  function readHighScore() {
+    try {
+      return Number(window.localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function writeHighScore(value) {
+    try {
+      window.localStorage.setItem(HIGH_SCORE_KEY, String(value));
+    } catch {}
+  }
 
   var keys = { left: false, right: false, launch: false };
   var state;
@@ -134,6 +151,8 @@
         { x: 250, y: 96, radius: ROLLOVER_RADIUS, lit: false, hitTimer: 0 }
       ],
       score: 0,
+      highScore: readHighScore(),
+      newRecord: false,
       balls: 3,
       level: 1,
       status: "ready",
@@ -163,6 +182,16 @@
     }
   }
 
+  function recordHighScore() {
+    if (state.score > state.highScore) {
+      if (state.highScore > 0) {
+        state.newRecord = true;
+      }
+      state.highScore = state.score;
+      writeHighScore(state.highScore);
+    }
+  }
+
   function statusText() {
     if (state.paused && state.status !== "game_over") {
       return "Paused";
@@ -170,13 +199,14 @@
     switch (state.status) {
       case "ready": return "Ready";
       case "playing": return "Playing";
-      case "game_over": return "Game Over";
+      case "game_over": return state.newRecord ? "New record!" : "Game Over";
       default: return state.status;
     }
   }
 
   function updateHud() {
     scoreEl.textContent = String(state.score);
+    bestEl.textContent = String(state.highScore);
     ballsEl.textContent = String(state.balls);
     levelEl.textContent = String(state.level);
     statusEl.textContent = statusText();
@@ -557,6 +587,8 @@
       }
     }
 
+    recordHighScore();
+
     resolveFlipperCollision(ball, lf, dt);
     resolveFlipperCollision(ball, rf, dt);
 
@@ -777,13 +809,15 @@
     ctx.fillStyle = "rgba(2, 6, 23, 0.74)";
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-    var line1, line2;
+    var line1, line2, line3;
     if (state.status === "game_over") {
       line1 = "Game Over";
-      line2 = "Press Restart to play again";
+      line2 = "Score " + state.score + " · Best " + state.highScore;
+      line3 = "Press R or tap Restart";
     } else {
       line1 = "Ready";
       line2 = "Hold Launch to compress, release to fire";
+      line3 = null;
     }
 
     ctx.fillStyle = "#f9fafb";
@@ -793,6 +827,9 @@
     ctx.font = "16px Arial, Helvetica, sans-serif";
     ctx.fillStyle = "#c4a46b";
     ctx.fillText(line2, WIDTH / 2, HEIGHT / 2 + 26);
+    if (line3) {
+      ctx.fillText(line3, WIDTH / 2, HEIGHT / 2 + 52);
+    }
     ctx.textAlign = "start";
   }
 
@@ -1012,6 +1049,12 @@
       }
       if (typeof state.level === "number") {
         state.level = Math.max(1, Math.min(10, Math.floor(state.level)));
+      }
+      if (typeof state.highScore !== "number") {
+        state.highScore = readHighScore();
+      }
+      if (typeof state.newRecord !== "boolean") {
+        state.newRecord = false;
       }
       updateHud();
       draw();

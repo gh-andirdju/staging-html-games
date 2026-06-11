@@ -731,6 +731,100 @@ test('pressing R while paused restarts the game unpaused', async ({ page }) => {
   await expect(page.locator('#status')).toHaveText('Ready');
 });
 
+test('scoring past the stored best updates highScore live and persists to localStorage', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('pinball-high-score', '20'));
+  await openGame(page);
+
+  let s = await getState(page);
+  expect(s.highScore).toBe(20);
+  await expect(page.locator('#best')).toHaveText('20');
+
+  const bumper = s.bumpers[0];
+  await page.evaluate((b) => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      ball: { x: b.x, y: b.y, vx: 0, vy: 0, radius: 10, launched: true }
+    });
+  }, bumper);
+
+  await advanceFrames(page, 3);
+
+  s = await getState(page);
+  expect(s.score).toBeGreaterThan(20);
+  expect(s.highScore).toBe(s.score);
+  await expect(page.locator('#best')).toHaveText(String(s.score));
+  const stored = await page.evaluate(() => window.localStorage.getItem('pinball-high-score'));
+  expect(stored).toBe(String(s.score));
+});
+
+test('game over after a scoring run reports game_over with highScore intact', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('pinball-high-score', '99999'));
+  await openGame(page);
+
+  let s = await getState(page);
+  const bumper = s.bumpers[0];
+  await page.evaluate((b) => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      balls: 1,
+      ball: { x: b.x, y: b.y, vx: 0, vy: 0, radius: 10, launched: true }
+    });
+  }, bumper);
+  await advanceFrames(page, 3);
+
+  s = await getState(page);
+  expect(s.score).toBeGreaterThan(0);
+
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      ball: { x: 200, y: 720, vx: 0, vy: 200, radius: 10, launched: true }
+    });
+  });
+  await advanceFrames(page, 5);
+
+  s = await getState(page);
+  expect(s.status).toBe('game_over');
+  expect(s.highScore).toBe(99999);
+  expect(s.newRecord).toBe(false);
+  await expect(page.locator('#status')).toHaveText('Game Over');
+  const stored = await page.evaluate(() => window.localStorage.getItem('pinball-high-score'));
+  expect(stored).toBe('99999');
+});
+
+test('new-record run shows New record! status on game over', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('pinball-high-score', '20'));
+  await openGame(page);
+
+  let s = await getState(page);
+  const bumper = s.bumpers[0];
+  await page.evaluate((b) => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      balls: 1,
+      ball: { x: b.x, y: b.y, vx: 0, vy: 0, radius: 10, launched: true }
+    });
+  }, bumper);
+  await advanceFrames(page, 3);
+
+  s = await getState(page);
+  expect(s.newRecord).toBe(true);
+
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      ball: { x: 200, y: 720, vx: 0, vy: 200, radius: 10, launched: true }
+    });
+  });
+  await advanceFrames(page, 5);
+
+  s = await getState(page);
+  expect(s.status).toBe('game_over');
+  expect(s.highScore).toBe(s.score);
+  await expect(page.locator('#status')).toHaveText('New record!');
+});
+
 test('desktop layout screenshot', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);

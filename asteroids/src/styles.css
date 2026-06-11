@@ -46,6 +46,7 @@ body {
 /* ── HUD ── */
 .hud {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-around;
   gap: 8px;
   padding: 6px 0;

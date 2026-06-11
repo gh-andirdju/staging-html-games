@@ -91,9 +91,26 @@
     return Object.assign({}, cfg);
   }
 
+  var HIGH_SCORE_KEY = 'space-invaders-high-score';
+
+  function readHighScore() {
+    try {
+      return Number(window.localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function writeHighScore(value) {
+    try {
+      window.localStorage.setItem(HIGH_SCORE_KEY, String(value));
+    } catch {}
+  }
+
   var canvas = document.getElementById('game');
   var ctx = canvas.getContext('2d');
   var scoreEl = document.getElementById('score');
+  var bestEl = document.getElementById('best');
   var livesEl = document.getElementById('lives');
   var waveEl = document.getElementById('wave');
   var statusEl = document.getElementById('status-msg');
@@ -160,6 +177,8 @@
       enemies: buildEnemies(),
       shields: buildShields(),
       score: 0,
+      highScore: readHighScore(),
+      newRecord: false,
       lives: 3,
       wave: 1,
       status: 'playing',
@@ -183,6 +202,14 @@
 
   var state = initialState();
   var autoStep = true;
+
+  function recordHighScore() {
+    if (state.score > state.highScore) {
+      if (state.highScore > 0) state.newRecord = true;
+      state.highScore = state.score;
+      writeHighScore(state.highScore);
+    }
+  }
   var rafId = null;
   var accumulator = 0;
   var lastTime = 0;
@@ -577,6 +604,8 @@
       }
     }
 
+    recordHighScore();
+
     // Player bullet vs shield
     for (var bi = state.bullets.length - 1; bi >= 0; bi--) {
       var b = state.bullets[bi];
@@ -669,10 +698,11 @@
 
   function updateHud() {
     scoreEl.textContent = state.score;
+    bestEl.textContent = state.highScore;
     livesEl.textContent = state.lives;
     waveEl.textContent = state.wave;
     if (state.status === 'gameover') {
-      statusEl.textContent = 'Game Over — Press R to restart';
+      statusEl.textContent = state.newRecord ? 'New record!' : 'Game Over — Press R to restart';
     } else if (state.paused) {
       statusEl.textContent = 'Paused';
     } else if (state.deathTimer > 0) {
@@ -702,7 +732,7 @@
       ctx.fillText('GAME OVER', WIDTH / 2, HEIGHT / 2 - 20);
       ctx.font = '16px monospace';
       ctx.fillStyle = '#a0e0ff';
-      ctx.fillText('Score: ' + state.score, WIDTH / 2, HEIGHT / 2 + 16);
+      ctx.fillText('Score ' + state.score + ' · Best ' + state.highScore, WIDTH / 2, HEIGHT / 2 + 16);
       ctx.fillText('Press R or tap Restart', WIDTH / 2, HEIGHT / 2 + 42);
       return;
     }

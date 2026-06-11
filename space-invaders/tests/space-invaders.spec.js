@@ -647,6 +647,89 @@ test('pressing R while paused restarts the game unpaused', async ({ page }) => {
   expect(state.enemyMoveTimer).toBe(50); // 60 initial − 10 frames
 });
 
+// ─── High score persistence ───────────────────────────────────────────────────
+
+test('scoring past the stored best updates highScore live and persists to localStorage', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('space-invaders-high-score', '10'));
+  await openGame(page);
+
+  let state = await getState(page);
+  expect(state.highScore).toBe(10);
+  await expect(page.locator('#best')).toHaveText('10');
+
+  // Row 2 enemy is worth 20 points — passes the stored best of 10
+  const midEnemy = state.enemies.find(e => e.row === 2);
+  await setState(page, {
+    bullets: [{ x: midEnemy.x + 8, y: midEnemy.y + 4 }],
+    bulletCooldown: 30
+  });
+  await advanceFrames(page, 2);
+
+  state = await getState(page);
+  expect(state.score).toBe(20);
+  expect(state.highScore).toBe(20);
+  await expect(page.locator('#best')).toHaveText('20');
+  const stored = await page.evaluate(() => window.localStorage.getItem('space-invaders-high-score'));
+  expect(stored).toBe('20');
+});
+
+test('game over after a scoring run reports gameover with highScore intact', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('space-invaders-high-score', '5000'));
+  await openGame(page);
+
+  let state = await getState(page);
+  const midEnemy = state.enemies.find(e => e.row === 2);
+  await setState(page, {
+    bullets: [{ x: midEnemy.x + 8, y: midEnemy.y + 4 }],
+    bulletCooldown: 30
+  });
+  await advanceFrames(page, 2);
+
+  await setState(page, {
+    lives: 1,
+    enemyBullets: [{ x: 280, y: 436 }],
+    deathTimer: 0
+  });
+  await advanceFrames(page, 2);
+
+  state = await getState(page);
+  expect(state.status).toBe('gameover');
+  expect(state.score).toBe(20);
+  expect(state.highScore).toBe(5000);
+  expect(state.newRecord).toBe(false);
+  await expect(page.locator('#status-msg')).toHaveText('Game Over — Press R to restart');
+  const stored = await page.evaluate(() => window.localStorage.getItem('space-invaders-high-score'));
+  expect(stored).toBe('5000');
+});
+
+test('new-record run shows New record! status on game over', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('space-invaders-high-score', '10'));
+  await openGame(page);
+
+  let state = await getState(page);
+  const midEnemy = state.enemies.find(e => e.row === 2);
+  await setState(page, {
+    bullets: [{ x: midEnemy.x + 8, y: midEnemy.y + 4 }],
+    bulletCooldown: 30
+  });
+  await advanceFrames(page, 2);
+
+  state = await getState(page);
+  expect(state.newRecord).toBe(true);
+
+  await setState(page, {
+    lives: 1,
+    enemyBullets: [{ x: 280, y: 436 }],
+    deathTimer: 0
+  });
+  await advanceFrames(page, 2);
+
+  state = await getState(page);
+  expect(state.status).toBe('gameover');
+  expect(state.highScore).toBe(20);
+  await expect(page.locator('#status-msg')).toHaveText('New record!');
+});
+
 // ─── Screenshot tests ─────────────────────────────────────────────────────────
 
 test('matches the desktop layout baseline', async ({ page }) => {
