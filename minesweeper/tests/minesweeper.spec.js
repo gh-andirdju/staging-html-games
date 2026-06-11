@@ -618,3 +618,83 @@ test.describe('how to play help', () => {
     expect(s.revealed).toBeGreaterThan(0);
   });
 });
+
+test.describe('sound and mute', () => {
+  test('mute button toggles aria-pressed and persists minesweeper-muted across reload', async ({ page }) => {
+    await openGame(page);
+    const muteBtn = page.locator('#mute');
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(muteBtn).toHaveText('🔊');
+
+    await muteBtn.click();
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(muteBtn).toHaveText('🔇');
+    let stored = await page.evaluate(() => localStorage.getItem('minesweeper-muted'));
+    expect(stored).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+    let s = await getState(page);
+    expect(s.muted).toBe(true);
+
+    await page.locator('#mute').click();
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+    stored = await page.evaluate(() => localStorage.getItem('minesweeper-muted'));
+    expect(stored).toBe('0');
+  });
+
+  test('muted state is exposed via getState and setMuted updates it', async ({ page }) => {
+    await openGame(page);
+    let s = await getState(page);
+    expect(s.muted).toBe(false);
+
+    await page.evaluate(() => window.__minesweeperTest.setMuted(true));
+    s = await getState(page);
+    expect(s.muted).toBe(true);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.evaluate(() => window.__minesweeperTest.setMuted(false));
+    s = await getState(page);
+    expect(s.muted).toBe(false);
+  });
+
+  test('revealing, flagging, chording to a win, and hitting a mine run cleanly with sound wired', async ({ page }) => {
+    await openGame(page);
+
+    const mineBoard = [
+      [{ mine: true }, {}, {}, {}],
+      [{}, {}, {}, {}],
+      [{}, {}, {}, {}],
+      [{}, {}, {}, {}],
+    ];
+    await page.evaluate((config) => window.__minesweeperTest.setBoard(config), mineBoard);
+
+    // Flag on (up pitch) then off (down pitch)
+    await page.evaluate(() => window.__minesweeperTest.flagCell(0, 0));
+    let s = await getState(page);
+    expect(s.flagged).toBe(1);
+    await page.evaluate(() => window.__minesweeperTest.flagCell(0, 0));
+    s = await getState(page);
+    expect(s.flagged).toBe(0);
+
+    // Single reveal tick
+    await page.evaluate(() => window.__minesweeperTest.revealCell(0, 1));
+    s = await getState(page);
+    expect(s.revealed).toBe(1);
+
+    // Chord tick cascades the rest of the board and wins with a new best time
+    await page.evaluate(() => window.__minesweeperTest.flagCell(0, 0));
+    await page.evaluate(() => window.__minesweeperTest.revealCell(0, 1));
+    s = await getState(page);
+    expect(s.won).toBe(true);
+    expect(s.statusMessage).toContain('New best time!');
+
+    // Mine-hit descent on a fresh board
+    await page.evaluate(() => window.__minesweeperTest.restart());
+    await page.evaluate((config) => window.__minesweeperTest.setBoard(config), mineBoard);
+    await page.evaluate(() => window.__minesweeperTest.revealCell(0, 0));
+    s = await getState(page);
+    expect(s.gameOver).toBe(true);
+    expect(s.won).toBe(false);
+  });
+});

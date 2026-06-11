@@ -10,6 +10,7 @@
   var statusEl = document.getElementById("status");
   var restartButton = document.getElementById("restart");
   var pauseButton = document.getElementById("pause");
+  var muteButton = document.getElementById("mute");
   var btnLeft = document.getElementById("btn-left");
   var btnRight = document.getElementById("btn-right");
   var btnLaunch = document.getElementById("btn-launch");
@@ -104,6 +105,138 @@
       window.localStorage.setItem(HELP_SEEN_KEY, "1");
     } catch {}
   }
+
+  var MUTED_KEY = "pinball-muted";
+  var BUMPER_SFX_THROTTLE_MS = 60;
+  var TICK_SFX_THROTTLE_MS = 60;
+
+  function createSfx() {
+    var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    var muted = readMuted();
+    var gestureSeen = false;
+    var audioCtx = null;
+    var lastBumperAt = 0;
+    var lastTickAt = 0;
+
+    function readMuted() {
+      try {
+        return window.localStorage.getItem(MUTED_KEY) === "1";
+      } catch {
+        return false;
+      }
+    }
+
+    function writeMuted(value) {
+      try {
+        window.localStorage.setItem(MUTED_KEY, value ? "1" : "0");
+      } catch {}
+    }
+
+    function noteGesture() {
+      gestureSeen = true;
+    }
+
+    window.addEventListener("pointerdown", noteGesture, { capture: true, passive: true });
+    window.addEventListener("keydown", noteGesture, { capture: true });
+
+    function getAudio() {
+      if (muted || !gestureSeen || navigator.webdriver || !AudioContextClass) return null;
+      if (!audioCtx) {
+        try {
+          audioCtx = new AudioContextClass();
+        } catch {
+          return null;
+        }
+      }
+      if (audioCtx.state === "suspended") audioCtx.resume().catch(function () {});
+      return audioCtx;
+    }
+
+    function tone(startFreq, endFreq, duration, delay, type, peak) {
+      var audio = getAudio();
+      if (!audio) return;
+      try {
+        var startAt = audio.currentTime + (delay || 0);
+        var osc = audio.createOscillator();
+        var gain = audio.createGain();
+        osc.type = type || "square";
+        osc.frequency.setValueAtTime(startFreq, startAt);
+        if (endFreq !== startFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startAt + duration);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak || 0.1, startAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+      } catch {}
+    }
+
+    // Soft tick shared by slingshots, pegs, and wall hits, throttled so
+    // rapid rebounds never stack oscillators
+    function tick(freq, peak) {
+      var now = performance.now();
+      if (now - lastTickAt < TICK_SFX_THROTTLE_MS) return;
+      lastTickAt = now;
+      tone(freq, freq, 0.03, 0, "square", peak);
+    }
+
+    return {
+      isMuted: function () {
+        return muted;
+      },
+      setMuted: function (value) {
+        muted = Boolean(value);
+        writeMuted(muted);
+      },
+      // Mechanical flipper click, pitched slightly differently per side
+      playFlipper: function (isLeft) {
+        tone(isLeft ? 196 : 233, isLeft ? 147 : 175, 0.045, 0, "square", 0.07);
+      },
+      // Bright pop pitched per bumper, throttled
+      playBumper: function (index) {
+        var now = performance.now();
+        if (now - lastBumperAt < BUMPER_SFX_THROTTLE_MS) return;
+        lastBumperAt = now;
+        var base = 620 + (index % 5) * 70;
+        tone(base, base * 1.4, 0.06, 0, "square", 0.09);
+      },
+      playSling: function () {
+        tick(330, 0.06);
+      },
+      playWall: function () {
+        tick(240, 0.05);
+      },
+      playPeg: function () {
+        tick(420, 0.05);
+      },
+      // Rising chirp for ramp features (targets and rollovers)
+      playRamp: function () {
+        tone(440, 990, 0.09, 0, "triangle", 0.08);
+      },
+      // Spring twang scaling with plunger compression
+      playLaunch: function (power) {
+        tone(110 + 70 * power, 320 + 320 * power, 0.12, 0, "sawtooth", 0.08);
+      },
+      // Short descent as a ball drains
+      playDrain: function () {
+        tone(392, 147, 0.14, 0, "sawtooth", 0.08);
+      },
+      // Longer two-stage descent on game over
+      playGameOver: function () {
+        tone(330, 165, 0.14, 0, "sawtooth", 0.09);
+        tone(165, 82, 0.15, 0.15, "sawtooth", 0.08);
+      },
+      playNewRecord: function () {
+        tone(523, 523, 0.06, 0, "triangle");
+        tone(659, 659, 0.06, 0.07, "triangle");
+        tone(784, 784, 0.06, 0.14, "triangle");
+        tone(1047, 1047, 0.1, 0.21, "triangle");
+      }
+    };
+  }
+
+  var sfx = createSfx();
 
   var keys = { left: false, right: false, launch: false };
   var state;
@@ -232,6 +365,13 @@
     statusEl.textContent = statusText();
     pauseButton.textContent = state.paused ? "Resume" : "Pause";
     pauseButton.setAttribute("aria-pressed", state.paused ? "true" : "false");
+    muteButton.textContent = sfx.isMuted() ? "🔇" : "🔊";
+    muteButton.setAttribute("aria-pressed", sfx.isMuted() ? "true" : "false");
+  }
+
+  function toggleMute() {
+    sfx.setMuted(!sfx.isMuted());
+    updateHud();
   }
 
   function togglePause() {
@@ -327,7 +467,7 @@
     var dy = ball.y - cp.y;
     var dist = Math.sqrt(dx * dx + dy * dy);
     if (dist >= ball.radius || dist < 0.001) {
-      return;
+      return false;
     }
     var nx = dx / dist;
     var ny = dy / dist;
@@ -335,13 +475,16 @@
     ball.y = cp.y + ny * (ball.radius + 0.5);
     var vn = ball.vx * nx + ball.vy * ny;
     if (vn < 0) {
+      var hardHit = vn < -80;
       var tx = -ny;
       var ty = nx;
       var vt = ball.vx * tx + ball.vy * ty;
       vn = -vn * restitution;
       ball.vx = nx * vn + tx * vt;
       ball.vy = ny * vn + ty * vt;
+      return hardHit;
     }
+    return false;
   }
 
   function resolvePegCollision(ball, peg) {
@@ -468,6 +611,7 @@
           (LAUNCH_MIN_POWER + (1 - LAUNCH_MIN_POWER) * state.plunger.compressed);
         ball.vx = 0;
         ball.launched = true;
+        sfx.playLaunch(state.plunger.compressed);
         state.plunger.compressed = 0;
         state.status = "playing";
         state.frame += 1;
@@ -489,17 +633,20 @@
 
     var wallHit = false;
     if (ball.x - ball.radius < WALL_LEFT) {
+      if (ball.vx < -60) sfx.playWall();
       ball.x = WALL_LEFT + ball.radius;
       ball.vx = Math.abs(ball.vx) * WALL_RESTITUTION;
       ball.vy *= WALL_FRICTION;
       wallHit = true;
     } else if (ball.x + ball.radius > WALL_RIGHT) {
+      if (ball.vx > 60) sfx.playWall();
       ball.x = WALL_RIGHT - ball.radius;
       ball.vx = -Math.abs(ball.vx) * WALL_RESTITUTION;
       ball.vy *= WALL_FRICTION;
       wallHit = true;
     }
     if (ball.y - ball.radius < 10) {
+      if (ball.vy < -60) sfx.playWall();
       ball.y = ball.radius + 10;
       ball.vy = Math.abs(ball.vy) * WALL_RESTITUTION;
       ball.vx *= WALL_FRICTION;
@@ -519,6 +666,7 @@
         ball.y = arcCY + any * (arcR - ball.radius);
         var avn = ball.vx * anx + ball.vy * any;
         if (avn > 0) {
+          if (avn > 60) sfx.playWall();
           var atx = -any;
           var aty = anx;
           var avt = ball.vx * atx + ball.vy * aty;
@@ -529,10 +677,10 @@
       }
     }
 
-    resolveWallSegment(ball, WALL_LEFT, FUNNEL_TOP_Y, FLIPPER_PIVOT_LX, FLIPPER_PIVOT_Y, FUNNEL_RESTITUTION);
-    resolveWallSegment(ball, LANE_X, FUNNEL_TOP_Y, FLIPPER_PIVOT_RX, FLIPPER_PIVOT_Y, FUNNEL_RESTITUTION);
-    resolveWallSegment(ball, LANE_X, LANE_TOP_Y, LANE_X, FUNNEL_TOP_Y, DIVIDER_RESTITUTION);
-    resolveWallSegment(ball, DEFLECTOR_X, DEFLECTOR_Y, WALL_RIGHT, DEFLECTOR_END_Y, DEFLECTOR_RESTITUTION);
+    if (resolveWallSegment(ball, WALL_LEFT, FUNNEL_TOP_Y, FLIPPER_PIVOT_LX, FLIPPER_PIVOT_Y, FUNNEL_RESTITUTION)) sfx.playWall();
+    if (resolveWallSegment(ball, LANE_X, FUNNEL_TOP_Y, FLIPPER_PIVOT_RX, FLIPPER_PIVOT_Y, FUNNEL_RESTITUTION)) sfx.playWall();
+    if (resolveWallSegment(ball, LANE_X, LANE_TOP_Y, LANE_X, FUNNEL_TOP_Y, DIVIDER_RESTITUTION)) sfx.playWall();
+    if (resolveWallSegment(ball, DEFLECTOR_X, DEFLECTOR_Y, WALL_RIGHT, DEFLECTOR_END_Y, DEFLECTOR_RESTITUTION)) sfx.playWall();
 
     for (var i = 0; i < state.bumpers.length; i += 1) {
       var bumper = state.bumpers[i];
@@ -563,6 +711,7 @@
         }
         bumper.hitTimer = 14;
         state.score += BUMPER_SCORE * state.level;
+        sfx.playBumper(i);
       }
     }
 
@@ -571,6 +720,7 @@
       if (!target.hit && circleHitsRect(ball.x, ball.y, ball.radius, target.x, target.y, target.w, target.h)) {
         target.hit = true;
         state.score += LANE_SCORE * state.level;
+        sfx.playRamp();
         var tcpx = clamp(ball.x, target.x, target.x + target.w);
         var tcpy = clamp(ball.y, target.y, target.y + target.h);
         var tndx = ball.x - tcpx;
@@ -606,6 +756,7 @@
       for (var pi = 0; pi < state.pegs.length; pi += 1) {
         if (resolvePegCollision(ball, state.pegs[pi])) {
           state.score += PEG_SCORE * state.level;
+          sfx.playPeg();
         }
       }
     }
@@ -614,6 +765,7 @@
       for (var si = 0; si < state.slingshots.length; si += 1) {
         if (resolveSlingshot(ball, state.slingshots[si])) {
           state.score += SLING_SCORE * state.level;
+          sfx.playSling();
         }
       }
     }
@@ -622,6 +774,7 @@
       for (var ri = 0; ri < state.rollovers.length; ri += 1) {
         if (resolveRollover(ball, state.rollovers[ri])) {
           state.score += ROLLOVER_SCORE * state.level;
+          sfx.playRamp();
         }
       }
     }
@@ -636,12 +789,18 @@
       if (state.balls <= 0) {
         state.balls = 0;
         state.status = "game_over";
+        if (state.newRecord) {
+          sfx.playNewRecord();
+        } else {
+          sfx.playGameOver();
+        }
         if (state.rollovers) {
           for (var gori = 0; gori < state.rollovers.length; gori += 1) {
             state.rollovers[gori].lit = false;
           }
         }
       } else {
+        sfx.playDrain();
         resetBallToLauncher();
         state.status = "ready";
       }
@@ -941,11 +1100,17 @@
     }
     if (event.key === "ArrowLeft" || event.key === "z" || event.key === "Z") {
       event.preventDefault();
-      if (!state.paused) keys.left = true;
+      if (!state.paused) {
+        if (!keys.left && state.status !== "game_over") sfx.playFlipper(true);
+        keys.left = true;
+      }
     }
     if (event.key === "ArrowRight" || event.key === "x" || event.key === "X" || event.key === "/") {
       event.preventDefault();
-      if (!state.paused) keys.right = true;
+      if (!state.paused) {
+        if (!keys.right && state.status !== "game_over") sfx.playFlipper(false);
+        keys.right = true;
+      }
     }
     if (event.key === " ") {
       event.preventDefault();
@@ -967,7 +1132,10 @@
 
   btnLeft.addEventListener("pointerdown", function (e) {
     e.preventDefault();
-    if (!state.paused) keys.left = true;
+    if (!state.paused) {
+      if (!keys.left && state.status !== "game_over") sfx.playFlipper(true);
+      keys.left = true;
+    }
   }, { passive: false });
   btnLeft.addEventListener("pointerup", function () { keys.left = false; });
   btnLeft.addEventListener("pointercancel", function () { keys.left = false; });
@@ -975,7 +1143,10 @@
 
   btnRight.addEventListener("pointerdown", function (e) {
     e.preventDefault();
-    if (!state.paused) keys.right = true;
+    if (!state.paused) {
+      if (!keys.right && state.status !== "game_over") sfx.playFlipper(false);
+      keys.right = true;
+    }
   }, { passive: false });
   btnRight.addEventListener("pointerup", function () { keys.right = false; });
   btnRight.addEventListener("pointercancel", function () { keys.right = false; });
@@ -991,6 +1162,7 @@
 
   restartButton.addEventListener("click", restart);
   pauseButton.addEventListener("click", togglePause);
+  muteButton.addEventListener("click", toggleMute);
   helpBtn.addEventListener("click", openHelp);
   helpCloseBtn.addEventListener("click", closeHelp);
   helpOverlayEl.addEventListener("click", function (event) {
@@ -1002,6 +1174,7 @@
     getState: function () {
       var snapshot = clone(state);
       snapshot.helpOpen = !helpOverlayEl.hidden;
+      snapshot.muted = sfx.isMuted();
       return snapshot;
     },
     setState: function (nextState) {
@@ -1128,6 +1301,10 @@
     setAutoStep: function (enabled) {
       autoStep = Boolean(enabled);
       return clone(state);
+    },
+    setMuted: function (value) {
+      sfx.setMuted(Boolean(value));
+      updateHud();
     }
   };
 

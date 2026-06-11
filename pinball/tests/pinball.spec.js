@@ -957,3 +957,101 @@ test.describe('how to play help', () => {
     expect(state.paused).toBe(true);
   });
 });
+
+test.describe('sound and mute', () => {
+  test('mute button toggles aria-pressed and persists pinball-muted across reload', async ({ page }) => {
+    await openGame(page);
+    const muteBtn = page.locator('#mute');
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(muteBtn).toHaveText('🔊');
+
+    await muteBtn.click();
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(muteBtn).toHaveText('🔇');
+    let stored = await page.evaluate(() => localStorage.getItem('pinball-muted'));
+    expect(stored).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+    let s = await getState(page);
+    expect(s.muted).toBe(true);
+
+    await page.locator('#mute').click();
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+    stored = await page.evaluate(() => localStorage.getItem('pinball-muted'));
+    expect(stored).toBe('0');
+  });
+
+  test('muted state is exposed via getState and setMuted updates it', async ({ page }) => {
+    await openGame(page);
+    let s = await getState(page);
+    expect(s.muted).toBe(false);
+
+    await page.evaluate(() => window.__pinballTest.setMuted(true));
+    s = await getState(page);
+    expect(s.muted).toBe(true);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.evaluate(() => window.__pinballTest.setMuted(false));
+    s = await getState(page);
+    expect(s.muted).toBe(false);
+  });
+
+  test('flipping, launching, bumper hits, draining, and game over run cleanly with sound wired', async ({ page }) => {
+    await openGame(page);
+
+    // Flipper click on key press
+    await page.keyboard.down('z');
+    await advanceFrames(page, 5);
+    let s = await getState(page);
+    expect(s.leftFlipper.angle).toBeLessThan(0.62);
+    await page.keyboard.up('z');
+
+    // Spring twang launch
+    await page.evaluate(() => {
+      window.__pinballTest.setState({ status: 'ready', plunger: { compressed: 0.9 } });
+    });
+    await advanceFrames(page, 1);
+    s = await getState(page);
+    expect(s.status).toBe('playing');
+
+    // Bumper pop
+    const bumper = s.bumpers[0];
+    await page.evaluate((b) => {
+      window.__pinballTest.setState({
+        status: 'playing',
+        score: 0,
+        ball: { x: b.x, y: b.y, vx: 0, vy: 0, radius: 10, launched: true }
+      });
+    }, bumper);
+    await advanceFrames(page, 3);
+    s = await getState(page);
+    expect(s.score).toBeGreaterThan(0);
+
+    // Drain descent with balls remaining
+    await page.evaluate(() => {
+      window.__pinballTest.setState({
+        status: 'playing',
+        balls: 2,
+        ball: { x: 200, y: 720, vx: 0, vy: 200, radius: 10, launched: true }
+      });
+    });
+    await advanceFrames(page, 5);
+    s = await getState(page);
+    expect(s.balls).toBe(1);
+    expect(s.status).toBe('ready');
+
+    // Game-over descent on last drain
+    await page.evaluate(() => {
+      window.__pinballTest.setState({
+        status: 'playing',
+        balls: 1,
+        ball: { x: 200, y: 720, vx: 0, vy: 200, radius: 10, launched: true }
+      });
+    });
+    await advanceFrames(page, 5);
+    s = await getState(page);
+    expect(s.status).toBe('game_over');
+    expect(s.balls).toBe(0);
+  });
+});

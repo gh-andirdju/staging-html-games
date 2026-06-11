@@ -34,6 +34,9 @@ Sokoban puzzle game: push boxes onto target squares. Player can push one box at 
 | `setAutoStep(bool)` | `function` | Enable/disable RAF loop |
 | `advanceFrames(n)` | `async function` | Step game tick `n` times |
 | `restart()` | `async function` | Reload current level |
+| `setMuted(bool)` | `function` | Set the sound-effects mute state (persisted as `sokoban-muted`) |
+
+`getState()` additionally returns `muted`. Sound effects are short WebAudio blips (step, push, box-on-target, undo, level complete, new best) created lazily after the first user gesture and fully disabled under `navigator.webdriver`.
 
 State shape returned by `getState()`:
 ```js

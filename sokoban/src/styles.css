@@ -80,6 +80,7 @@ body {
 }
 
 #restart,
+#mute,
 #help,
 #help-close,
 .touch-controls button {
@@ -102,12 +103,14 @@ body {
   white-space: nowrap;
 }
 
+#mute,
 #help {
   padding: 10px 0;
   font-size: 16px;
 }
 
 #restart:hover,
+#mute:hover,
 #help:hover,
 #help-close:hover,
 .touch-controls button:hover {
@@ -115,6 +118,7 @@ body {
 }
 
 #restart:active,
+#mute:active,
 #help:active,
 #help-close:active,
 .touch-controls button:active {
@@ -124,6 +128,7 @@ body {
 }
 
 #restart:focus-visible,
+#mute:focus-visible,
 #help:focus-visible,
 #help-close:focus-visible,
 .touch-controls button:focus-visible {
@@ -349,6 +354,7 @@ body {
     padding: 8px 12px;
   }
 
+  #mute,
   #help {
     padding: 8px 0;
   }
@@ -410,6 +416,7 @@ body {
   }
 
   #restart:active,
+  #mute:active,
   #help:active,
   #help-close:active,
   .touch-controls button:active {

@@ -544,3 +544,66 @@ test.describe('how to play help', () => {
     expect(s.playerPos).toEqual({ row: 1, col: 2 });
   });
 });
+
+test.describe('sound and mute', () => {
+  test('mute button toggles aria-pressed and persists sokoban-muted across reload', async ({ page }) => {
+    await openGame(page);
+    const muteBtn = page.locator('#mute');
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(muteBtn).toHaveText('🔊');
+
+    await muteBtn.click();
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(muteBtn).toHaveText('🔇');
+    let stored = await page.evaluate(() => localStorage.getItem('sokoban-muted'));
+    expect(stored).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+    let s = await getState(page);
+    expect(s.muted).toBe(true);
+
+    await page.locator('#mute').click();
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+    stored = await page.evaluate(() => localStorage.getItem('sokoban-muted'));
+    expect(stored).toBe('0');
+  });
+
+  test('muted state is exposed via getState and setMuted updates it', async ({ page }) => {
+    await openGame(page);
+    let s = await getState(page);
+    expect(s.muted).toBe(false);
+
+    await page.evaluate(() => window.__sokobanTest.setMuted(true));
+    s = await getState(page);
+    expect(s.muted).toBe(true);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.evaluate(() => window.__sokobanTest.setMuted(false));
+    s = await getState(page);
+    expect(s.muted).toBe(false);
+  });
+
+  test('stepping, undoing, and pushing a box onto the target run cleanly with sound wired', async ({ page }) => {
+    await openGame(page);
+
+    // Step tick
+    await page.keyboard.press('ArrowLeft');
+    let s = await getState(page);
+    expect(s.moves).toBe(1);
+    expect(s.playerPos).toEqual({ row: 1, col: 1 });
+
+    // Undo reverse tick
+    await page.keyboard.press('z');
+    s = await getState(page);
+    expect(s.moves).toBe(0);
+    expect(s.playerPos).toEqual({ row: 1, col: 2 });
+
+    // Push tick + box-on-target blip + win sound
+    await page.keyboard.press('ArrowDown');
+    s = await getState(page);
+    expect(s.pushes).toBe(1);
+    expect(s.boxes).toEqual([{ row: 3, col: 2 }]);
+    expect(s.status).toBe('won');
+  });
+});
