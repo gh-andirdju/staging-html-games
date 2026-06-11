@@ -14,7 +14,7 @@
 - `bun run playwright:install`: install Playwright browser binaries.
 
 ## Game Mechanics
-Classic Minesweeper on a configurable grid. Difficulty presets: Easy (9×9, 10 mines), Normal (12×12, 25 mines), Hard (16×16, 51 mines). Mines are placed after the first click, guaranteeing the clicked cell and its 3×3 neighborhood are always safe. Revealing a cell with 0 adjacent mines flood-fills (BFS) all connected blank cells. Chord-clicking a revealed number cell reveals all unflagged neighbors when the adjacent flag count matches the cell's number. Placing a flag on a wrong cell shows an X on game over; correctly-flagged mines show a green flag. All mines are auto-flagged on win.
+Classic Minesweeper on a configurable grid. Difficulty presets: Easy (9×9, 10 mines), Normal (12×12, 25 mines), Hard (16×16, 51 mines). Mines are placed after the first click, guaranteeing the clicked cell and its 3×3 neighborhood are always safe. Revealing a cell with 0 adjacent mines flood-fills (BFS) all connected blank cells. Chord-clicking a revealed number cell reveals all unflagged neighbors when the adjacent flag count matches the cell's number. Placing a flag on a wrong cell shows an X on game over; correctly-flagged mines show a green flag. All mines are auto-flagged on win. Best win time per difficulty is persisted to `localStorage` under `minesweeper-best-times` as JSON `{ easy, normal, hard }` (seconds or `null`); a faster win stores the new best and shows a "New best time!" milestone status.
 
 ## State Shape
 ```js
@@ -30,6 +30,7 @@ Classic Minesweeper on a configurable grid. Difficulty presets: Easy (9×9, 10 m
   started: boolean,    // false until first reveal click
   difficulty: 'easy' | 'normal' | 'hard',
   touchMode: 'reveal' | 'flag',
+  bestTime: number | null,   // stored best win time (seconds) for the active difficulty
   frame: number,
   timeElapsed: number, // integer seconds
   tickCounter: number, // counts toward next second (resets at 60)

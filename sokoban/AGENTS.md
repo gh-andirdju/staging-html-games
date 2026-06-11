@@ -12,7 +12,7 @@
 - `bun run playwright:install`: install Playwright browser binaries.
 
 ## Game Mechanics
-Sokoban puzzle game: push boxes onto target squares. Player can push one box at a time but cannot pull. Move counter tracks every step; push counter tracks only box-push moves. Undo (Z key or Undo button) restores the previous move. Level advances automatically 90 frames after win.
+Sokoban puzzle game: push boxes onto target squares. Player can push one box at a time but cannot pull. Move counter tracks every step; push counter tracks only box-push moves. Undo (Z key or Undo button) restores the previous move. Level advances automatically 90 frames after win. Best moves/pushes per level are persisted to `localStorage` under `sokoban-best` as JSON keyed by 0-based level index (`{"0": {moves, pushes}}`); a win with fewer moves stores the new best and shows "Level Complete — New best!".
 
 ## Cell Encoding
 | Char | Meaning |
@@ -47,6 +47,9 @@ State shape returned by `getState()`:
   pushes: Number,
   status: 'playing' | 'won',
   history: Array,
+  bestMoves: Number | null,  // stored best move count for this level
+  bestPushes: Number | null, // pushes from the stored best run
+  newBest: Boolean,          // true when the current win set a new best
 }
 ```
 

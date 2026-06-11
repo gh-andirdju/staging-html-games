@@ -336,6 +336,112 @@ test('every pre-defined level has no statically trapped boxes', async ({ page })
   }
 });
 
+test('completing a level records best moves and pushes in localStorage', async ({ page }) => {
+  await openGame(page);
+  // Level 0: player (1,2), box (2,2), target (3,2) — push down once to win
+  await page.keyboard.press('ArrowDown');
+
+  const after = await getState(page);
+  expect(after.status).toBe('won');
+  expect(after.bestMoves).toBe(1);
+  expect(after.bestPushes).toBe(1);
+
+  const stored = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('sokoban-best'))
+  );
+  expect(stored['0']).toEqual({ moves: 1, pushes: 1 });
+  await expect(page.locator('#best')).toHaveText('1');
+});
+
+test('a worse completion does not overwrite the stored best', async ({ page }) => {
+  await page.addInitScript(() =>
+    window.localStorage.setItem('sokoban-best', JSON.stringify({ 0: { moves: 1, pushes: 1 } }))
+  );
+  await openGame(page);
+  // Two-move win: walk right, then push the box onto the target
+  await setState(page, {
+    board: [
+      ['#', '#', '#', '#', '#', '#'],
+      ['#', ' ', ' ', ' ', '.', '#'],
+      ['#', '#', '#', '#', '#', '#'],
+    ],
+    playerPos: { row: 1, col: 1 },
+    boxes: [{ row: 1, col: 3 }],
+    targets: [{ row: 1, col: 4 }],
+    moves: 0,
+    pushes: 0,
+    status: 'playing',
+    history: [],
+    level: 0,
+  });
+
+  await page.keyboard.press('ArrowRight'); // plain walk
+  await page.keyboard.press('ArrowRight'); // push onto target — win in 2 moves
+
+  const after = await getState(page);
+  expect(after.status).toBe('won');
+  expect(after.moves).toBe(2);
+  expect(after.newBest).toBe(false);
+  expect(after.bestMoves).toBe(1);
+
+  const stored = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('sokoban-best'))
+  );
+  expect(stored['0']).toEqual({ moves: 1, pushes: 1 });
+  await expect(page.locator('#status')).toHaveText('Level Complete!');
+  await expect(page.locator('#best')).toHaveText('1');
+});
+
+test('Best HUD stat shows the stored best for the current level', async ({ page }) => {
+  await page.addInitScript(() =>
+    window.localStorage.setItem('sokoban-best', JSON.stringify({ 0: { moves: 7, pushes: 3 } }))
+  );
+  await openGame(page);
+
+  await expect(page.locator('#best')).toHaveText('7');
+  const state = await getState(page);
+  expect(state.bestMoves).toBe(7);
+  expect(state.bestPushes).toBe(3);
+
+  // Restart keeps the stored best visible
+  await page.click('#restart');
+  await expect(page.locator('#best')).toHaveText('7');
+
+  // Switching to a level with no stored best shows the placeholder
+  await page.evaluate(async () => {
+    window.__sokobanTest.setState({ level: 1 });
+    await window.__sokobanTest.restart();
+  });
+  await expect(page.locator('#best')).toHaveText('—');
+  expect((await getState(page)).bestMoves).toBe(null);
+});
+
+test('beating the stored best shows New best! status and auto-advance stays intact', async ({ page }) => {
+  await page.addInitScript(() =>
+    window.localStorage.setItem('sokoban-best', JSON.stringify({ 0: { moves: 5, pushes: 5 } }))
+  );
+  await openGame(page);
+  // Level 0 solves in 1 move — beats the stored 5-move best
+  await page.keyboard.press('ArrowDown');
+
+  const after = await getState(page);
+  expect(after.status).toBe('won');
+  expect(after.newBest).toBe(true);
+  expect(after.bestMoves).toBe(1);
+  await expect(page.locator('#status')).toHaveText('Level Complete — New best!');
+
+  const stored = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('sokoban-best'))
+  );
+  expect(stored['0']).toEqual({ moves: 1, pushes: 1 });
+
+  // WIN_HOLD_FRAMES auto-advance still fires
+  await advanceFrames(page, 91);
+  const next = await getState(page);
+  expect(next.level).toBe(1);
+  expect(next.status).toBe('playing');
+});
+
 test('desktop layout matches screenshot', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1024 });
   await openGame(page);

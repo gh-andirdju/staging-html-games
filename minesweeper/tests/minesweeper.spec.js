@@ -379,6 +379,119 @@ test('clicking canvas in flag mode flags a cell', async ({ page }) => {
   expect(state.flagged).toBeGreaterThanOrEqual(1);
 });
 
+test('winning records the best time for the active difficulty in localStorage', async ({ page }) => {
+  await openGame(page);
+  const board = makeEmptyBoard(3, 3);
+  board[0][0].mine = true;
+  await page.evaluate((b) => window.__minesweeperTest.setBoard(b), board);
+  await advanceFrames(page, 180); // 3 seconds at 60 frames per tick
+
+  await page.evaluate(() => {
+    const api = window.__minesweeperTest;
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        if (r === 0 && c === 0) continue;
+        api.revealCell(r, c);
+      }
+    }
+  });
+
+  const state = await getState(page);
+  expect(state.won).toBe(true);
+  expect(state.timeElapsed).toBe(3);
+  expect(state.bestTime).toBe(3);
+  const stored = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('minesweeper-best-times'))
+  );
+  expect(stored.easy).toBe(3);
+  await expect(page.locator('#best')).toHaveText('3s');
+});
+
+test('a slower win does not overwrite the stored best time', async ({ page }) => {
+  await page.addInitScript(() =>
+    window.localStorage.setItem(
+      'minesweeper-best-times',
+      JSON.stringify({ easy: 2, normal: null, hard: null })
+    )
+  );
+  await openGame(page);
+  const board = makeEmptyBoard(3, 3);
+  board[0][0].mine = true;
+  await page.evaluate((b) => window.__minesweeperTest.setBoard(b), board);
+  await advanceFrames(page, 300); // 5 seconds — slower than the stored 2s best
+
+  await page.evaluate(() => {
+    const api = window.__minesweeperTest;
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        if (r === 0 && c === 0) continue;
+        api.revealCell(r, c);
+      }
+    }
+  });
+
+  const state = await getState(page);
+  expect(state.won).toBe(true);
+  expect(state.bestTime).toBe(2);
+  const stored = await page.evaluate(() =>
+    JSON.parse(window.localStorage.getItem('minesweeper-best-times'))
+  );
+  expect(stored.easy).toBe(2);
+  await expect(page.locator('#status')).toHaveText('Cleared in 5s · Best 2s');
+  await expect(page.locator('#best')).toHaveText('2s');
+});
+
+test('Best HUD stat shows the stored best for the active difficulty', async ({ page }) => {
+  await page.addInitScript(() =>
+    window.localStorage.setItem(
+      'minesweeper-best-times',
+      JSON.stringify({ easy: 28, normal: 41, hard: null })
+    )
+  );
+  await openGame(page);
+  await expect(page.locator('#best')).toHaveText('28s');
+  expect((await getState(page)).bestTime).toBe(28);
+
+  await page.click('[data-difficulty="normal"]');
+  await expect(page.locator('#best')).toHaveText('41s');
+  expect((await getState(page)).bestTime).toBe(41);
+
+  await page.click('[data-difficulty="hard"]');
+  await expect(page.locator('#best')).toHaveText('—');
+  expect((await getState(page)).bestTime).toBe(null);
+});
+
+test('beating the stored best shows New best time! milestone status', async ({ page }) => {
+  await page.addInitScript(() =>
+    window.localStorage.setItem(
+      'minesweeper-best-times',
+      JSON.stringify({ easy: 10, normal: null, hard: null })
+    )
+  );
+  await openGame(page);
+  const board = makeEmptyBoard(3, 3);
+  board[0][0].mine = true;
+  await page.evaluate((b) => window.__minesweeperTest.setBoard(b), board);
+  await advanceFrames(page, 180); // 3 seconds — faster than the stored 10s best
+
+  await page.evaluate(() => {
+    const api = window.__minesweeperTest;
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        if (r === 0 && c === 0) continue;
+        api.revealCell(r, c);
+      }
+    }
+  });
+
+  const state = await getState(page);
+  expect(state.won).toBe(true);
+  expect(state.bestTime).toBe(3);
+  expect(state.statusTone).toBe('milestone');
+  await expect(page.locator('#status')).toHaveText('Cleared in 3s — New best time!');
+  await expect(page.locator('#best')).toHaveText('3s');
+});
+
 test('matches the desktop layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);
