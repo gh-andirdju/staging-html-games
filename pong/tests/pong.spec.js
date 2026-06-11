@@ -471,6 +471,96 @@ test('serve speed increases with score', async ({ page }) => {
   expect(lateSpeed).toBeGreaterThan(earlySpeed);
 });
 
+test('pressing P pauses play and freezes the ball and serve timer', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    ball: { x: 400, y: 260, dx: 200, dy: 100 },
+    gameState: 'playing'
+  });
+
+  await page.keyboard.press('p');
+  const before = await getState(page);
+  expect(before.paused).toBe(true);
+  await expect(page.locator('#status')).toHaveText('Paused');
+
+  await advanceFrames(page, 10);
+  let after = await getState(page);
+  expect(after.ball.x).toBeCloseTo(before.ball.x, 1);
+  expect(after.ball.y).toBeCloseTo(before.ball.y, 1);
+
+  // The serve timer also freezes while paused
+  await setState(page, { gameState: 'serving', serveTimer: 5 });
+  await advanceFrames(page, 10);
+  after = await getState(page);
+  expect(after.gameState).toBe('serving');
+  expect(after.serveTimer).toBe(5);
+});
+
+test('pressing P again resumes play', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    ball: { x: 400, y: 260, dx: 200, dy: 100 },
+    gameState: 'playing'
+  });
+
+  await page.keyboard.press('p');
+  const before = await getState(page);
+
+  await page.keyboard.press('p');
+  const resumed = await getState(page);
+  expect(resumed.paused).toBe(false);
+
+  await advanceFrames(page, 10);
+  const after = await getState(page);
+  expect(after.ball.x).not.toBeCloseTo(before.ball.x, 1);
+});
+
+test('pause button toggles pause and flips its label', async ({ page }) => {
+  await openGame(page);
+  const pauseBtn = page.locator('#pause');
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+
+  await pauseBtn.click();
+  let state = await getState(page);
+  expect(state.paused).toBe(true);
+  await expect(pauseBtn).toHaveText('Resume');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'true');
+
+  await pauseBtn.click();
+  state = await getState(page);
+  expect(state.paused).toBe(false);
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('pressing R while paused restarts the match unpaused', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { playerScore: 3, aiScore: 2, gameState: 'playing' });
+
+  await page.keyboard.press('p');
+  let state = await getState(page);
+  expect(state.paused).toBe(true);
+
+  await page.keyboard.press('r');
+  state = await getState(page);
+  expect(state.paused).toBe(false);
+  expect(state.playerScore).toBe(0);
+  expect(state.aiScore).toBe(0);
+  expect(state.gameState).toBe('serving');
+});
+
+test('pressing P is ignored in the won state', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { gameState: 'won', winner: 'player' });
+
+  await page.keyboard.press('p');
+
+  const state = await getState(page);
+  expect(state.paused).toBe(false);
+  expect(state.gameState).toBe('won');
+});
+
 test('matches the desktop layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);

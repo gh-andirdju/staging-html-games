@@ -21,6 +21,10 @@
           <span class="hud-label">Level</span>
           <span class="hud-value" id="hud-level">1</span>
         </div>
+        <div class="hud-chip">
+          <span class="hud-label">Status</span>
+          <span class="hud-value" id="hud-status">Playing</span>
+        </div>
       </header>
       <div class="playfield">
         <canvas id="game" width="800" height="600"></canvas>
@@ -30,6 +34,10 @@
         <button id="thrust" class="ctrl-btn" aria-label="Thrust">&#9650;</button>
         <button id="fire" class="ctrl-btn fire-btn" aria-label="Fire">&#9679;</button>
         <button id="rotate-right" class="ctrl-btn" aria-label="Rotate Right">&#8635;</button>
+      </section>
+      <section class="system-controls" aria-label="System controls">
+        <button id="pause" class="system-btn" type="button" aria-pressed="false">Pause</button>
+        <button id="restart" class="system-btn" type="button">Restart</button>
       </section>
     </div>
     <script src="src/game.js"></script>

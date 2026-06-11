@@ -9,6 +9,7 @@
   var effectsEl = document.getElementById("effects");
   var statusEl = document.getElementById("status");
   var restartButton = document.getElementById("restart");
+  var pauseButton = document.getElementById("pause");
   var paddleDragLane = document.getElementById("paddle-drag-lane");
 
   var WIDTH = canvas.width;
@@ -248,6 +249,7 @@
       lives: 3,
       level: 1,
       status: "Playing",
+      paused: false,
       levelClears: 0
     };
     resetBall();
@@ -292,6 +294,7 @@
     state.activeEffects = state.activeEffects && typeof state.activeEffects === "object" ? state.activeEffects : {};
     state.paddleWidth = typeof state.paddleWidth === "number" ? state.paddleWidth : paddle.width;
     state.laserCooldown = typeof state.laserCooldown === "number" ? state.laserCooldown : 0;
+    state.paused = typeof state.paused === "boolean" ? state.paused : false;
     state.level = typeof state.level === "number" ? Math.max(1, Math.floor(state.level)) : 1;
     state.levelClears = typeof state.levelClears === "number" ? Math.max(0, Math.floor(state.levelClears)) : 0;
   }
@@ -302,11 +305,16 @@
     levelEl.textContent = String(state.level);
     effectsEl.textContent = formatEffectsDisplay(getEffectsDisplay());
     statusEl.textContent = getStatusText();
+    pauseButton.textContent = state.paused ? "Resume" : "Pause";
+    pauseButton.setAttribute("aria-pressed", state.paused ? "true" : "false");
   }
 
   function getStatusText() {
     if (state.status === "Game Over") {
       return "Game Over";
+    }
+    if (state.paused) {
+      return "Paused";
     }
     var multiplier = levelSpeedMultiplier(state.level || 1);
     if ((state.level || 1) % 5 === 0) {
@@ -582,8 +590,17 @@
     ball.dy = -Math.abs(speed * Math.cos(bounceAngle));
   }
 
-  function step(dt) {
+  function togglePause() {
     if (state.status !== "Playing") {
+      return;
+    }
+    state.paused = !state.paused;
+    updateHud();
+    draw();
+  }
+
+  function step(dt) {
+    if (state.paused || state.status !== "Playing") {
       return;
     }
 
@@ -797,6 +814,16 @@
       ctx.font = "20px Arial, Helvetica, sans-serif";
       ctx.fillText("Press Restart to play again", WIDTH / 2, HEIGHT / 2 + 38);
       ctx.textAlign = "start";
+    } else if (state.paused) {
+      ctx.fillStyle = "rgba(2, 6, 23, 0.62)";
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      ctx.fillStyle = "#f9fafb";
+      ctx.font = "700 42px Arial, Helvetica, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Paused", WIDTH / 2, HEIGHT / 2);
+      ctx.font = "20px Arial, Helvetica, sans-serif";
+      ctx.fillText("Press P to resume", WIDTH / 2, HEIGHT / 2 + 38);
+      ctx.textAlign = "start";
     }
   }
 
@@ -823,19 +850,25 @@
 
   function handleKey(event, pressed) {
     if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
-      keys.left = pressed;
+      keys.left = pressed && !state.paused;
       event.preventDefault();
     }
     if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
-      keys.right = pressed;
+      keys.right = pressed && !state.paused;
       event.preventDefault();
     }
     if ((event.key === "r" || event.key === "R") && pressed) {
       restart();
     }
+    if ((event.key === "p" || event.key === "P" || event.key === "Escape") && pressed) {
+      togglePause();
+    }
   }
 
   function updatePaddlePositionFromCanvasClientX(clientX) {
+    if (state.paused) {
+      return;
+    }
     var rect = canvas.getBoundingClientRect();
     var scale = WIDTH / rect.width;
     normalizeState();
@@ -843,6 +876,9 @@
   }
 
   function updatePaddlePositionFromLaneClientX(clientX) {
+    if (state.paused) {
+      return;
+    }
     var rect = paddleDragLane.getBoundingClientRect();
     var ratio = (clientX - rect.left) / rect.width;
     normalizeState();
@@ -895,6 +931,7 @@
   paddleDragLane.addEventListener("pointercancel", clearControlPointer, { passive: false });
 
   restartButton.addEventListener("click", restart);
+  pauseButton.addEventListener("click", togglePause);
 
   window.__brickbreakerTest = {
     isReady: false,

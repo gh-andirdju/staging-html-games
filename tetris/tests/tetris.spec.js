@@ -1091,6 +1091,118 @@ test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
   expect(dropped.board[15][4]).toBeGreaterThan(0); // original obstacle still there
 });
 
+test('pressing P pauses the game and freezes gameplay across advanceFrames', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, {
+    ...state,
+    current: { type: 'T', index: 3, x: 4, y: 3, rotation: 0 },
+    gravityFrames: 4,
+    gravityTick: 0,
+    lockTimer: 0
+  });
+
+  await page.keyboard.press('p');
+  let s = await getState(page);
+  expect(s.paused).toBe(true);
+  await expect(page.locator('#status')).toHaveText('Paused');
+
+  await advanceFrames(page, 60);
+  s = await getState(page);
+  expect(s.paused).toBe(true);
+  expect(s.current.y).toBe(3);
+  expect(s.gravityTick).toBe(0);
+  expect(s.frame).toBe(state.frame);
+});
+
+test('pausing during an active piece freezes gravity and gameplay input', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, {
+    ...state,
+    current: { type: 'T', index: 3, x: 4, y: 3, rotation: 0 },
+    gravityFrames: 4,
+    gravityTick: 0,
+    lockTimer: 0
+  });
+
+  await page.keyboard.press('Escape');
+  let s = await getState(page);
+  expect(s.paused).toBe(true);
+
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('Space');
+  await advanceFrames(page, 20);
+  s = await getState(page);
+  expect(s.current).toEqual({ type: 'T', index: 3, x: 4, y: 3, rotation: 0 });
+});
+
+test('pressing P again resumes the game and gravity continues', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, {
+    ...state,
+    current: { type: 'T', index: 3, x: 4, y: 3, rotation: 0 },
+    gravityFrames: 4,
+    gravityTick: 0,
+    lockTimer: 0
+  });
+
+  await page.keyboard.press('p');
+  await advanceFrames(page, 20);
+  let s = await getState(page);
+  expect(s.current.y).toBe(3);
+
+  await page.keyboard.press('p');
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+
+  await advanceFrames(page, 4);
+  s = await getState(page);
+  expect(s.current.y).toBe(4);
+});
+
+test('pause button toggles pause and flips its label', async ({ page }) => {
+  await openGame(page);
+  const pauseBtn = page.locator('#pause');
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+
+  await pauseBtn.click();
+  let s = await getState(page);
+  expect(s.paused).toBe(true);
+  await expect(pauseBtn).toHaveText('Resume');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'true');
+
+  await pauseBtn.click();
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('pressing R while paused restarts the game unpaused', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, { ...state, score: 700, lines: 12, level: 2 });
+
+  await page.keyboard.press('p');
+  let s = await getState(page);
+  expect(s.paused).toBe(true);
+
+  await page.keyboard.press('r');
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+  expect(s.score).toBe(0);
+  expect(s.lines).toBe(0);
+  expect(s.level).toBe(1);
+
+  await advanceFrames(page, 1);
+  s = await getState(page);
+  expect(s.frame).toBe(1);
+});
+
 test('matches the desktop layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page, { keepNaturalSize: true });

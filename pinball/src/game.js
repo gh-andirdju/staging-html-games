@@ -8,6 +8,7 @@
   var levelEl = document.getElementById("level");
   var statusEl = document.getElementById("status");
   var restartButton = document.getElementById("restart");
+  var pauseButton = document.getElementById("pause");
   var btnLeft = document.getElementById("btn-left");
   var btnRight = document.getElementById("btn-right");
   var btnLaunch = document.getElementById("btn-launch");
@@ -136,6 +137,7 @@
       balls: 3,
       level: 1,
       status: "ready",
+      paused: false,
       frame: 0,
       plunger: { compressed: 0 }
     };
@@ -162,6 +164,9 @@
   }
 
   function statusText() {
+    if (state.paused && state.status !== "game_over") {
+      return "Paused";
+    }
     switch (state.status) {
       case "ready": return "Ready";
       case "playing": return "Playing";
@@ -175,6 +180,17 @@
     ballsEl.textContent = String(state.balls);
     levelEl.textContent = String(state.level);
     statusEl.textContent = statusText();
+    pauseButton.textContent = state.paused ? "Resume" : "Pause";
+    pauseButton.setAttribute("aria-pressed", state.paused ? "true" : "false");
+  }
+
+  function togglePause() {
+    if (state.status === "game_over") {
+      return;
+    }
+    state.paused = !state.paused;
+    updateHud();
+    draw();
   }
 
   function closestPointOnSegment(ax, ay, bx, by, px, py) {
@@ -348,6 +364,9 @@
   }
 
   function step(dt) {
+    if (state.paused) {
+      return;
+    }
     if (state.status !== "playing" && state.status !== "ready") {
       return;
     }
@@ -740,6 +759,19 @@
   }
 
   function drawOverlay() {
+    if (state.paused && state.status !== "game_over") {
+      ctx.fillStyle = "rgba(2, 6, 23, 0.62)";
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      ctx.fillStyle = "#f9fafb";
+      ctx.font = "700 38px Arial, Helvetica, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Paused", WIDTH / 2, HEIGHT / 2 - 10);
+      ctx.font = "16px Arial, Helvetica, sans-serif";
+      ctx.fillStyle = "#c4a46b";
+      ctx.fillText("Press P to resume", WIDTH / 2, HEIGHT / 2 + 26);
+      ctx.textAlign = "start";
+      return;
+    }
     if (state.status === "playing") return;
 
     ctx.fillStyle = "rgba(2, 6, 23, 0.74)";
@@ -816,20 +848,25 @@
   }
 
   window.addEventListener("keydown", function (event) {
-    if (event.key === "ArrowLeft" || event.key === "z" || event.key === "Z") {
-      keys.left = true;
-      event.preventDefault();
-    }
-    if (event.key === "ArrowRight" || event.key === "x" || event.key === "X" || event.key === "/") {
-      keys.right = true;
-      event.preventDefault();
-    }
-    if (event.key === " ") {
-      keys.launch = true;
-      event.preventDefault();
-    }
     if (event.key === "r" || event.key === "R") {
       restart();
+      return;
+    }
+    if (event.key === "p" || event.key === "P" || event.key === "Escape") {
+      togglePause();
+      return;
+    }
+    if (event.key === "ArrowLeft" || event.key === "z" || event.key === "Z") {
+      event.preventDefault();
+      if (!state.paused) keys.left = true;
+    }
+    if (event.key === "ArrowRight" || event.key === "x" || event.key === "X" || event.key === "/") {
+      event.preventDefault();
+      if (!state.paused) keys.right = true;
+    }
+    if (event.key === " ") {
+      event.preventDefault();
+      if (!state.paused) keys.launch = true;
     }
   });
 
@@ -846,30 +883,31 @@
   });
 
   btnLeft.addEventListener("pointerdown", function (e) {
-    keys.left = true;
     e.preventDefault();
+    if (!state.paused) keys.left = true;
   }, { passive: false });
   btnLeft.addEventListener("pointerup", function () { keys.left = false; });
   btnLeft.addEventListener("pointercancel", function () { keys.left = false; });
   btnLeft.addEventListener("pointerleave", function () { keys.left = false; });
 
   btnRight.addEventListener("pointerdown", function (e) {
-    keys.right = true;
     e.preventDefault();
+    if (!state.paused) keys.right = true;
   }, { passive: false });
   btnRight.addEventListener("pointerup", function () { keys.right = false; });
   btnRight.addEventListener("pointercancel", function () { keys.right = false; });
   btnRight.addEventListener("pointerleave", function () { keys.right = false; });
 
   btnLaunch.addEventListener("pointerdown", function (e) {
-    keys.launch = true;
     e.preventDefault();
+    if (!state.paused) keys.launch = true;
   }, { passive: false });
   btnLaunch.addEventListener("pointerup", function () { keys.launch = false; });
   btnLaunch.addEventListener("pointercancel", function () { keys.launch = false; });
   btnLaunch.addEventListener("pointerleave", function () { keys.launch = false; });
 
   restartButton.addEventListener("click", restart);
+  pauseButton.addEventListener("click", togglePause);
 
   window.__pinballTest = {
     isReady: false,
@@ -968,6 +1006,9 @@
       }
       if (typeof state.balls === "number") {
         state.balls = Math.max(0, Math.floor(state.balls));
+      }
+      if (typeof state.paused !== "boolean") {
+        state.paused = false;
       }
       if (typeof state.level === "number") {
         state.level = Math.max(1, Math.min(10, Math.floor(state.level)));

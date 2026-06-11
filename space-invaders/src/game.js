@@ -97,6 +97,7 @@
   var livesEl = document.getElementById('lives');
   var waveEl = document.getElementById('wave');
   var statusEl = document.getElementById('status-msg');
+  var pauseBtn = document.getElementById('btn-pause');
 
   function buildEnemies(variant) {
     variant = variant || 'classic';
@@ -162,6 +163,7 @@
       lives: 3,
       wave: 1,
       status: 'playing',
+      paused: false,
       enemyDir: 1,
       enemyDropPending: false,
       enemyMoveTimer: 60,
@@ -378,7 +380,7 @@
   }
 
   function step(dt) {
-    if (state.status === 'gameover') return;
+    if (state.status === 'gameover' || state.paused) return;
 
     if (state.deathTimer > 0) {
       state.deathTimer--;
@@ -671,11 +673,22 @@
     waveEl.textContent = state.wave;
     if (state.status === 'gameover') {
       statusEl.textContent = 'Game Over — Press R to restart';
+    } else if (state.paused) {
+      statusEl.textContent = 'Paused';
     } else if (state.deathTimer > 0) {
       statusEl.textContent = 'Hit!';
     } else {
       statusEl.textContent = '';
     }
+    pauseBtn.textContent = state.paused ? 'Resume' : 'Pause';
+    pauseBtn.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
+  }
+
+  function togglePause() {
+    if (state.status === 'gameover') return;
+    state.paused = !state.paused;
+    updateHud();
+    draw();
   }
 
   function draw() {
@@ -790,6 +803,19 @@
     ctx.moveTo(0, PLAYER_Y + PLAYER_HEIGHT + 4);
     ctx.lineTo(WIDTH, PLAYER_Y + PLAYER_HEIGHT + 4);
     ctx.stroke();
+
+    // Paused overlay
+    if (state.paused) {
+      ctx.fillStyle = 'rgba(0, 10, 26, 0.62)';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      ctx.fillStyle = '#22d3ee';
+      ctx.font = 'bold 32px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('PAUSED', WIDTH / 2, HEIGHT / 2 - 20);
+      ctx.font = '16px monospace';
+      ctx.fillStyle = '#a0e0ff';
+      ctx.fillText('Press P to resume', WIDTH / 2, HEIGHT / 2 + 16);
+    }
   }
 
   function drawPlayer(ctx, x, y, w, h) {
@@ -872,10 +898,11 @@
 
   // Keyboard input
   window.addEventListener('keydown', function (e) {
-    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { e.preventDefault(); keys.left = true; }
-    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { e.preventDefault(); keys.right = true; }
-    if (e.key === ' ') { e.preventDefault(); keys.fire = true; }
-    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); restart(); }
+    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); restart(); return; }
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { togglePause(); return; }
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { e.preventDefault(); if (!state.paused) keys.left = true; }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { e.preventDefault(); if (!state.paused) keys.right = true; }
+    if (e.key === ' ') { e.preventDefault(); if (!state.paused) keys.fire = true; }
   });
 
   window.addEventListener('keyup', function (e) {
@@ -890,6 +917,7 @@
     if (!el) return;
     el.addEventListener('pointerdown', function (e) {
       e.preventDefault();
+      if (state.paused) return;
       keys[key] = true;
       el.classList.add('pressed');
     });
@@ -907,6 +935,7 @@
   bindBtn('btn-fire', 'fire');
 
   document.getElementById('btn-restart').addEventListener('click', restart);
+  pauseBtn.addEventListener('click', togglePause);
 
   // Start
   rafId = requestAnimationFrame(frame);

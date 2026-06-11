@@ -42,6 +42,7 @@ State shape returned by `getState()`:
   tickInterval: Number,    // frames per move
   tickCounter: Number,
   gameOver: Boolean,
+  paused: Boolean,         // pause freezes the move tick; toggled by P/Escape or the Pause button
   statusMessage: String,
   statusTone: String,      // 'normal' | 'milestone' | 'warning'
   statusMessageTimer: Number,
@@ -49,7 +50,7 @@ State shape returned by `getState()`:
 ```
 
 ## Controls
-Keyboard: arrow keys or WASD to move, `R` to restart. Touch: on-screen D-pad and restart button (`data-action` attributes) in the off-canvas control zone.
+Keyboard: arrow keys or WASD to move, `R` to restart, `P` or `Escape` to pause/resume. Pause is ignored while game over; restarting while paused unpauses. Touch: on-screen D-pad and restart button (`data-action` attributes) in the off-canvas control zone, plus Pause/Resume and Restart buttons in the topbar. Direction input (keys and D-pad) is ignored while paused or game over.
 
 ## Coding Style
 Plain JS, IIFE wrapper, two-space indentation, camelCase. Keep gameplay deterministic and seed randomness via `setSeededValue`. Keep the `window.__snakeTest` contract stable unless updating tests in the same change.

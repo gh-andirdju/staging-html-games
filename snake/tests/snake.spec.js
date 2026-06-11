@@ -406,6 +406,124 @@ test('restart resets all state', async ({ page }) => {
   expect(s.food).not.toBeNull();
 });
 
+test('pressing P pauses the game and freezes the snake', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__snakeTest.setState({
+      snake: [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }],
+      direction: { x: 1, y: 0 },
+      nextDirection: { x: 1, y: 0 },
+      food: { x: 15, y: 15 },
+      score: 0,
+      highScore: 0,
+      level: 1,
+      foodEaten: 0,
+      tickInterval: 12,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 0
+    });
+  });
+
+  await page.keyboard.press('p');
+  let s = await getState(page);
+  expect(s.paused).toBe(true);
+  await expect(page.locator('#status')).toHaveText('Paused');
+
+  await page.keyboard.press('ArrowUp');
+  await advanceFrames(page, 24);
+  s = await getState(page);
+  expect(s.snake[0]).toEqual({ x: 10, y: 10 });
+  expect(s.tickCounter).toBe(0);
+  expect(s.nextDirection).toEqual({ x: 1, y: 0 });
+});
+
+test('pressing P again resumes movement', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__snakeTest.setState({
+      snake: [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }],
+      direction: { x: 1, y: 0 },
+      nextDirection: { x: 1, y: 0 },
+      food: { x: 15, y: 15 },
+      score: 0,
+      highScore: 0,
+      level: 1,
+      foodEaten: 0,
+      tickInterval: 12,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 0
+    });
+  });
+
+  await page.keyboard.press('p');
+  await advanceFrames(page, 12);
+  let s = await getState(page);
+  expect(s.snake[0]).toEqual({ x: 10, y: 10 });
+
+  await page.keyboard.press('p');
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+
+  await advanceFrames(page, 12);
+  s = await getState(page);
+  expect(s.snake[0]).toEqual({ x: 11, y: 10 });
+});
+
+test('pause button toggles pause and flips its label', async ({ page }) => {
+  await openGame(page);
+  const pauseBtn = page.locator('#pause');
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+
+  await pauseBtn.click();
+  let s = await getState(page);
+  expect(s.paused).toBe(true);
+  await expect(pauseBtn).toHaveText('Resume');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'true');
+
+  await pauseBtn.click();
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('pressing R while paused restarts the game unpaused', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__snakeTest.setState({
+      snake: [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }],
+      direction: { x: 1, y: 0 },
+      nextDirection: { x: 1, y: 0 },
+      food: { x: 15, y: 15 },
+      score: 70,
+      highScore: 70,
+      level: 2,
+      foodEaten: 7,
+      tickInterval: 10,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 0
+    });
+  });
+
+  await page.keyboard.press('p');
+  let s = await getState(page);
+  expect(s.paused).toBe(true);
+
+  await page.keyboard.press('r');
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+  expect(s.score).toBe(0);
+  expect(s.level).toBe(1);
+
+  await advanceFrames(page, 12);
+  s = await getState(page);
+  expect(s.snake[0].x).toBe(13);
+});
+
 test('matches the desktop layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);

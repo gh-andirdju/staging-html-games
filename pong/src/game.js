@@ -29,6 +29,7 @@
   const playerUpBtn = document.getElementById('player-up');
   const playerDownBtn = document.getElementById('player-down');
   const restartBtn = document.getElementById('restart');
+  const pauseBtn = document.getElementById('pause');
 
   const keys = { up: false, down: false };
   let autoStep = true;
@@ -45,7 +46,8 @@
     winner: null,
     serveTimer: SERVE_DELAY,
     serveCount: 0,
-    serveToward: 'ai'
+    serveToward: 'ai',
+    paused: false
   };
 
   function clamp(v, lo, hi) {
@@ -94,6 +96,8 @@
   }
 
   function stepPhysics(dt) {
+    if (state.paused) return;
+
     const ball = state.ball;
     const pp = state.playerPaddle;
     const ap = state.aiPaddle;
@@ -211,6 +215,20 @@
       ctx.fillText('Serving…', WIDTH / 2, HEIGHT / 2 - 30);
       ctx.textAlign = 'left';
     }
+
+    // Paused overlay
+    if (state.paused) {
+      ctx.fillStyle = 'rgba(0,0,0,0.62)';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      ctx.fillStyle = '#f9fafb';
+      ctx.font = 'bold 48px "Trebuchet MS", Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Paused', WIDTH / 2, HEIGHT / 2 - 18);
+      ctx.font = '22px "Trebuchet MS", Arial, sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('Press P to resume', WIDTH / 2, HEIGHT / 2 + 24);
+      ctx.textAlign = 'left';
+    }
   }
 
   function updateHud() {
@@ -218,11 +236,22 @@
     aiScoreEl.textContent = String(state.aiScore);
     if (state.gameState === 'won') {
       statusEl.textContent = state.winner === 'player' ? 'You Win!' : 'AI Wins!';
+    } else if (state.paused) {
+      statusEl.textContent = 'Paused';
     } else if (state.gameState === 'serving') {
       statusEl.textContent = 'Serving';
     } else {
       statusEl.textContent = 'Playing';
     }
+    pauseBtn.textContent = state.paused ? 'Resume' : 'Pause';
+    pauseBtn.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
+  }
+
+  function togglePause() {
+    if (state.gameState === 'won') return;
+    state.paused = !state.paused;
+    updateHud();
+    draw();
   }
 
   function gameRestart() {
@@ -239,6 +268,7 @@
     state.serveTimer = SERVE_DELAY;
     state.serveCount = 0;
     state.serveToward = 'ai';
+    state.paused = false;
     updateHud();
     draw();
   }
@@ -279,8 +309,14 @@
   // Keyboard controls
   document.addEventListener('keydown', function (e) {
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
-    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
-    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+      togglePause();
+      return;
+    }
+    if (!state.paused) {
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
+    }
     if (e.key === 'r' || e.key === 'R') gameRestart();
   });
   document.addEventListener('keyup', function (e) {
@@ -290,14 +326,14 @@
 
   // Touch paddle buttons — hold to move, same speed as keyboard
   playerUpBtn.addEventListener('pointerdown', function (e) {
-    keys.up = true;
+    if (!state.paused) keys.up = true;
     e.preventDefault();
   }, { passive: false });
   playerUpBtn.addEventListener('pointerup', function () { keys.up = false; });
   playerUpBtn.addEventListener('pointercancel', function () { keys.up = false; });
 
   playerDownBtn.addEventListener('pointerdown', function (e) {
-    keys.down = true;
+    if (!state.paused) keys.down = true;
     e.preventDefault();
   }, { passive: false });
   playerDownBtn.addEventListener('pointerup', function () { keys.down = false; });
@@ -305,6 +341,9 @@
 
   // Restart button
   restartBtn.addEventListener('click', gameRestart);
+
+  // Pause button
+  pauseBtn.addEventListener('click', togglePause);
 
   // Test API
   window.__pongTest = {
@@ -316,7 +355,7 @@
       if (nextState.ball) Object.assign(state.ball, nextState.ball);
       if (nextState.playerPaddle) Object.assign(state.playerPaddle, nextState.playerPaddle);
       if (nextState.aiPaddle) Object.assign(state.aiPaddle, nextState.aiPaddle);
-      ['playerScore', 'aiScore', 'gameState', 'winner', 'serveTimer', 'serveCount', 'serveToward'].forEach(function (k) {
+      ['playerScore', 'aiScore', 'gameState', 'winner', 'serveTimer', 'serveCount', 'serveToward', 'paused'].forEach(function (k) {
         if (nextState[k] !== undefined) state[k] = nextState[k];
       });
       updateHud();

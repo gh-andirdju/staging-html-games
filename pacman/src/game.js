@@ -90,7 +90,9 @@
   var scoreEl = document.getElementById("score");
   var livesEl = document.getElementById("lives");
   var levelEl = document.getElementById("level");
+  var statusEl = document.getElementById("status");
   var restartBtn = document.getElementById("restart");
+  var pauseBtn = document.getElementById("pause");
 
   // ── State ──────────────────────────────────────────────────────────────────
   var state;
@@ -210,6 +212,7 @@
       lives: 3,
       level: 1,
       status: "playing",
+      paused: false,
       frightenedTimer: 0,
       ghostCombo: 0,
       globalMode: "scatter",
@@ -224,7 +227,7 @@
 
   // ── Step ───────────────────────────────────────────────────────────────────
   function step(dt) {
-    if (state.status === "gameOver") return;
+    if (state.status === "gameOver" || state.paused) return;
     renderTick++;
 
     if (state.status === "dying") {
@@ -614,10 +617,27 @@
   }
 
   // ── HUD ────────────────────────────────────────────────────────────────────
+  function statusLabel() {
+    if (state.status === "gameOver") return "Game Over";
+    if (state.paused) return "Paused";
+    if (state.status === "levelComplete") return "Level Complete";
+    return "Playing";
+  }
+
   function updateHud() {
     scoreEl.textContent = String(state.score);
     livesEl.textContent = String(state.lives);
     levelEl.textContent = String(state.level);
+    statusEl.textContent = statusLabel();
+    pauseBtn.textContent = state.paused ? "Resume" : "Pause";
+    pauseBtn.setAttribute("aria-pressed", state.paused ? "true" : "false");
+  }
+
+  function togglePause() {
+    if (state.status === "gameOver") return;
+    state.paused = !state.paused;
+    updateHud();
+    draw();
   }
 
   // ── Draw ───────────────────────────────────────────────────────────────────
@@ -636,6 +656,8 @@
 
     if (state.status === "gameOver") {
       drawOverlay("GAME OVER");
+    } else if (state.paused) {
+      drawOverlay("PAUSED", "Press P to resume");
     } else if (state.status === "levelComplete") {
       drawOverlay("LEVEL COMPLETE!");
     }
@@ -772,7 +794,7 @@
     ctx.fill();
   }
 
-  function drawOverlay(message) {
+  function drawOverlay(message, subtitle) {
     ctx.fillStyle = "rgba(0,0,0,0.6)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#ffff00";
@@ -781,7 +803,7 @@
     ctx.fillText(message, canvas.width / 2, canvas.height / 2 - 10);
     ctx.font = "18px Arial, sans-serif";
     ctx.fillStyle = "#ffffff";
-    ctx.fillText("Press Restart to play again", canvas.width / 2, canvas.height / 2 + 30);
+    ctx.fillText(subtitle || "Press Restart to play again", canvas.width / 2, canvas.height / 2 + 30);
     ctx.textAlign = "left";
   }
 
@@ -798,8 +820,14 @@
       restart();
       return;
     }
+    if (e.key === "p" || e.key === "P" || e.key === "Escape") {
+      togglePause();
+      return;
+    }
     var dir = KEY_DIR[e.key];
     if (dir) {
+      e.preventDefault();
+      if (state.paused) return;
       pressedDirs[dir] = true;
       state.pacman.nextDirection = dir;
       // Start immediately if stopped at current tile — no wait for moveProgress to cycle
@@ -814,7 +842,6 @@
           pm.moveProgress = 0;
         }
       }
-      e.preventDefault();
     }
   });
 
@@ -831,15 +858,17 @@
 
   document.querySelectorAll(".dpad-btn[data-action]").forEach(function (btn) {
     btn.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      if (state.paused) return;
       var dir = btn.dataset.action;
       if (dir === "up" || dir === "down" || dir === "left" || dir === "right") {
         state.pacman.nextDirection = dir;
       }
-      e.preventDefault();
     }, { passive: false });
   });
 
   restartBtn.addEventListener("click", restart);
+  pauseBtn.addEventListener("click", togglePause);
 
   // ── Game loop ──────────────────────────────────────────────────────────────
   function frame(ts) {
@@ -896,6 +925,7 @@
         lives: state.lives,
         level: state.level,
         status: state.status,
+        paused: state.paused,
         frightenedTimer: state.frightenedTimer,
         pelletsRemaining: state.pelletsRemaining
       };
@@ -907,6 +937,7 @@
       if (typeof partial.lives === "number") state.lives = partial.lives;
       if (typeof partial.level === "number") state.level = partial.level;
       if (typeof partial.status === "string") state.status = partial.status;
+      if (typeof partial.paused === "boolean") state.paused = partial.paused;
       if (typeof partial.frightenedTimer === "number") {
         state.frightenedTimer = partial.frightenedTimer;
         if (partial.frightenedTimer > 0) {

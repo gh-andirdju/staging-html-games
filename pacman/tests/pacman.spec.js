@@ -407,6 +407,98 @@ test('second power pellet while frightened resets timer and keeps ghosts frighte
   }
 });
 
+// ── Pause ──────────────────────────────────────────────────────────────────
+
+test('pressing P pauses the game and freezes pacman and ghosts across advanceFrames', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { frightenedTimer: 300 });
+
+  await page.keyboard.press('p');
+  const before = await getState(page);
+  expect(before.paused).toBe(true);
+  await expect(page.locator('#status')).toHaveText('Paused');
+
+  await page.keyboard.press('ArrowRight');
+  await advanceFrames(page, 60);
+  const after = await getState(page);
+  expect(after.paused).toBe(true);
+  expect(after.pacman.x).toBe(before.pacman.x);
+  expect(after.pacman.y).toBe(before.pacman.y);
+  expect(after.pacman.nextDirection).toBe(before.pacman.nextDirection);
+  expect(after.frightenedTimer).toBe(300);
+  for (let i = 0; i < before.ghosts.length; i++) {
+    expect(after.ghosts[i].x).toBe(before.ghosts[i].x);
+    expect(after.ghosts[i].y).toBe(before.ghosts[i].y);
+  }
+});
+
+test('pressing P again resumes ghost movement and timers', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { frightenedTimer: 300 });
+
+  await page.keyboard.press('p');
+  await advanceFrames(page, 30);
+  let s = await getState(page);
+  expect(s.frightenedTimer).toBe(300);
+
+  await page.keyboard.press('p');
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+  await expect(page.locator('#status')).toHaveText('Playing');
+
+  const blinkyBefore = s.ghosts.find((g) => g.name === 'blinky');
+  await advanceFrames(page, 30);
+  s = await getState(page);
+  expect(s.frightenedTimer).toBe(270);
+  const blinkyAfter = s.ghosts.find((g) => g.name === 'blinky');
+  const moved =
+    blinkyAfter.x !== blinkyBefore.x || blinkyAfter.y !== blinkyBefore.y;
+  expect(moved).toBe(true);
+});
+
+test('pause button toggles pause and flips its label', async ({ page }) => {
+  await openGame(page);
+  const pauseBtn = page.locator('#pause');
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+
+  await pauseBtn.click();
+  let s = await getState(page);
+  expect(s.paused).toBe(true);
+  await expect(pauseBtn).toHaveText('Resume');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'true');
+
+  await pauseBtn.click();
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('pressing R while paused restarts the game unpaused', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { score: 500, level: 2 });
+
+  await page.keyboard.press('p');
+  let s = await getState(page);
+  expect(s.paused).toBe(true);
+
+  await page.keyboard.press('r');
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+  expect(s.score).toBe(0);
+  expect(s.level).toBe(1);
+  expect(s.status).toBe('playing');
+
+  const blinkyBefore = s.ghosts.find((g) => g.name === 'blinky');
+  await advanceFrames(page, 30);
+  s = await getState(page);
+  const blinkyAfter = s.ghosts.find((g) => g.name === 'blinky');
+  const moved =
+    blinkyAfter.x !== blinkyBefore.x || blinkyAfter.y !== blinkyBefore.y;
+  expect(moved).toBe(true);
+});
+
 // ── Screenshot tests (UI) ──────────────────────────────────────────────────
 
 test('matches desktop layout screenshot', async ({ page }) => {
