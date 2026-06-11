@@ -29,6 +29,7 @@
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
   const linesEl = document.getElementById('lines');
   const levelEl = document.getElementById('level');
   const statusEl = document.getElementById('status');
@@ -68,6 +69,22 @@
 
   function createBoard() {
     return Array.from({ length: boardRows }, () => Array(boardCols).fill(0));
+  }
+
+  const HIGH_SCORE_KEY = 'tetris-high-score';
+
+  function readHighScore() {
+    try {
+      return Number(window.localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function writeHighScore(value) {
+    try {
+      window.localStorage.setItem(HIGH_SCORE_KEY, String(value));
+    } catch {}
   }
 
   let state = null;
@@ -196,14 +213,28 @@
     state.gravityFrames = gravityFramesForLevel(state.level);
   }
 
+  function recordHighScore() {
+    if (state.score > state.highScore) {
+      if (state.highScore > 0) state.newRecord = true;
+      state.highScore = state.score;
+      writeHighScore(state.highScore);
+    }
+  }
+
   function setStatusMessage(message, tone = 'normal', durationFrames = STATUS_MESSAGE_FRAMES) {
     state.statusMessage = message;
     state.statusTone = tone;
     state.statusMessageTimer = durationFrames;
   }
 
+  function gameOverStatus() {
+    return state.newRecord
+      ? { text: 'New record!', tone: 'milestone' }
+      : { text: 'Game Over', tone: 'warning' };
+  }
+
   function fallbackStatusMessage() {
-    if (state.gameOver) return { text: 'Game Over', tone: 'warning' };
+    if (state.gameOver) return gameOverStatus();
     const linesToNextLevel = (10 - (state.lines % 10)) || 10;
     if (linesToNextLevel <= 2) {
       return {
@@ -219,8 +250,9 @@
 
   function syncStatusMessage({ forceFallback = false } = {}) {
     if (state.gameOver) {
-      state.statusMessage = 'Game Over';
-      state.statusTone = 'warning';
+      const status = gameOverStatus();
+      state.statusMessage = status.text;
+      state.statusTone = status.tone;
       state.statusMessageTimer = 0;
       return;
     }
@@ -287,6 +319,7 @@
     if (cleared > 0) {
       state.lines += cleared;
       state.score += CLEAR_SCORES[cleared] * state.level;
+      recordHighScore();
       onLinesResolved(cleared);
     }
     spawnPiece();
@@ -351,10 +384,12 @@
 
   function applySoftDropPoint(steps) {
     state.score += steps;
+    recordHighScore();
   }
 
   function applyHardDropPoints(steps) {
     state.score += steps * 2;
+    recordHighScore();
   }
 
   function stepDown({ rewardSoftDrop }) {
@@ -397,6 +432,8 @@
       holdUsed: false,
       nextPieceType: null,
       score: 0,
+      highScore: readHighScore(),
+      newRecord: false,
       lines: 0,
       level: 1,
       gravityFrames: BASE_GRAVITY_FRAMES,
@@ -438,6 +475,8 @@
     if (typeof state.gravityTick !== 'number') state.gravityTick = 0;
     if (typeof state.lockTimer !== 'number') state.lockTimer = 0;
     if (typeof state.paused !== 'boolean') state.paused = false;
+    if (typeof state.highScore !== 'number') state.highScore = readHighScore();
+    if (typeof state.newRecord !== 'boolean') state.newRecord = false;
     if (!('heldPiece' in state)) state.heldPiece = null;
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
@@ -533,6 +572,20 @@
       ctx.font = '14px "Trebuchet MS", sans-serif';
       ctx.fillText('Press P to resume', canvas.width / 2, canvas.height / 2 + 14);
     }
+
+    if (state.gameOver) {
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 28px "Trebuchet MS", sans-serif';
+      ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 24);
+      ctx.fillStyle = '#c4a46b';
+      ctx.font = '14px "Trebuchet MS", sans-serif';
+      ctx.fillText(`Score ${state.score} · Best ${state.highScore}`, canvas.width / 2, canvas.height / 2 + 8);
+      ctx.fillText('Press R or tap Restart', canvas.width / 2, canvas.height / 2 + 32);
+    }
   }
 
   function drawPiecePreview(canvasEl, context, type) {
@@ -575,6 +628,7 @@
 
   function updateHud() {
     scoreEl.textContent = String(state.score);
+    bestEl.textContent = String(state.highScore);
     linesEl.textContent = String(state.lines);
     levelEl.textContent = String(state.level);
     const statusText = state.paused && !state.gameOver ? 'Paused' : state.statusMessage;
@@ -672,7 +726,7 @@
       }
       state.frame += 1;
     } else if (state.gameOver) {
-      if (state.statusMessage !== 'Game Over') syncStatusMessage();
+      if (state.statusMessage !== gameOverStatus().text) syncStatusMessage();
     }
     render();
   }

@@ -499,6 +499,85 @@ test('pressing R while paused restarts the game unpaused', async ({ page }) => {
   expect(moved).toBe(true);
 });
 
+// ── High score persistence ─────────────────────────────────────────────────
+
+test('scoring past the stored best updates highScore live and persists to localStorage', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('pacman-high-score', '5'));
+  await openGame(page);
+
+  let s = await getState(page);
+  expect(s.highScore).toBe(5);
+  await expect(page.locator('#best')).toHaveText('5');
+
+  const dotPellet = s.pellets.find((p) => !p.eaten);
+  await setState(page, { pacman: { tileRow: dotPellet.row, tileCol: dotPellet.col } });
+  await advanceFrames(page, 1);
+
+  s = await getState(page);
+  expect(s.score).toBe(10);
+  expect(s.highScore).toBe(10);
+  await expect(page.locator('#best')).toHaveText('10');
+  const stored = await page.evaluate(() => window.localStorage.getItem('pacman-high-score'));
+  expect(stored).toBe('10');
+});
+
+test('game over after a scoring run reports gameOver with highScore intact', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('pacman-high-score', '99999'));
+  await openGame(page);
+
+  let s = await getState(page);
+  const dotPellet = s.pellets.find((p) => !p.eaten);
+  await setState(page, { pacman: { tileRow: dotPellet.row, tileCol: dotPellet.col } });
+  await advanceFrames(page, 1);
+
+  s = await getState(page);
+  expect(s.score).toBe(10);
+
+  await setState(page, {
+    lives: 1,
+    ghosts: [
+      { tileRow: s.pacman.tileRow, tileCol: s.pacman.tileCol, mode: 'scatter', frightened: false }
+    ]
+  });
+  await advanceFrames(page, 1);
+  await advanceFrames(page, 120);
+
+  s = await getState(page);
+  expect(s.status).toBe('gameOver');
+  expect(s.highScore).toBe(99999);
+  expect(s.newRecord).toBe(false);
+  await expect(page.locator('#status')).toHaveText('Game Over');
+  const stored = await page.evaluate(() => window.localStorage.getItem('pacman-high-score'));
+  expect(stored).toBe('99999');
+});
+
+test('new-record run shows New record! status on game over', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('pacman-high-score', '5'));
+  await openGame(page);
+
+  let s = await getState(page);
+  const dotPellet = s.pellets.find((p) => !p.eaten);
+  await setState(page, { pacman: { tileRow: dotPellet.row, tileCol: dotPellet.col } });
+  await advanceFrames(page, 1);
+
+  s = await getState(page);
+  expect(s.newRecord).toBe(true);
+
+  await setState(page, {
+    lives: 1,
+    ghosts: [
+      { tileRow: s.pacman.tileRow, tileCol: s.pacman.tileCol, mode: 'scatter', frightened: false }
+    ]
+  });
+  await advanceFrames(page, 1);
+  await advanceFrames(page, 120);
+
+  s = await getState(page);
+  expect(s.status).toBe('gameOver');
+  expect(s.highScore).toBe(s.score);
+  await expect(page.locator('#status')).toHaveText('New record!');
+});
+
 // ── Screenshot tests (UI) ──────────────────────────────────────────────────
 
 test('matches desktop layout screenshot', async ({ page }) => {

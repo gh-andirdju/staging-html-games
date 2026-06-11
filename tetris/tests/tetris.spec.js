@@ -475,6 +475,78 @@ test('game over on spawn collision then restart recovers', async ({ page }) => {
   expect(restarted.score).toBe(0);
 });
 
+test('scoring past the stored best updates highScore live and persists to localStorage', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('tetris-high-score', '3'));
+  await openGame(page);
+
+  let state = await getState(page);
+  expect(state.highScore).toBe(3);
+  await expect(page.locator('#best')).toHaveText('3');
+
+  // Hard drop from spawn awards 2 points per row — passes the stored best of 3
+  await page.keyboard.press('Space');
+  await advanceFrames(page, 1);
+
+  state = await getState(page);
+  expect(state.score).toBeGreaterThan(3);
+  expect(state.highScore).toBe(state.score);
+  await expect(page.locator('#best')).toHaveText(String(state.score));
+  const stored = await page.evaluate(() => window.localStorage.getItem('tetris-high-score'));
+  expect(stored).toBe(String(state.score));
+});
+
+test('game over after a scoring run reports gameOver with highScore intact', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('tetris-high-score', '5000'));
+  await openGame(page);
+  const state = await getState(page);
+  const board = state.board.map((row) => row.slice());
+  board[0][4] = 2;
+  board[0][5] = 2;
+  board[1][4] = 2;
+  board[1][5] = 2;
+  state.board = board;
+  state.current = { type: 'I', index: 1, x: 4, y: 17, rotation: 0 };
+  await setState(page, state);
+
+  await page.keyboard.press('Space');
+  await advanceFrames(page, 1);
+
+  const over = await getState(page);
+  expect(over.gameOver).toBe(true);
+  expect(over.score).toBeGreaterThan(0);
+  expect(over.highScore).toBe(5000);
+  expect(over.newRecord).toBe(false);
+  expect(over.statusMessage).toBe('Game Over');
+  await expect(page.locator('#status')).toHaveText('Game Over');
+  const stored = await page.evaluate(() => window.localStorage.getItem('tetris-high-score'));
+  expect(stored).toBe('5000');
+});
+
+test('new-record run shows New record! status on game over', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('tetris-high-score', '3'));
+  await openGame(page);
+  const state = await getState(page);
+  const board = state.board.map((row) => row.slice());
+  board[0][4] = 2;
+  board[0][5] = 2;
+  board[1][4] = 2;
+  board[1][5] = 2;
+  state.board = board;
+  state.current = { type: 'I', index: 1, x: 4, y: 17, rotation: 0 };
+  await setState(page, state);
+
+  await page.keyboard.press('Space');
+  await advanceFrames(page, 1);
+
+  const over = await getState(page);
+  expect(over.gameOver).toBe(true);
+  expect(over.newRecord).toBe(true);
+  expect(over.highScore).toBe(over.score);
+  expect(over.statusMessage).toBe('New record!');
+  expect(over.statusTone).toBe('milestone');
+  await expect(page.locator('#status')).toHaveText('New record!');
+});
+
 test('CCW rotation via z key rotates counterclockwise', async ({ page }) => {
   await openGame(page);
   const initial = await getState(page);

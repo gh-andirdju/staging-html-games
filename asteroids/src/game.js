@@ -49,8 +49,33 @@
   const FIRE_COOLDOWN = 12;
   const LEVEL_SPAWN_BASE = 4;
 
+  // ── High score persistence ────────────────────────────────────────────────
+  const HIGH_SCORE_KEY = 'asteroids-high-score';
+
+  function readHighScore() {
+    try {
+      return Number(window.localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function writeHighScore(value) {
+    try {
+      window.localStorage.setItem(HIGH_SCORE_KEY, String(value));
+    } catch {}
+  }
+
   // ── State ─────────────────────────────────────────────────────────────────
   let state = null;
+
+  function recordHighScore() {
+    if (state.score > state.highScore) {
+      if (state.highScore > 0) state.newRecord = true;
+      state.highScore = state.score;
+      writeHighScore(state.highScore);
+    }
+  }
 
   function makeShip() {
     return {
@@ -103,6 +128,8 @@
       bullets: [],
       particles: [],
       score: 0,
+      highScore: readHighScore(),
+      newRecord: false,
       lives: 3,
       level: 1,
       status: 'playing',
@@ -224,6 +251,7 @@
           hit = true;
           hitBullets.add(i);
           state.score += ASTEROID_SCORE[a.size];
+          recordHighScore();
           spawnParticles(a.x, a.y, 6 + a.size * 2, 2 + a.size);
           if (a.size > 1) {
             for (let k = 0; k < 2; k++) {
@@ -279,10 +307,13 @@
 
   function updateHUD() {
     document.getElementById('hud-score').textContent = state.score;
+    document.getElementById('hud-best').textContent = state.highScore;
     document.getElementById('hud-lives').textContent = state.lives;
     document.getElementById('hud-level').textContent = state.level;
     document.getElementById('hud-status').textContent =
-      state.status === 'gameOver' ? 'Game Over' : (state.paused ? 'Paused' : 'Playing');
+      state.status === 'gameOver'
+        ? (state.newRecord ? 'New record!' : 'Game Over')
+        : (state.paused ? 'Paused' : 'Playing');
     const pauseBtn = document.getElementById('pause');
     pauseBtn.textContent = state.paused ? 'Resume' : 'Pause';
     pauseBtn.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
@@ -365,10 +396,11 @@
       ctx.fillStyle = '#f59e0b';
       ctx.font = 'bold 52px "Trebuchet MS", Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('GAME OVER', W / 2, H / 2 - 20);
+      ctx.fillText('GAME OVER', W / 2, H / 2 - 44);
       ctx.fillStyle = '#fef9f0';
       ctx.font = '22px "Trebuchet MS", Arial, sans-serif';
-      ctx.fillText('Press R to restart', W / 2, H / 2 + 26);
+      ctx.fillText(`Score ${state.score} · Best ${state.highScore}`, W / 2, H / 2 + 4);
+      ctx.fillText('Press R or tap Restart', W / 2, H / 2 + 40);
     } else if (state.paused) {
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.fillRect(0, 0, W, H);

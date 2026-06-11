@@ -26,12 +26,34 @@
   const ctx         = canvas.getContext('2d');
   const minesEl     = document.getElementById('mines-remaining');
   const timeEl      = document.getElementById('time');
+  const bestEl      = document.getElementById('best');
   const diffLabelEl = document.getElementById('difficulty-label');
   const statusEl    = document.getElementById('status');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl   = document.getElementById('restart');
   const diffBtns    = Array.from(document.querySelectorAll('.diff-btn'));
   const modeBtns    = Array.from(document.querySelectorAll('[data-action]'));
+
+  const BEST_TIMES_KEY = 'minesweeper-best-times';
+
+  function readBestTimes() {
+    const times = { easy: null, normal: null, hard: null };
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(BEST_TIMES_KEY));
+      if (parsed && typeof parsed === 'object') {
+        for (const diff of Object.keys(times)) {
+          if (typeof parsed[diff] === 'number' && parsed[diff] >= 0) times[diff] = parsed[diff];
+        }
+      }
+    } catch {}
+    return times;
+  }
+
+  function writeBestTimes(times) {
+    try {
+      window.localStorage.setItem(BEST_TIMES_KEY, JSON.stringify(times));
+    } catch {}
+  }
 
   let state = null;
   let autoStep = true;
@@ -119,7 +141,16 @@
     if (checkWin()) {
       state.won = true;
       state.gameOver = true;
-      state.statusMessage = `You win! ${state.timeElapsed}s`;
+      const bestTimes = readBestTimes();
+      const previousBest = bestTimes[state.difficulty];
+      if (previousBest == null || state.timeElapsed < previousBest) {
+        bestTimes[state.difficulty] = state.timeElapsed;
+        writeBestTimes(bestTimes);
+        state.bestTime = state.timeElapsed;
+        state.statusMessage = `Cleared in ${state.timeElapsed}s — New best time!`;
+      } else {
+        state.statusMessage = `Cleared in ${state.timeElapsed}s · Best ${previousBest}s`;
+      }
       state.statusTone = 'milestone';
       state.statusMessageTimer = STATUS_FRAMES;
       flagAllMines();
@@ -220,6 +251,7 @@
       started: false,
       difficulty: diff,
       touchMode: 'reveal',
+      bestTime: readBestTimes()[diff],
       frame: 0,
       timeElapsed: 0,
       tickCounter: 0,
@@ -237,6 +269,7 @@
     const remaining = state.mines - state.flagged;
     minesEl.textContent = remaining;
     timeEl.textContent = `${state.timeElapsed}s`;
+    bestEl.textContent = state.bestTime == null ? '—' : `${state.bestTime}s`;
     diffLabelEl.textContent = state.difficulty.charAt(0).toUpperCase() + state.difficulty.slice(1);
     statusEl.textContent = state.statusMessage;
     statusWrapEl.dataset.tone = state.statusTone;
@@ -508,6 +541,9 @@
       if (typeof next.started !== 'boolean')           next.started = false;
       if (typeof next.difficulty !== 'string')         next.difficulty = 'easy';
       if (typeof next.touchMode !== 'string')          next.touchMode = 'reveal';
+      if (typeof next.bestTime !== 'number' && next.bestTime !== null) {
+        next.bestTime = readBestTimes()[next.difficulty] ?? null;
+      }
       if (typeof next.frame !== 'number')              next.frame = 0;
       if (typeof next.timeElapsed !== 'number')        next.timeElapsed = 0;
       if (typeof next.tickCounter !== 'number')        next.tickCounter = 0;

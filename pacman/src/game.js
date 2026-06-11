@@ -85,9 +85,26 @@
   var DIR_ORDER = ["up", "left", "down", "right"];
 
   // ── DOM ────────────────────────────────────────────────────────────────────
+  var HIGH_SCORE_KEY = "pacman-high-score";
+
+  function readHighScore() {
+    try {
+      return Number(window.localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function writeHighScore(value) {
+    try {
+      window.localStorage.setItem(HIGH_SCORE_KEY, String(value));
+    } catch {}
+  }
+
   var canvas = document.getElementById("game");
   var ctx = canvas.getContext("2d");
   var scoreEl = document.getElementById("score");
+  var bestEl = document.getElementById("best");
   var livesEl = document.getElementById("lives");
   var levelEl = document.getElementById("level");
   var statusEl = document.getElementById("status");
@@ -209,6 +226,8 @@
       pellets: buildItems(maze, 1),
       powerPellets: buildItems(maze, 2),
       score: 0,
+      highScore: readHighScore(),
+      newRecord: false,
       lives: 3,
       level: 1,
       status: "playing",
@@ -259,6 +278,7 @@
 
     eatPellets();
     checkGhostCollisions();
+    recordHighScore();
 
     if (state.pelletsRemaining <= 0 && state.status === "playing") {
       state.status = "levelComplete";
@@ -616,9 +636,20 @@
     state.status = "playing";
   }
 
+  // ── High score ─────────────────────────────────────────────────────────────
+  function recordHighScore() {
+    if (state.score > state.highScore) {
+      if (state.highScore > 0) {
+        state.newRecord = true;
+      }
+      state.highScore = state.score;
+      writeHighScore(state.highScore);
+    }
+  }
+
   // ── HUD ────────────────────────────────────────────────────────────────────
   function statusLabel() {
-    if (state.status === "gameOver") return "Game Over";
+    if (state.status === "gameOver") return state.newRecord ? "New record!" : "Game Over";
     if (state.paused) return "Paused";
     if (state.status === "levelComplete") return "Level Complete";
     return "Playing";
@@ -626,6 +657,7 @@
 
   function updateHud() {
     scoreEl.textContent = String(state.score);
+    bestEl.textContent = String(state.highScore);
     livesEl.textContent = String(state.lives);
     levelEl.textContent = String(state.level);
     statusEl.textContent = statusLabel();
@@ -655,7 +687,7 @@
     drawPacman();
 
     if (state.status === "gameOver") {
-      drawOverlay("GAME OVER");
+      drawOverlay("GAME OVER", "Score " + state.score + " · Best " + state.highScore, "Press R or tap Restart");
     } else if (state.paused) {
       drawOverlay("PAUSED", "Press P to resume");
     } else if (state.status === "levelComplete") {
@@ -794,7 +826,7 @@
     ctx.fill();
   }
 
-  function drawOverlay(message, subtitle) {
+  function drawOverlay(message, subtitle, subtitle2) {
     ctx.fillStyle = "rgba(0,0,0,0.6)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#ffff00";
@@ -804,6 +836,9 @@
     ctx.font = "18px Arial, sans-serif";
     ctx.fillStyle = "#ffffff";
     ctx.fillText(subtitle || "Press Restart to play again", canvas.width / 2, canvas.height / 2 + 30);
+    if (subtitle2) {
+      ctx.fillText(subtitle2, canvas.width / 2, canvas.height / 2 + 58);
+    }
     ctx.textAlign = "left";
   }
 
@@ -922,6 +957,8 @@
           return { row: pp.row, col: pp.col, eaten: pp.eaten };
         }),
         score: state.score,
+        highScore: state.highScore,
+        newRecord: state.newRecord,
         lives: state.lives,
         level: state.level,
         status: state.status,
@@ -934,6 +971,8 @@
     setState: function (partial) {
       renderTick = 0;
       if (typeof partial.score === "number") state.score = partial.score;
+      if (typeof partial.highScore === "number") state.highScore = partial.highScore;
+      if (typeof partial.newRecord === "boolean") state.newRecord = partial.newRecord;
       if (typeof partial.lives === "number") state.lives = partial.lives;
       if (typeof partial.level === "number") state.level = partial.level;
       if (typeof partial.status === "string") state.status = partial.status;

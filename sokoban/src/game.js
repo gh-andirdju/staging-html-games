@@ -510,9 +510,35 @@
   const levelEl = document.getElementById('level');
   const movesEl = document.getElementById('moves');
   const pushesEl = document.getElementById('pushes');
+  const bestEl = document.getElementById('best');
   const statusEl = document.getElementById('status');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl = document.getElementById('restart');
+
+  const BEST_KEY = 'sokoban-best';
+
+  function readBest() {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(BEST_KEY));
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function writeBest(best) {
+    try {
+      window.localStorage.setItem(BEST_KEY, JSON.stringify(best));
+    } catch {}
+  }
+
+  function bestForLevel(levelIndex) {
+    const entry = readBest()[String(levelIndex)];
+    if (entry && typeof entry.moves === 'number') {
+      return { moves: entry.moves, pushes: typeof entry.pushes === 'number' ? entry.pushes : 0 };
+    }
+    return null;
+  }
 
   let state = null;
   let autoStep = true;
@@ -563,6 +589,7 @@
 
   function loadLevel(levelIndex) {
     const parsed = parseLevel(levelIndex);
+    const best = bestForLevel(levelIndex);
     state = {
       level: levelIndex,
       board: parsed.board,
@@ -573,6 +600,9 @@
       pushes: 0,
       status: 'playing',
       history: [],
+      bestMoves: best ? best.moves : null,
+      bestPushes: best ? best.pushes : null,
+      newBest: false,
     };
     winFrames = 0;
 
@@ -636,6 +666,7 @@
     if (checkWin()) {
       state.status = 'won';
       winFrames = 0;
+      recordBest();
     }
 
     render();
@@ -659,6 +690,17 @@
 
   function checkWin() {
     return state.targets.every((t) => boxAt(t.row, t.col) !== -1);
+  }
+
+  function recordBest() {
+    const best = readBest();
+    const previous = best[String(state.level)];
+    if (previous && typeof previous.moves === 'number' && state.moves >= previous.moves) return;
+    best[String(state.level)] = { moves: state.moves, pushes: state.pushes };
+    writeBest(best);
+    state.bestMoves = state.moves;
+    state.bestPushes = state.pushes;
+    state.newBest = true;
   }
 
   function tick() {
@@ -818,9 +860,10 @@
     levelEl.textContent = state.level + 1;
     movesEl.textContent = state.moves;
     pushesEl.textContent = state.pushes;
+    bestEl.textContent = state.bestMoves == null ? '—' : state.bestMoves;
 
     if (state.status === 'won') {
-      statusEl.textContent = 'Level Complete!';
+      statusEl.textContent = state.newBest ? 'Level Complete — New best!' : 'Level Complete!';
       statusWrapEl.dataset.tone = 'win';
     } else {
       statusEl.textContent = 'Playing';
@@ -903,6 +946,12 @@
         canvas.height = rows * CELL_SIZE;
       }
       Object.assign(state, next);
+      if (typeof next.level === 'number') {
+        const best = bestForLevel(next.level);
+        if (next.bestMoves === undefined)  state.bestMoves = best ? best.moves : null;
+        if (next.bestPushes === undefined) state.bestPushes = best ? best.pushes : null;
+      }
+      if (next.newBest === undefined) state.newBest = false;
       winFrames = 0;
       render();
       updateHud();

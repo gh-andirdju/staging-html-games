@@ -4,6 +4,7 @@
   var canvas = document.getElementById("game");
   var ctx = canvas.getContext("2d");
   var scoreEl = document.getElementById("score");
+  var bestEl = document.getElementById("best");
   var livesEl = document.getElementById("lives");
   var levelEl = document.getElementById("level");
   var effectsEl = document.getElementById("effects");
@@ -54,6 +55,22 @@
     left: false,
     right: false
   };
+
+  var HIGH_SCORE_KEY = "brickbreaker-high-score";
+
+  function readHighScore() {
+    try {
+      return Number(window.localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function writeHighScore(value) {
+    try {
+      window.localStorage.setItem(HIGH_SCORE_KEY, String(value));
+    } catch {}
+  }
 
   var state;
   var lastTime = 0;
@@ -246,6 +263,8 @@
       paddleWidth: paddle.width,
       laserCooldown: 0,
       score: 0,
+      highScore: readHighScore(),
+      newRecord: false,
       lives: 3,
       level: 1,
       status: "Playing",
@@ -297,10 +316,23 @@
     state.paused = typeof state.paused === "boolean" ? state.paused : false;
     state.level = typeof state.level === "number" ? Math.max(1, Math.floor(state.level)) : 1;
     state.levelClears = typeof state.levelClears === "number" ? Math.max(0, Math.floor(state.levelClears)) : 0;
+    state.highScore = typeof state.highScore === "number" ? state.highScore : readHighScore();
+    state.newRecord = typeof state.newRecord === "boolean" ? state.newRecord : false;
+  }
+
+  function recordHighScore() {
+    if (state.score > state.highScore) {
+      if (state.highScore > 0) {
+        state.newRecord = true;
+      }
+      state.highScore = state.score;
+      writeHighScore(state.highScore);
+    }
   }
 
   function updateHud() {
     scoreEl.textContent = String(state.score);
+    bestEl.textContent = String(state.highScore);
     livesEl.textContent = String(state.lives);
     levelEl.textContent = String(state.level);
     effectsEl.textContent = formatEffectsDisplay(getEffectsDisplay());
@@ -311,7 +343,7 @@
 
   function getStatusText() {
     if (state.status === "Game Over") {
-      return "Game Over";
+      return state.newRecord ? "New record!" : "Game Over";
     }
     if (state.paused) {
       return "Paused";
@@ -568,6 +600,7 @@
 
         brick.active = false;
         state.score += 10;
+        recordHighScore();
         spawnPickup(brick);
         state.lasers.splice(i, 1);
         break;
@@ -680,6 +713,7 @@
 
         brick.active = false;
         state.score += 10;
+        recordHighScore();
         spawnPickup(brick);
         reflectFromRect(ball, brick);
         break;
@@ -812,7 +846,8 @@
       ctx.textAlign = "center";
       ctx.fillText(state.status, WIDTH / 2, HEIGHT / 2);
       ctx.font = "20px Arial, Helvetica, sans-serif";
-      ctx.fillText("Press Restart to play again", WIDTH / 2, HEIGHT / 2 + 38);
+      ctx.fillText("Score " + state.score + " · Best " + state.highScore, WIDTH / 2, HEIGHT / 2 + 38);
+      ctx.fillText("Press R or tap Restart", WIDTH / 2, HEIGHT / 2 + 68);
       ctx.textAlign = "start";
     } else if (state.paused) {
       ctx.fillStyle = "rgba(2, 6, 23, 0.62)";

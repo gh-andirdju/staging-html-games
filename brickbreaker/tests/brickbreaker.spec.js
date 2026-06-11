@@ -1096,6 +1096,60 @@ test('restart resets to level 1 and clears active power-up state from HUD and st
   expect(resetHud).not.toContain('laser');
 });
 
+test('scoring past the stored best updates highScore live and persists to localStorage', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('brickbreaker-high-score', '5'));
+  await openGame(page);
+
+  const before = await getState(page);
+  expect(before.highScore).toBe(5);
+  await expect(page.locator('#best')).toHaveText('5');
+
+  await mutateState(page, 'brickCollision');
+  await advanceFrames(page, 6);
+
+  const after = await getState(page);
+  expect(after.score).toBeGreaterThanOrEqual(10);
+  expect(after.highScore).toBe(after.score);
+  await expect(page.locator('#best')).toHaveText(String(after.score));
+  const stored = await page.evaluate(() => window.localStorage.getItem('brickbreaker-high-score'));
+  expect(stored).toBe(String(after.score));
+});
+
+test('game over after a scoring run reports gameOver with highScore intact', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('brickbreaker-high-score', '5000'));
+  await openGame(page);
+
+  await mutateState(page, 'brickCollision');
+  await advanceFrames(page, 6);
+  await mutateState(page, 'forcedGameOver');
+  await advanceFrames(page, 8);
+
+  const after = await getState(page);
+  expect(isGameOver(after)).toBe(true);
+  expect(after.score).toBeGreaterThanOrEqual(10);
+  expect(after.highScore).toBe(5000);
+  expect(after.newRecord).toBe(false);
+  await expect(page.locator('#status')).toHaveText('Game Over');
+  const stored = await page.evaluate(() => window.localStorage.getItem('brickbreaker-high-score'));
+  expect(stored).toBe('5000');
+});
+
+test('new-record run shows New record! status on game over', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('brickbreaker-high-score', '5'));
+  await openGame(page);
+
+  await mutateState(page, 'brickCollision');
+  await advanceFrames(page, 6);
+  await mutateState(page, 'forcedGameOver');
+  await advanceFrames(page, 8);
+
+  const after = await getState(page);
+  expect(isGameOver(after)).toBe(true);
+  expect(after.newRecord).toBe(true);
+  expect(after.highScore).toBe(after.score);
+  await expect(page.locator('#status')).toHaveText('New record!');
+});
+
 async function dragTouchOnLane(page, relativePoints) {
   await page.evaluate((points) => {
     const lane = document.getElementById('paddle-drag-lane');
