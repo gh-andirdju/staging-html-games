@@ -150,6 +150,20 @@ test.describe('mobile portrait layout', () => {
     expect(controlsBox).not.toBeNull();
     expect(controlsBox.y).toBeGreaterThanOrEqual(playfieldBox.y + playfieldBox.height - 1);
   });
+
+  test('page has no horizontal overflow and canvas fits the viewport width', async ({ page }) => {
+    await openGame(page);
+
+    const noOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth
+    );
+    expect(noOverflow).toBe(true);
+
+    const canvasBox = await page.locator('canvas#game').boundingBox();
+    expect(canvasBox).not.toBeNull();
+    expect(canvasBox.x).toBeGreaterThanOrEqual(0);
+    expect(canvasBox.x + canvasBox.width).toBeLessThanOrEqual(390);
+  });
 });
 
 // ── HUD ───────────────────────────────────────────────────────────────────────

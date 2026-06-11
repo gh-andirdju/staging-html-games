@@ -855,4 +855,29 @@ test.describe('mobile layout', () => {
       maxDiffPixels: 50
     });
   });
+
+  test('page has no horizontal overflow and canvas fits the viewport width', async ({ page }) => {
+    await openGame(page);
+
+    const noOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth
+    );
+    expect(noOverflow).toBe(true);
+
+    const canvasBox = await page.locator('#game').boundingBox();
+    expect(canvasBox).not.toBeNull();
+    expect(canvasBox.x).toBeGreaterThanOrEqual(0);
+    expect(canvasBox.x + canvasBox.width).toBeLessThanOrEqual(390);
+  });
+
+  test('flipper and launch buttons fit within the viewport height without scrolling', async ({ page }) => {
+    await openGame(page);
+
+    for (const id of ['#btn-left', '#btn-launch', '#btn-right']) {
+      const box = await page.locator(id).boundingBox();
+      expect(box).not.toBeNull();
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height).toBeLessThanOrEqual(844);
+    }
+  });
 });

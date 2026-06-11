@@ -757,3 +757,18 @@ test('matches the mobile layout baseline', async ({ page }) => {
     maxDiffPixels: 10
   });
 });
+
+test('portrait page has no horizontal overflow and canvas fits the viewport width', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openGame(page);
+
+  const noOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth
+  );
+  expect(noOverflow).toBe(true);
+
+  const canvasBox = await page.locator('canvas').boundingBox();
+  expect(canvasBox).not.toBeNull();
+  expect(canvasBox.x).toBeGreaterThanOrEqual(0);
+  expect(canvasBox.x + canvasBox.width).toBeLessThanOrEqual(390);
+});
