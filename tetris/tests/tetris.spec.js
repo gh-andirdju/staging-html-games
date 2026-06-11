@@ -1545,3 +1545,87 @@ test.describe('how to play help', () => {
     expect(s.paused).toBe(true);
   });
 });
+
+test.describe('sound and mute', () => {
+  test('mute button toggles aria-pressed and persists tetris-muted across reload', async ({ page }) => {
+    await openGame(page);
+    const muteBtn = page.locator('#mute');
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(muteBtn).toHaveText('🔊');
+
+    await muteBtn.click();
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(muteBtn).toHaveText('🔇');
+    let stored = await page.evaluate(() => localStorage.getItem('tetris-muted'));
+    expect(stored).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+    let s = await getState(page);
+    expect(s.muted).toBe(true);
+
+    await page.locator('#mute').click();
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+    stored = await page.evaluate(() => localStorage.getItem('tetris-muted'));
+    expect(stored).toBe('0');
+  });
+
+  test('muted state is exposed via getState and setMuted updates it', async ({ page }) => {
+    await openGame(page);
+    let s = await getState(page);
+    expect(s.muted).toBe(false);
+
+    await page.evaluate(() => window.__tetrisTest.setMuted(true));
+    s = await getState(page);
+    expect(s.muted).toBe(true);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.evaluate(() => window.__tetrisTest.setMuted(false));
+    s = await getState(page);
+    expect(s.muted).toBe(false);
+  });
+
+  test('rotating, hard dropping, clearing a line, holding, and game over run cleanly with sound wired', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    const board = state.board.map((row) => row.slice());
+    for (let x = 0; x < 10; x += 1) board[19][x] = 1;
+    board[19][3] = 0;
+    board[19][4] = 0;
+    board[19][5] = 0;
+    board[19][6] = 0;
+    state.board = board;
+    state.current = { type: 'I', index: 1, x: 4, y: 17, rotation: 0 };
+    state.score = 0;
+    state.lines = 0;
+    state.level = 1;
+    state.gameOver = false;
+    await setState(page, state);
+
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('z');
+    await page.keyboard.press('Space');
+    await advanceFrames(page, 18);
+    let s = await getState(page);
+    expect(s.lines).toBe(1);
+    expect(s.clearAnimation).toBeNull();
+
+    await page.keyboard.press('c');
+    s = await getState(page);
+    expect(s.heldPiece).not.toBeNull();
+
+    const over = await getState(page);
+    const blockedBoard = over.board.map((row) => row.slice());
+    blockedBoard[0][4] = 2;
+    blockedBoard[0][5] = 2;
+    blockedBoard[1][4] = 2;
+    blockedBoard[1][5] = 2;
+    over.board = blockedBoard;
+    over.current = { type: 'I', index: 1, x: 4, y: 17, rotation: 0 };
+    await setState(page, over);
+    await page.keyboard.press('Space');
+    await advanceFrames(page, 1);
+    s = await getState(page);
+    expect(s.gameOver).toBe(true);
+  });
+});

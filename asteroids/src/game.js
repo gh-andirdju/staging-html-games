@@ -83,6 +83,111 @@
     } catch {}
   }
 
+  // ── Sound effects ─────────────────────────────────────────────────────────
+  const MUTED_KEY = 'asteroids-muted';
+  const THRUST_THROTTLE_MS = 120;
+
+  function createSfx() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let muted = readMuted();
+    let gestureSeen = false;
+    let audioCtx = null;
+    let lastThrustAt = 0;
+
+    function readMuted() {
+      try {
+        return window.localStorage.getItem(MUTED_KEY) === '1';
+      } catch {
+        return false;
+      }
+    }
+
+    function writeMuted(value) {
+      try {
+        window.localStorage.setItem(MUTED_KEY, value ? '1' : '0');
+      } catch {}
+    }
+
+    function noteGesture() {
+      gestureSeen = true;
+    }
+
+    window.addEventListener('pointerdown', noteGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', noteGesture, { capture: true });
+
+    function getAudio() {
+      if (muted || !gestureSeen || navigator.webdriver || !AudioContextClass) return null;
+      if (!audioCtx) {
+        try {
+          audioCtx = new AudioContextClass();
+        } catch {
+          return null;
+        }
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function tone(startFreq, endFreq, duration, delay = 0, type = 'square', peak = 0.1) {
+      const audio = getAudio();
+      if (!audio) return;
+      try {
+        const startAt = audio.currentTime + delay;
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(startFreq, startAt);
+        if (endFreq !== startFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startAt + duration);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak, startAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+      } catch {}
+    }
+
+    return {
+      isMuted() {
+        return muted;
+      },
+      setMuted(value) {
+        muted = Boolean(value);
+        writeMuted(muted);
+      },
+      playFire() {
+        tone(880, 440, 0.06, 0, 'square', 0.07);
+      },
+      // Bigger rocks break with a lower-pitched tick
+      playAsteroidBreak(size) {
+        const freq = size === 3 ? 110 : size === 2 ? 200 : 320;
+        tone(freq, freq * 0.7, 0.06, 0, 'sawtooth', 0.09);
+      },
+      // Soft low rumble, throttled so holding thrust never stacks oscillators
+      playThrust() {
+        const now = performance.now();
+        if (now - lastThrustAt < THRUST_THROTTLE_MS) return;
+        lastThrustAt = now;
+        tone(70, 70, 0.1, 0, 'triangle', 0.06);
+      },
+      playShipDestroyed() {
+        tone(330, 110, 0.15, 0, 'sawtooth', 0.09);
+      },
+      playWaveClear() {
+        tone(392, 784, 0.12, 0, 'triangle');
+      },
+      playNewRecord() {
+        tone(523, 523, 0.06, 0, 'triangle');
+        tone(659, 659, 0.06, 0.07, 'triangle');
+        tone(784, 784, 0.06, 0.14, 'triangle');
+        tone(1047, 1047, 0.1, 0.21, 'triangle');
+      }
+    };
+  }
+
+  const sfx = createSfx();
+
   // ── State ─────────────────────────────────────────────────────────────────
   let state = null;
   let helpDidPause = false;
@@ -209,6 +314,7 @@
     if (isPressed('ArrowUp')) {
       s.vx += Math.cos(s.angle) * THRUST_POWER;
       s.vy += Math.sin(s.angle) * THRUST_POWER;
+      sfx.playThrust();
     }
 
     // Friction
@@ -241,6 +347,7 @@
         life: BULLET_LIFE
       });
       state.fireCooldown = FIRE_COOLDOWN;
+      sfx.playFire();
     }
 
     // Move bullets (decrement first so life:1 expires after this frame)
@@ -270,6 +377,7 @@
           hitBullets.add(i);
           state.score += ASTEROID_SCORE[a.size];
           recordHighScore();
+          sfx.playAsteroidBreak(a.size);
           spawnParticles(a.x, a.y, 6 + a.size * 2, 2 + a.size);
           if (a.size > 1) {
             for (let k = 0; k < 2; k++) {
@@ -293,9 +401,12 @@
           if (state.lives <= 0) {
             state.lives = 0;
             state.status = 'gameOver';
+            if (state.newRecord) sfx.playNewRecord();
+            else sfx.playShipDestroyed();
           } else {
             state.status = 'dead';
             state.respawnCountdown = RESPAWN_FRAMES;
+            sfx.playShipDestroyed();
           }
           break;
         }
@@ -306,6 +417,7 @@
     if (state.asteroids.length === 0 && state.status === 'playing') {
       state.level++;
       state.asteroids = spawnWave(state.level);
+      sfx.playWaveClear();
     }
 
     updateParticles();
@@ -335,6 +447,9 @@
     const pauseBtn = document.getElementById('pause');
     pauseBtn.textContent = state.paused ? 'Resume' : 'Pause';
     pauseBtn.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
+    const muteBtn = document.getElementById('mute');
+    muteBtn.textContent = sfx.isMuted() ? '🔇' : '🔊';
+    muteBtn.setAttribute('aria-pressed', sfx.isMuted() ? 'true' : 'false');
   }
 
   function togglePause() {
@@ -342,6 +457,11 @@
     state.paused = !state.paused;
     updateHUD();
     render();
+  }
+
+  function toggleMute() {
+    sfx.setMuted(!sfx.isMuted());
+    updateHUD();
   }
 
   // ── Help panel ────────────────────────────────────────────────────────────
@@ -539,6 +659,7 @@
 
   document.getElementById('pause').addEventListener('click', togglePause);
   document.getElementById('restart').addEventListener('click', () => restart());
+  document.getElementById('mute').addEventListener('click', toggleMute);
   helpBtn.addEventListener('click', openHelp);
   helpCloseBtn.addEventListener('click', closeHelp);
   helpOverlayEl.addEventListener('click', (e) => {
@@ -558,7 +679,7 @@
     isReady: false,
 
     getState() {
-      return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden };
+      return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden, muted: sfx.isMuted() };
     },
 
     setState(payload) {
@@ -597,6 +718,11 @@
     restart() {
       restart();
       return Promise.resolve();
+    },
+
+    setMuted(value) {
+      sfx.setMuted(Boolean(value));
+      updateHUD();
     }
   };
 

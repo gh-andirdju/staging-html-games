@@ -735,3 +735,84 @@ test.describe('how to play help', () => {
     expect(s.paused).toBe(true);
   });
 });
+
+// ── Sound & mute ───────────────────────────────────────────────────────────
+
+test.describe('sound and mute', () => {
+  test('mute button toggles aria-pressed and persists pacman-muted across reload', async ({ page }) => {
+    await openGame(page);
+    const muteBtn = page.locator('#mute');
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(muteBtn).toHaveText('🔊');
+
+    await muteBtn.click();
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(muteBtn).toHaveText('🔇');
+    let stored = await page.evaluate(() => localStorage.getItem('pacman-muted'));
+    expect(stored).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+    let s = await getState(page);
+    expect(s.muted).toBe(true);
+
+    await page.locator('#mute').click();
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+    stored = await page.evaluate(() => localStorage.getItem('pacman-muted'));
+    expect(stored).toBe('0');
+  });
+
+  test('muted state is exposed via getState and setMuted updates it', async ({ page }) => {
+    await openGame(page);
+    let s = await getState(page);
+    expect(s.muted).toBe(false);
+
+    await page.evaluate(() => window.__pacmanTest.setMuted(true));
+    s = await getState(page);
+    expect(s.muted).toBe(true);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.evaluate(() => window.__pacmanTest.setMuted(false));
+    s = await getState(page);
+    expect(s.muted).toBe(false);
+  });
+
+  test('eating pellets, a power pellet, a ghost, and dying run cleanly with sound wired', async ({ page }) => {
+    await openGame(page);
+
+    // Pellet tick
+    const s0 = await getState(page);
+    const dot = s0.pellets.find((p) => !p.eaten);
+    await setState(page, { pacman: { tileRow: dot.row, tileCol: dot.col } });
+    await advanceFrames(page, 1);
+    let s = await getState(page);
+    expect(s.score).toBeGreaterThanOrEqual(10);
+
+    // Power pellet chirp + frightened mode
+    const pp = s.powerPellets.find((p) => !p.eaten);
+    await setState(page, { pacman: { tileRow: pp.row, tileCol: pp.col } });
+    await advanceFrames(page, 1);
+    s = await getState(page);
+    expect(s.frightenedTimer).toBeGreaterThan(0);
+
+    // Ghost-eaten arpeggio
+    await setState(page, {
+      pacman: { tileRow: s.ghosts[0].tileRow, tileCol: s.ghosts[0].tileCol }
+    });
+    await advanceFrames(page, 1);
+    s = await getState(page);
+    expect(s.ghosts[0].mode).toBe('eaten');
+
+    // Death descent: non-frightened ghost on Pac-Man's tile
+    await setState(page, {
+      frightenedTimer: 0,
+      ghosts: [
+        {},
+        { tileRow: s.pacman.tileRow, tileCol: s.pacman.tileCol, mode: 'scatter', frightened: false }
+      ]
+    });
+    await advanceFrames(page, 1);
+    s = await getState(page);
+    expect(s.status).toBe('dying');
+  });
+});

@@ -239,6 +239,7 @@ canvas {
   transform: none;
 }
 
+.system-row #mute,
 .system-row #help {
   flex: 0 0 auto;
   min-width: 44px;

@@ -850,3 +850,83 @@ test.describe('how to play help', () => {
     expect(state.paused).toBe(true);
   });
 });
+
+// ─── Sound & mute ─────────────────────────────────────────────────────────────
+
+test.describe('sound and mute', () => {
+  test('mute button toggles aria-pressed and persists space-invaders-muted across reload', async ({ page }) => {
+    await openGame(page);
+    const muteBtn = page.locator('#mute');
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(muteBtn).toHaveText('🔊');
+
+    await muteBtn.click();
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(muteBtn).toHaveText('🔇');
+    let stored = await page.evaluate(() => localStorage.getItem('space-invaders-muted'));
+    expect(stored).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+    let state = await getState(page);
+    expect(state.muted).toBe(true);
+
+    await page.locator('#mute').click();
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+    stored = await page.evaluate(() => localStorage.getItem('space-invaders-muted'));
+    expect(stored).toBe('0');
+  });
+
+  test('muted state is exposed via getState and setMuted updates it', async ({ page }) => {
+    await openGame(page);
+    let state = await getState(page);
+    expect(state.muted).toBe(false);
+
+    await page.evaluate(() => window.__spaceInvadersTest.setMuted(true));
+    state = await getState(page);
+    expect(state.muted).toBe(true);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.evaluate(() => window.__spaceInvadersTest.setMuted(false));
+    state = await getState(page);
+    expect(state.muted).toBe(false);
+  });
+
+  test('firing, enemy hits, UFO spawn, and game over run cleanly with sound wired', async ({ page }) => {
+    await openGame(page);
+
+    // Player fire zap
+    await page.keyboard.down(' ');
+    await advanceFrames(page, 2);
+    await page.keyboard.up(' ');
+    let state = await getState(page);
+    expect(state.bullets.length).toBeGreaterThan(0);
+
+    // Enemy hit tick (row-pitched)
+    const target = state.enemies[state.enemies.length - 1];
+    await setState(page, {
+      bullets: [{ x: target.x + 8, y: target.y + 4 }],
+      bulletCooldown: 30
+    });
+    await advanceFrames(page, 2);
+    state = await getState(page);
+    expect(state.enemies[state.enemies.length - 1].alive).toBe(false);
+    expect(state.score).toBeGreaterThan(0);
+
+    // UFO warble on spawn (wave 1 interval is 1800 frames)
+    await setState(page, { ufoSpawnTimer: 1799, ufo: null });
+    await advanceFrames(page, 2);
+    state = await getState(page);
+    expect(state.ufo).not.toBeNull();
+
+    // Game over descent on the last life
+    await setState(page, {
+      lives: 1,
+      enemyBullets: [{ x: state.player.x + 18, y: 436 }],
+      deathTimer: 0
+    });
+    await advanceFrames(page, 2);
+    state = await getState(page);
+    expect(state.status).toBe('gameover');
+  });
+});
