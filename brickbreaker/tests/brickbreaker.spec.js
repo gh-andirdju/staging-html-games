@@ -1339,3 +1339,60 @@ test.describe('how to play help', () => {
     expect(state.paused).toBe(true);
   });
 });
+
+test.describe('sound and mute', () => {
+  test('mute button toggles aria-pressed and persists brickbreaker-muted across reload', async ({ page }) => {
+    await openGame(page);
+    const muteBtn = page.locator('#mute');
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(muteBtn).toHaveText('🔊');
+
+    await muteBtn.click();
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(muteBtn).toHaveText('🔇');
+    let stored = await page.evaluate(() => window.localStorage.getItem('brickbreaker-muted'));
+    expect(stored).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+    let state = await getState(page);
+    expect(state.muted).toBe(true);
+
+    await page.locator('#mute').click();
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+    stored = await page.evaluate(() => window.localStorage.getItem('brickbreaker-muted'));
+    expect(stored).toBe('0');
+  });
+
+  test('muted state is exposed via getState and setMuted updates it', async ({ page }) => {
+    await openGame(page);
+    let state = await getState(page);
+    expect(state.muted).toBe(false);
+
+    await page.evaluate(() => window.__brickbreakerTest.setMuted(true));
+    state = await getState(page);
+    expect(state.muted).toBe(true);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.evaluate(() => window.__brickbreakerTest.setMuted(false));
+    state = await getState(page);
+    expect(state.muted).toBe(false);
+  });
+
+  test('brick breaks, paddle bounces, and game over run cleanly with sound wired', async ({ page }) => {
+    await openGame(page);
+
+    await mutateState(page, 'brickCollision');
+    await advanceFrames(page, 6);
+    let state = await getState(page);
+    expect(state.score).toBeGreaterThanOrEqual(10);
+
+    await mutateState(page, 'paddleBounce', { hit: 'center' });
+    await advanceFrames(page, 2);
+
+    await mutateState(page, 'forcedGameOver');
+    await advanceFrames(page, 8);
+    state = await getState(page);
+    expect(isGameOver(state)).toBe(true);
+  });
+});

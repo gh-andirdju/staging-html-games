@@ -35,6 +35,7 @@
   const statusEl = document.getElementById('status');
   const restartEl = document.getElementById('restart');
   const pauseEl = document.getElementById('pause');
+  const muteEl = document.getElementById('mute');
   const helpEl = document.getElementById('help');
   const helpOverlayEl = document.getElementById('help-overlay');
   const helpCloseEl = document.getElementById('help-close');
@@ -106,6 +107,114 @@
       window.localStorage.setItem(HELP_SEEN_KEY, '1');
     } catch {}
   }
+
+  const MUTED_KEY = 'tetris-muted';
+
+  function createSfx() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let muted = readMuted();
+    let gestureSeen = false;
+    let audioCtx = null;
+
+    function readMuted() {
+      try {
+        return window.localStorage.getItem(MUTED_KEY) === '1';
+      } catch {
+        return false;
+      }
+    }
+
+    function writeMuted(value) {
+      try {
+        window.localStorage.setItem(MUTED_KEY, value ? '1' : '0');
+      } catch {}
+    }
+
+    function noteGesture() {
+      gestureSeen = true;
+    }
+
+    window.addEventListener('pointerdown', noteGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', noteGesture, { capture: true });
+
+    function getAudio() {
+      if (muted || !gestureSeen || navigator.webdriver || !AudioContextClass) return null;
+      if (!audioCtx) {
+        try {
+          audioCtx = new AudioContextClass();
+        } catch {
+          return null;
+        }
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function tone(startFreq, endFreq, duration, delay = 0, type = 'square', peak = 0.1) {
+      const audio = getAudio();
+      if (!audio) return;
+      try {
+        const startAt = audio.currentTime + delay;
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(startFreq, startAt);
+        if (endFreq !== startFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startAt + duration);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak, startAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+      } catch {}
+    }
+
+    return {
+      isMuted() {
+        return muted;
+      },
+      setMuted(value) {
+        muted = Boolean(value);
+        writeMuted(muted);
+      },
+      playRotate() {
+        tone(880, 880, 0.03, 0, 'square', 0.05);
+      },
+      playLock() {
+        tone(220, 220, 0.04, 0, 'square', 0.07);
+      },
+      playHardDrop() {
+        tone(170, 90, 0.07, 0, 'square', 0.1);
+      },
+      playHold() {
+        tone(523, 523, 0.06, 0, 'triangle', 0.09);
+      },
+      // Arpeggio grows with the number of cleared lines; a Tetris plays all four notes.
+      playLineClear(cleared) {
+        const notes = [523, 659, 784, 1047];
+        const count = Math.max(1, Math.min(4, cleared));
+        for (let index = 0; index < count; index += 1) {
+          tone(notes[index], notes[index], index === count - 1 ? 0.1 : 0.06, index * 0.07, 'triangle');
+        }
+      },
+      playLevelUp() {
+        tone(440, 440, 0.07, 0, 'triangle');
+        tone(660, 660, 0.1, 0.08, 'triangle');
+      },
+      playGameOver() {
+        tone(330, 120, 0.15, 0, 'sawtooth', 0.09);
+      },
+      playNewRecord() {
+        tone(523, 523, 0.06, 0, 'triangle');
+        tone(659, 659, 0.06, 0.07, 'triangle');
+        tone(784, 784, 0.06, 0.14, 'triangle');
+        tone(1047, 1047, 0.1, 0.21, 'triangle');
+      }
+    };
+  }
+
+  const sfx = createSfx();
 
   let state = null;
   let helpDidPause = false;
@@ -183,6 +292,8 @@
     if (!isValidPosition(state.current)) {
       state.gameOver = true;
       syncStatusMessage();
+      if (state.newRecord) sfx.playNewRecord();
+      else sfx.playGameOver();
     }
   }
 
@@ -211,6 +322,7 @@
     // After first-hold, spawnPiece() cleared holdUsed for the spawned piece; after a swap it was
     // already false. Either way, lock it now to block a second hold until the next piece spawns.
     state.holdUsed = true;
+    sfx.playHold();
     setStatusMessage(`Hold: ${currentType}`);
     // DOM (CSS classes, aria attrs) refreshes on the next oneFrame() render call.
   }
@@ -338,18 +450,22 @@
     collapseRows(state.clearAnimation.rows);
     state.clearAnimation = null;
     if (cleared > 0) {
+      const previousLevel = state.level;
       state.lines += cleared;
       state.score += CLEAR_SCORES[cleared] * state.level;
       recordHighScore();
       onLinesResolved(cleared);
+      sfx.playLineClear(cleared);
+      if (state.level > previousLevel) sfx.playLevelUp();
     }
     spawnPiece();
   }
 
-  function lockPiece() {
+  function lockPiece({ silent = false } = {}) {
     mergePiece();
     const rows = findFullRows();
     state.current = null;
+    if (!silent) sfx.playLock();
     if (rows.length > 0) startClearAnimation(rows);
     else spawnPiece();
   }
@@ -369,6 +485,7 @@
     if (isValidPosition(next)) {
       state.current = next;
       state.lockTimer = 0;
+      sfx.playRotate();
       return true;
     }
     const kicks = [-1, 1, -2, 2];
@@ -377,6 +494,7 @@
       if (isValidPosition(kicked)) {
         state.current = kicked;
         state.lockTimer = 0;
+        sfx.playRotate();
         return true;
       }
     }
@@ -389,6 +507,7 @@
     if (isValidPosition(next)) {
       state.current = next;
       state.lockTimer = 0;
+      sfx.playRotate();
       return true;
     }
     const kicks = [1, -1, 2, -2];
@@ -397,6 +516,7 @@
       if (isValidPosition(kicked)) {
         state.current = kicked;
         state.lockTimer = 0;
+        sfx.playRotate();
         return true;
       }
     }
@@ -440,7 +560,8 @@
       distance += 1;
     }
     applyHardDropPoints(distance);
-    lockPiece();
+    sfx.playHardDrop();
+    lockPiece({ silent: true });
   }
 
   function restartGame() {
@@ -482,7 +603,7 @@
   }
 
   function copyStateForTests() {
-    return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden };
+    return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden, muted: sfx.isMuted() };
   }
 
   function setStateFromTests(nextState) {
@@ -658,6 +779,8 @@
     if (statusWrapEl && statusWrapEl.dataset.tone !== statusTone) statusWrapEl.dataset.tone = statusTone;
     pauseEl.textContent = state.paused ? 'Resume' : 'Pause';
     pauseEl.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
+    muteEl.textContent = sfx.isMuted() ? '🔇' : '🔊';
+    muteEl.setAttribute('aria-pressed', sfx.isMuted() ? 'true' : 'false');
     drawPiecePreview(nextCanvasEl, nextCtx, state.nextPieceType ?? null);
     drawPiecePreview(holdCanvasEl, holdCtx, state.heldPiece ?? null);
     if (holdCanvasEl) {
@@ -862,6 +985,11 @@
     render();
   }
 
+  function toggleMute() {
+    sfx.setMuted(!sfx.isMuted());
+    updateHud();
+  }
+
   function openHelp() {
     if (!helpOverlayEl.hidden) return;
     helpDidPause = !state.gameOver && !state.paused;
@@ -896,6 +1024,7 @@
 
   restartEl.addEventListener('click', restartGame);
   pauseEl.addEventListener('click', togglePause);
+  muteEl.addEventListener('click', toggleMute);
   helpEl.addEventListener('click', openHelp);
   helpCloseEl.addEventListener('click', closeHelp);
   helpOverlayEl.addEventListener('click', (event) => {
@@ -978,6 +1107,10 @@
       canvas.width = cols * cellSize;
       canvas.height = rows * cellSize;
       if (state) render();
+    },
+    setMuted: (value) => {
+      sfx.setMuted(Boolean(value));
+      updateHud();
     }
   };
 })();

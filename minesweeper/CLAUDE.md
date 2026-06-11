@@ -52,6 +52,9 @@ Classic Minesweeper on a configurable grid. Difficulty presets: Easy (9×9, 10 m
 | `revealCell(row, col)` | `function` | Reveal a cell; chord if already revealed |
 | `flagCell(row, col)` | `function` | Toggle flag on a cell |
 | `setBoard(config)` | `function` | Replace board with 2D array of `{mine, revealed, flagged}`, recalculates adjacent counts, sets `started=true` |
+| `setMuted(bool)` | `function` | Set the sound-effects mute state (persisted as `minesweeper-muted`) |
+
+`getState()` additionally returns `muted`. Sound effects are short WebAudio blips (reveal tick — one per click even when the flood fill cascades, flag on/off pitches, chord tick, win rise, new-best arpeggio, mine-hit descent) created lazily after the first user gesture and fully disabled under `navigator.webdriver`.
 
 ## Controls
 Desktop: left-click reveals (or chords if cell is revealed), right-click toggles flag. Mobile: "Reveal" / "Flag" mode buttons in the touch-controls zone set `state.touchMode`; canvas tap uses the active mode. Difficulty buttons (Easy/Normal/Hard) in the playfield restart with the selected preset.

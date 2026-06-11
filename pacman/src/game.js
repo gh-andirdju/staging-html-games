@@ -116,6 +116,113 @@
     } catch {}
   }
 
+  // ── Sound effects ──────────────────────────────────────────────────────────
+  var MUTED_KEY = "pacman-muted";
+  var PELLET_THROTTLE_MS = 70;
+
+  function createSfx() {
+    var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    var muted = readMuted();
+    var gestureSeen = false;
+    var audioCtx = null;
+    var lastPelletAt = 0;
+    var pelletFlip = false;
+
+    function readMuted() {
+      try {
+        return window.localStorage.getItem(MUTED_KEY) === "1";
+      } catch {
+        return false;
+      }
+    }
+
+    function writeMuted(value) {
+      try {
+        window.localStorage.setItem(MUTED_KEY, value ? "1" : "0");
+      } catch {}
+    }
+
+    function noteGesture() {
+      gestureSeen = true;
+    }
+
+    window.addEventListener("pointerdown", noteGesture, { capture: true, passive: true });
+    window.addEventListener("keydown", noteGesture, { capture: true });
+
+    function getAudio() {
+      if (muted || !gestureSeen || navigator.webdriver || !AudioContextClass) return null;
+      if (!audioCtx) {
+        try {
+          audioCtx = new AudioContextClass();
+        } catch {
+          return null;
+        }
+      }
+      if (audioCtx.state === "suspended") audioCtx.resume().catch(function () {});
+      return audioCtx;
+    }
+
+    function tone(startFreq, endFreq, duration, delay, type, peak) {
+      var audio = getAudio();
+      if (!audio) return;
+      try {
+        var startAt = audio.currentTime + (delay || 0);
+        var osc = audio.createOscillator();
+        var gain = audio.createGain();
+        osc.type = type || "square";
+        osc.frequency.setValueAtTime(startFreq, startAt);
+        if (endFreq !== startFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startAt + duration);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak || 0.1, startAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+      } catch {}
+    }
+
+    return {
+      isMuted: function () {
+        return muted;
+      },
+      setMuted: function (value) {
+        muted = Boolean(value);
+        writeMuted(muted);
+      },
+      // Very soft alternating two-pitch tick, throttled so pellet runs never stack oscillators
+      playPellet: function () {
+        var now = performance.now();
+        if (now - lastPelletAt < PELLET_THROTTLE_MS) return;
+        lastPelletAt = now;
+        pelletFlip = !pelletFlip;
+        tone(pelletFlip ? 440 : 520, pelletFlip ? 440 : 520, 0.035, 0, "square", 0.05);
+      },
+      playPowerPellet: function () {
+        tone(300, 900, 0.12, 0, "square", 0.08);
+      },
+      playGhostEaten: function () {
+        tone(523, 523, 0.05, 0, "triangle", 0.09);
+        tone(659, 659, 0.05, 0.06, "triangle", 0.09);
+        tone(784, 784, 0.07, 0.12, "triangle", 0.09);
+      },
+      playDeath: function () {
+        tone(440, 110, 0.15, 0, "sawtooth", 0.09);
+      },
+      playLevelClear: function () {
+        tone(392, 784, 0.12, 0, "triangle");
+      },
+      playNewRecord: function () {
+        tone(523, 523, 0.06, 0, "triangle");
+        tone(659, 659, 0.06, 0.07, "triangle");
+        tone(784, 784, 0.06, 0.14, "triangle");
+        tone(1047, 1047, 0.1, 0.21, "triangle");
+      }
+    };
+  }
+
+  var sfx = createSfx();
+
   var canvas = document.getElementById("game");
   var ctx = canvas.getContext("2d");
   var scoreEl = document.getElementById("score");
@@ -125,6 +232,7 @@
   var statusEl = document.getElementById("status");
   var restartBtn = document.getElementById("restart");
   var pauseBtn = document.getElementById("pause");
+  var muteBtn = document.getElementById("mute");
   var helpBtn = document.getElementById("help");
   var helpOverlayEl = document.getElementById("help-overlay");
   var helpCloseBtn = document.getElementById("help-close");
@@ -303,6 +411,7 @@
     if (state.pelletsRemaining <= 0 && state.status === "playing") {
       state.status = "levelComplete";
       state.deathTimer = LEVEL_COMPLETE_FRAMES;
+      sfx.playLevelClear();
     }
   }
 
@@ -551,6 +660,7 @@
         state.score += DOT_SCORE;
         state.pelletsRemaining--;
         state.maze[p.row][p.col] = 3;
+        sfx.playPellet();
       }
     }
     for (i = 0; i < state.powerPellets.length; i++) {
@@ -561,6 +671,7 @@
         state.pelletsRemaining--;
         state.maze[pp.row][pp.col] = 3;
         activateFrightened();
+        sfx.playPowerPellet();
       }
     }
   }
@@ -615,17 +726,20 @@
     var pts = GHOST_SCORES[Math.min(state.ghostCombo, GHOST_SCORES.length - 1)];
     state.score += pts;
     state.ghostCombo++;
+    sfx.playGhostEaten();
   }
 
   function killPacman() {
     state.lives--;
     state.status = "dying";
     state.deathTimer = DEATH_FRAMES;
+    sfx.playDeath();
   }
 
   function respawn() {
     if (state.lives <= 0) {
       state.status = "gameOver";
+      if (state.newRecord) sfx.playNewRecord();
       return;
     }
     state.status = "playing";
@@ -683,6 +797,8 @@
     statusEl.textContent = statusLabel();
     pauseBtn.textContent = state.paused ? "Resume" : "Pause";
     pauseBtn.setAttribute("aria-pressed", state.paused ? "true" : "false");
+    muteBtn.textContent = sfx.isMuted() ? "🔇" : "🔊";
+    muteBtn.setAttribute("aria-pressed", sfx.isMuted() ? "true" : "false");
   }
 
   function togglePause() {
@@ -690,6 +806,11 @@
     state.paused = !state.paused;
     updateHud();
     draw();
+  }
+
+  function toggleMute() {
+    sfx.setMuted(!sfx.isMuted());
+    updateHud();
   }
 
   function openHelp() {
@@ -950,6 +1071,7 @@
 
   restartBtn.addEventListener("click", restart);
   pauseBtn.addEventListener("click", togglePause);
+  muteBtn.addEventListener("click", toggleMute);
   helpBtn.addEventListener("click", openHelp);
   helpCloseBtn.addEventListener("click", closeHelp);
   helpOverlayEl.addEventListener("click", function (e) {
@@ -1015,6 +1137,7 @@
         status: state.status,
         paused: state.paused,
         helpOpen: !helpOverlayEl.hidden,
+        muted: sfx.isMuted(),
         frightenedTimer: state.frightenedTimer,
         pelletsRemaining: state.pelletsRemaining
       };
@@ -1090,6 +1213,11 @@
       updateHud();
       draw();
       return autoStep;
+    },
+
+    setMuted: function (value) {
+      sfx.setMuted(Boolean(value));
+      updateHud();
     }
   };
 

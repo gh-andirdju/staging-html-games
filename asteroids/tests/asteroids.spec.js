@@ -937,3 +937,83 @@ test.describe('how to play help', () => {
     expect(state.paused).toBe(true);
   });
 });
+
+// ── Sound & mute ──────────────────────────────────────────────────────────────
+
+test.describe('sound and mute', () => {
+  test('mute button toggles aria-pressed and persists asteroids-muted across reload', async ({ page }) => {
+    await openGame(page);
+    const muteBtn = page.locator('#mute');
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(muteBtn).toHaveText('🔊');
+
+    await muteBtn.click();
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(muteBtn).toHaveText('🔇');
+    let stored = await page.evaluate(() => localStorage.getItem('asteroids-muted'));
+    expect(stored).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+    let state = await getState(page);
+    expect(state.muted).toBe(true);
+
+    await page.locator('#mute').click();
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+    stored = await page.evaluate(() => localStorage.getItem('asteroids-muted'));
+    expect(stored).toBe('0');
+  });
+
+  test('muted state is exposed via getState and setMuted updates it', async ({ page }) => {
+    await openGame(page);
+    let state = await getState(page);
+    expect(state.muted).toBe(false);
+
+    await page.evaluate(() => window.__asteroidsTest.setMuted(true));
+    state = await getState(page);
+    expect(state.muted).toBe(true);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.evaluate(() => window.__asteroidsTest.setMuted(false));
+    state = await getState(page);
+    expect(state.muted).toBe(false);
+  });
+
+  test('thrusting, firing, breaking asteroids, and game over run cleanly with sound wired', async ({ page }) => {
+    await openGame(page);
+    const s = await getState(page);
+    await setState(page, {
+      ...s,
+      ship: { x: 400, y: 300, angle: -Math.PI / 2, vx: 0, vy: 0, radius: 14, invincible: true, invincibleFrames: 999 },
+      asteroids: [{ x: 400, y: 200, vx: 0, vy: 0, radius: 80, size: 3, seed: 9001, vertices: [] }],
+      bullets: [],
+      score: 0,
+      lives: 3,
+      status: 'playing'
+    });
+
+    // Thrust (throttled rumble) and fire (zap) for several frames
+    await page.keyboard.down('ArrowUp');
+    await page.keyboard.down('Space');
+    await advanceFrames(page, 20);
+    await page.keyboard.up('Space');
+    await page.keyboard.up('ArrowUp');
+
+    let after = await getState(page);
+    expect(after.score).toBeGreaterThan(0); // big asteroid broken into fragments
+    expect(after.asteroids.some(a => a.size < 3)).toBe(true);
+
+    // Final collision at one life ends the game
+    await setState(page, {
+      ...after,
+      ship: { x: 400, y: 300, angle: 0, vx: 0, vy: 0, radius: 14, invincible: false, invincibleFrames: 0 },
+      asteroids: [{ x: 404, y: 300, vx: 0, vy: 0, radius: 20, size: 1, seed: 9002, vertices: [] }],
+      bullets: [],
+      lives: 1,
+      status: 'playing'
+    });
+    await advanceFrames(page, 1);
+    after = await getState(page);
+    expect(after.status).toBe('gameOver');
+  });
+});

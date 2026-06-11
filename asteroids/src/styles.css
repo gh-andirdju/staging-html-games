@@ -235,6 +235,11 @@ canvas {
   transform: none;
 }
 
+#mute {
+  padding: 0;
+  font-size: 16px;
+}
+
 /* ── Help Panel ── */
 .help-overlay {
   position: fixed;

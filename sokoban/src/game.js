@@ -514,6 +514,7 @@
   const statusEl = document.getElementById('status');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl = document.getElementById('restart');
+  const muteEl = document.getElementById('mute');
   const helpEl = document.getElementById('help');
   const helpOverlayEl = document.getElementById('help-overlay');
   const helpCloseEl = document.getElementById('help-close');
@@ -558,6 +559,113 @@
     }
     return null;
   }
+
+  // ── Sound effects ────────────────────────────────────────────────────────
+
+  const MUTED_KEY = 'sokoban-muted';
+  const STEP_SFX_THROTTLE_MS = 80;
+
+  function createSfx() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let muted = readMuted();
+    let gestureSeen = false;
+    let audioCtx = null;
+    let lastStepAt = 0;
+
+    function readMuted() {
+      try {
+        return window.localStorage.getItem(MUTED_KEY) === '1';
+      } catch {
+        return false;
+      }
+    }
+
+    function writeMuted(value) {
+      try {
+        window.localStorage.setItem(MUTED_KEY, value ? '1' : '0');
+      } catch {}
+    }
+
+    function noteGesture() {
+      gestureSeen = true;
+    }
+
+    window.addEventListener('pointerdown', noteGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', noteGesture, { capture: true });
+
+    function getAudio() {
+      if (muted || !gestureSeen || navigator.webdriver || !AudioContextClass) return null;
+      if (!audioCtx) {
+        try {
+          audioCtx = new AudioContextClass();
+        } catch {
+          return null;
+        }
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function tone(startFreq, endFreq, duration, delay = 0, type = 'square', peak = 0.1) {
+      const audio = getAudio();
+      if (!audio) return;
+      try {
+        const startAt = audio.currentTime + delay;
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(startFreq, startAt);
+        if (endFreq !== startFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startAt + duration);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak, startAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+      } catch {}
+    }
+
+    return {
+      isMuted() {
+        return muted;
+      },
+      setMuted(value) {
+        muted = Boolean(value);
+        writeMuted(muted);
+      },
+      // Very soft step tick, throttled so quick runs never stack oscillators
+      playStep() {
+        const now = performance.now();
+        if (now - lastStepAt < STEP_SFX_THROTTLE_MS) return;
+        lastStepAt = now;
+        tone(300, 300, 0.03, 0, 'square', 0.04);
+      },
+      // Slightly deeper tick when a box is pushed
+      playPush() {
+        tone(196, 196, 0.045, 0, 'square', 0.06);
+      },
+      // Positive blip when a push lands a box on a target
+      playBoxOnTarget() {
+        tone(523, 784, 0.08, 0, 'triangle', 0.08);
+      },
+      // Reverse tick, lower, for undo
+      playUndo() {
+        tone(220, 165, 0.05, 0, 'square', 0.05);
+      },
+      playLevelComplete() {
+        tone(392, 784, 0.12, 0, 'triangle', 0.09);
+      },
+      playNewBest() {
+        tone(523, 523, 0.06, 0, 'triangle');
+        tone(659, 659, 0.06, 0.07, 'triangle');
+        tone(784, 784, 0.06, 0.14, 'triangle');
+        tone(1047, 1047, 0.1, 0.21, 'triangle');
+      },
+    };
+  }
+
+  const sfx = createSfx();
 
   let state = null;
   let autoStep = true;
@@ -669,6 +777,11 @@
       state.playerPos = { row: nr, col: nc };
       state.moves++;
       state.pushes++;
+      if (state.board[br][bc] === TARGET) {
+        sfx.playBoxOnTarget();
+      } else {
+        sfx.playPush();
+      }
     } else {
       // Plain move
       state.history.push({
@@ -680,12 +793,18 @@
 
       state.playerPos = { row: nr, col: nc };
       state.moves++;
+      sfx.playStep();
     }
 
     if (checkWin()) {
       state.status = 'won';
       winFrames = 0;
       recordBest();
+      if (state.newBest) {
+        sfx.playNewBest();
+      } else {
+        sfx.playLevelComplete();
+      }
     }
 
     render();
@@ -702,6 +821,7 @@
     state.boxes = prev.boxes;
     state.moves = prev.moves;
     state.pushes = prev.pushes;
+    sfx.playUndo();
 
     render();
     updateHud();
@@ -903,6 +1023,14 @@
       statusEl.textContent = 'Playing';
       delete statusWrapEl.dataset.tone;
     }
+
+    muteEl.textContent = sfx.isMuted() ? '🔇' : '🔊';
+    muteEl.setAttribute('aria-pressed', sfx.isMuted() ? 'true' : 'false');
+  }
+
+  function toggleMute() {
+    sfx.setMuted(!sfx.isMuted());
+    updateHud();
   }
 
   // ── Input ───────────────────────────────────────────────────────────────
@@ -960,6 +1088,7 @@
     loadLevel(state.level);
   });
 
+  muteEl.addEventListener('click', toggleMute);
   helpEl.addEventListener('click', openHelp);
   helpCloseEl.addEventListener('click', closeHelp);
   helpOverlayEl.addEventListener('click', (e) => {
@@ -981,7 +1110,7 @@
     isReady: false,
 
     getState() {
-      return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden };
+      return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden, muted: sfx.isMuted() };
     },
 
     setState(next) {
@@ -1024,6 +1153,11 @@
 
     async restart() {
       loadLevel(state.level);
+    },
+
+    setMuted(value) {
+      sfx.setMuted(Boolean(value));
+      updateHud();
     },
   };
 

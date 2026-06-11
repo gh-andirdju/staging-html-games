@@ -122,6 +122,117 @@
     } catch {}
   }
 
+  // Sound effects
+  var MUTED_KEY = 'space-invaders-muted';
+
+  function createSfx() {
+    var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    var muted = readMuted();
+    var gestureSeen = false;
+    var audioCtx = null;
+
+    function readMuted() {
+      try {
+        return window.localStorage.getItem(MUTED_KEY) === '1';
+      } catch {
+        return false;
+      }
+    }
+
+    function writeMuted(value) {
+      try {
+        window.localStorage.setItem(MUTED_KEY, value ? '1' : '0');
+      } catch {}
+    }
+
+    function noteGesture() {
+      gestureSeen = true;
+    }
+
+    window.addEventListener('pointerdown', noteGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', noteGesture, { capture: true });
+
+    function getAudio() {
+      if (muted || !gestureSeen || navigator.webdriver || !AudioContextClass) return null;
+      if (!audioCtx) {
+        try {
+          audioCtx = new AudioContextClass();
+        } catch {
+          return null;
+        }
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(function () {});
+      return audioCtx;
+    }
+
+    function tone(startFreq, endFreq, duration, delay, type, peak) {
+      var audio = getAudio();
+      if (!audio) return;
+      try {
+        var startAt = audio.currentTime + (delay || 0);
+        var osc = audio.createOscillator();
+        var gain = audio.createGain();
+        osc.type = type || 'square';
+        osc.frequency.setValueAtTime(startFreq, startAt);
+        if (endFreq !== startFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startAt + duration);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak || 0.1, startAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+      } catch {}
+    }
+
+    return {
+      isMuted: function () {
+        return muted;
+      },
+      setMuted: function (value) {
+        muted = Boolean(value);
+        writeMuted(muted);
+      },
+      playPlayerFire: function () {
+        tone(900, 500, 0.06, 0, 'square', 0.07);
+      },
+      // Tick pitched by formation row — top rows (higher value) ring higher
+      playEnemyHit: function (row) {
+        var freq = 320 - Math.max(0, Math.min(4, row)) * 40;
+        tone(freq, freq, 0.05, 0, 'square', 0.08);
+      },
+      playPlayerHit: function () {
+        tone(330, 130, 0.13, 0, 'sawtooth', 0.09);
+      },
+      // Distinct warble blip when the UFO appears
+      playUfo: function () {
+        tone(620, 620, 0.06, 0, 'triangle', 0.08);
+        tone(780, 780, 0.06, 0.07, 'triangle', 0.08);
+        tone(620, 620, 0.06, 0.14, 'triangle', 0.08);
+      },
+      playWaveClear: function () {
+        tone(392, 784, 0.12, 0, 'triangle');
+      },
+      playGameOver: function () {
+        tone(294, 98, 0.15, 0, 'sawtooth', 0.09);
+      },
+      playNewRecord: function () {
+        tone(523, 523, 0.06, 0, 'triangle');
+        tone(659, 659, 0.06, 0.07, 'triangle');
+        tone(784, 784, 0.06, 0.14, 'triangle');
+        tone(1047, 1047, 0.1, 0.21, 'triangle');
+      }
+    };
+  }
+
+  var sfx = createSfx();
+
+  // Plays the game-over descent, or the record arpeggio when a new best was set
+  function playGameOverSound() {
+    if (state.newRecord) sfx.playNewRecord();
+    else sfx.playGameOver();
+  }
+
   var canvas = document.getElementById('game');
   var ctx = canvas.getContext('2d');
   var scoreEl = document.getElementById('score');
@@ -130,6 +241,7 @@
   var waveEl = document.getElementById('wave');
   var statusEl = document.getElementById('status-msg');
   var pauseBtn = document.getElementById('btn-pause');
+  var muteBtn = document.getElementById('mute');
   var helpBtn = document.getElementById('help');
   var helpOverlayEl = document.getElementById('help-overlay');
   var helpCloseBtn = document.getElementById('help-close');
@@ -296,6 +408,7 @@
         var pts = UFO_SCORES[Math.floor(rng() * UFO_SCORES.length)];
         state.ufo = { x: startX, y: UFO_Y, dir: dir, speed: cfg.ufoSpeed, pointValue: pts };
         state.ufoSpawnTimer = 0;
+        sfx.playUfo();
       }
       return;
     }
@@ -366,7 +479,8 @@
             db.alive = false;
             db.phase = 'return'; // keep consistent state before lives check
             state.lives--;
-            if (state.lives <= 0) { state.lives = 0; state.status = 'gameover'; return; }
+            if (state.lives <= 0) { state.lives = 0; state.status = 'gameover'; playGameOverSound(); return; }
+            sfx.playPlayerHit();
             state.deathTimer = DEATH_TIMER_FRAMES;
             state.bullets = [];
             continue;
@@ -454,6 +568,7 @@
         y: PLAYER_Y - BULLET_H
       });
       state.bulletCooldown = BULLET_COOLDOWN;
+      sfx.playPlayerFire();
     }
 
     // Move player bullets
@@ -503,6 +618,7 @@
     for (var e = 0; e < state.enemies.length; e++) {
       if (state.enemies[e].alive && state.enemies[e].y + ENEMY_H >= PLAYER_Y) {
         state.status = 'gameover';
+        playGameOverSound();
         return;
       }
     }
@@ -566,6 +682,7 @@
         if (rectOverlap(b.x, b.y, BULLET_W, BULLET_H, en.x, en.y, ENEMY_W, ENEMY_H)) {
           en.alive = false;
           state.score += (SCORE_BY_ROW[en.row] || 10) * scoreMultiplier;
+          sfx.playEnemyHit(en.row);
           hit = true;
           break;
         }
@@ -583,6 +700,7 @@
         if (rectOverlap(b.x, b.y, BULLET_W, BULLET_H, db.x, db.y, ENEMY_W, ENEMY_H)) {
           db.alive = false;
           state.score += DIVE_BOMBER_SCORE * scoreMultiplier;
+          sfx.playEnemyHit(0);
           hit = true;
           break;
         }
@@ -599,6 +717,7 @@
           state.score += state.ufo.pointValue * scoreMultiplier;
           state.ufo = null;
           state.bullets.splice(bi, 1);
+          sfx.playEnemyHit(0);
           break;
         }
       }
@@ -616,6 +735,7 @@
             state.boss.alive = false;
             if (state.boss.beam) state.boss.beam.active = false;
             state.score += BOSS_SCORE * scoreMultiplier;
+            sfx.playEnemyHit(0);
           } else {
             state.boss.flashTimer = 20;
           }
@@ -648,8 +768,10 @@
         if (state.lives <= 0) {
           state.lives = 0;
           state.status = 'gameover';
+          playGameOverSound();
           return;
         }
+        sfx.playPlayerHit();
         state.deathTimer = DEATH_TIMER_FRAMES;
         state.bullets = [];
         break;
@@ -668,8 +790,10 @@
         if (state.lives <= 0) {
           state.lives = 0;
           state.status = 'gameover';
+          playGameOverSound();
           return;
         }
+        sfx.playPlayerHit();
         state.deathTimer = 90; // longer stun — Galaga capture spirit
         state.bullets = [];
       }
@@ -686,8 +810,10 @@
         if (state.lives <= 0) {
           state.lives = 0;
           state.status = 'gameover';
+          playGameOverSound();
           return;
         }
+        sfx.playPlayerHit();
         state.deathTimer = DEATH_TIMER_FRAMES;
         state.bullets = [];
         break;
@@ -696,6 +822,7 @@
 
     // Wave advance
     if (allClear()) {
+      sfx.playWaveClear();
       state.wave++;
       state.waveConfig = getWaveConfig(state.wave);
       state.enemies = buildEnemies(state.waveConfig.formation);
@@ -732,6 +859,8 @@
     }
     pauseBtn.textContent = state.paused ? 'Resume' : 'Pause';
     pauseBtn.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
+    muteBtn.textContent = sfx.isMuted() ? '🔇' : '🔊';
+    muteBtn.setAttribute('aria-pressed', sfx.isMuted() ? 'true' : 'false');
   }
 
   function togglePause() {
@@ -739,6 +868,11 @@
     state.paused = !state.paused;
     updateHud();
     draw();
+  }
+
+  function toggleMute() {
+    sfx.setMuted(!sfx.isMuted());
+    updateHud();
   }
 
   function openHelp() {
@@ -1012,6 +1146,7 @@
 
   document.getElementById('btn-restart').addEventListener('click', restart);
   pauseBtn.addEventListener('click', togglePause);
+  muteBtn.addEventListener('click', toggleMute);
   helpBtn.addEventListener('click', openHelp);
   helpCloseBtn.addEventListener('click', closeHelp);
   helpOverlayEl.addEventListener('click', function (e) {
@@ -1029,6 +1164,7 @@
     getState: function () {
       var snapshot = JSON.parse(JSON.stringify(state));
       snapshot.helpOpen = !helpOverlayEl.hidden;
+      snapshot.muted = sfx.isMuted();
       return snapshot;
     },
 
@@ -1048,6 +1184,11 @@
 
     getControlsState: function () {
       return { left: keys.left, right: keys.right, fire: keys.fire };
+    },
+
+    setMuted: function (value) {
+      sfx.setMuted(Boolean(value));
+      updateHud();
     }
   };
 })();

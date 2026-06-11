@@ -55,6 +55,7 @@ body {
 .topbar-copy {
   display: grid;
   gap: 2px;
+  margin-right: auto;
 }
 
 .eyebrow,
@@ -258,7 +259,8 @@ body {
 
 /* ── Guide overlay ─────────────────────────────────────────────────── */
 
-#guide-help {
+#guide-help,
+#mute {
   border: 1px solid var(--accent);
   border-radius: 14px;
   background: var(--button-bg);
@@ -274,16 +276,19 @@ body {
   transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-#guide-help:hover {
+#guide-help:hover,
+#mute:hover {
   filter: brightness(1.08);
 }
 
-#guide-help:focus-visible {
+#guide-help:focus-visible,
+#mute:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-#guide-help:active {
+#guide-help:active,
+#mute:active {
   filter: brightness(0.95);
   transform: translateY(1px);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
@@ -530,7 +535,8 @@ body {
   }
 
   #restart,
-  #guide-help {
+  #guide-help,
+  #mute {
     padding: 7px 11px;
   }
 
@@ -609,6 +615,7 @@ body {
 
   #restart:active,
   #guide-help:active,
+  #mute:active,
   #guide-next:active {
     transform: none;
   }

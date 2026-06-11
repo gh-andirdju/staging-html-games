@@ -31,6 +31,7 @@
   const statusEl    = document.getElementById('status');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl   = document.getElementById('restart');
+  const muteEl      = document.getElementById('mute');
   const helpEl      = document.getElementById('help');
   const helpOverlayEl = document.getElementById('help-overlay');
   const helpCloseEl = document.getElementById('help-close');
@@ -74,9 +75,114 @@
     } catch {}
   }
 
+  const MUTED_KEY = 'minesweeper-muted';
+
+  function createSfx() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let muted = readMuted();
+    let gestureSeen = false;
+    let audioCtx = null;
+
+    function readMuted() {
+      try {
+        return window.localStorage.getItem(MUTED_KEY) === '1';
+      } catch {
+        return false;
+      }
+    }
+
+    function writeMuted(value) {
+      try {
+        window.localStorage.setItem(MUTED_KEY, value ? '1' : '0');
+      } catch {}
+    }
+
+    function noteGesture() {
+      gestureSeen = true;
+    }
+
+    window.addEventListener('pointerdown', noteGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', noteGesture, { capture: true });
+
+    function getAudio() {
+      if (muted || !gestureSeen || navigator.webdriver || !AudioContextClass) return null;
+      if (!audioCtx) {
+        try {
+          audioCtx = new AudioContextClass();
+        } catch {
+          return null;
+        }
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function tone(startFreq, endFreq, duration, delay = 0, type = 'square', peak = 0.1) {
+      const audio = getAudio();
+      if (!audio) return;
+      try {
+        const startAt = audio.currentTime + delay;
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(startFreq, startAt);
+        if (endFreq !== startFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startAt + duration);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak, startAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+      } catch {}
+    }
+
+    return {
+      isMuted() {
+        return muted;
+      },
+      setMuted(value) {
+        muted = Boolean(value);
+        writeMuted(muted);
+      },
+      // Soft tick — one per reveal click, even when the flood fill cascades
+      playReveal() {
+        tone(360, 360, 0.03, 0, 'square', 0.05);
+      },
+      // Two pitches: up when a flag goes on, down when it comes off
+      playFlag(on) {
+        if (on) {
+          tone(440, 587, 0.06, 0, 'triangle', 0.07);
+        } else {
+          tone(440, 330, 0.06, 0, 'triangle', 0.07);
+        }
+      },
+      // Slightly stronger tick for a chord reveal
+      playChord() {
+        tone(300, 300, 0.05, 0, 'square', 0.07);
+      },
+      playWin() {
+        tone(392, 784, 0.12, 0, 'triangle', 0.09);
+      },
+      playNewBest() {
+        tone(523, 523, 0.06, 0, 'triangle');
+        tone(659, 659, 0.06, 0.07, 'triangle');
+        tone(784, 784, 0.06, 0.14, 'triangle');
+        tone(1047, 1047, 0.1, 0.21, 'triangle');
+      },
+      // Descent thud on a mine hit
+      playMine() {
+        tone(220, 70, 0.15, 0, 'sawtooth', 0.1);
+      },
+    };
+  }
+
+  const sfx = createSfx();
+
   let state = null;
   let autoStep = true;
   let rafId = null;
+  let chordCascade = false;
 
   function makeCell() {
     return { mine: false, revealed: false, flagged: false, adjacent: 0 };
@@ -150,12 +256,14 @@
       state.statusMessage = 'Game over — hit a mine!';
       state.statusTone = 'warning';
       state.statusMessageTimer = STATUS_FRAMES;
+      sfx.playMine();
       revealAllMines();
       updateHud();
       return;
     }
 
     doReveal(row, col);
+    if (!chordCascade) sfx.playReveal();
 
     if (checkWin()) {
       state.won = true;
@@ -167,8 +275,10 @@
         writeBestTimes(bestTimes);
         state.bestTime = state.timeElapsed;
         state.statusMessage = `Cleared in ${state.timeElapsed}s — New best time!`;
+        sfx.playNewBest();
       } else {
         state.statusMessage = `Cleared in ${state.timeElapsed}s · Best ${previousBest}s`;
+        sfx.playWin();
       }
       state.statusTone = 'milestone';
       state.statusMessageTimer = STATUS_FRAMES;
@@ -228,6 +338,7 @@
       cell.flagged = true;
       state.flagged++;
     }
+    sfx.playFlag(cell.flagged);
     updateHud();
   }
 
@@ -243,10 +354,13 @@
       if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc].flagged) flagCount++;
     }
     if (flagCount !== cell.adjacent) return;
+    sfx.playChord();
+    chordCascade = true;
     for (const [dr, dc] of NEIGHBORS) {
       const nr = row + dr, nc = col + dc;
       if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) revealCell(nr, nc);
     }
+    chordCascade = false;
   }
 
   function checkWin() {
@@ -297,6 +411,13 @@
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-pressed', String(active));
     });
+    muteEl.textContent = sfx.isMuted() ? '🔇' : '🔊';
+    muteEl.setAttribute('aria-pressed', sfx.isMuted() ? 'true' : 'false');
+  }
+
+  function toggleMute() {
+    sfx.setMuted(!sfx.isMuted());
+    updateHud();
   }
 
   function updateDiffButtons() {
@@ -524,6 +645,7 @@
 
   restartEl.addEventListener('click', () => restartGame());
 
+  muteEl.addEventListener('click', toggleMute);
   helpEl.addEventListener('click', openHelp);
   helpCloseEl.addEventListener('click', closeHelp);
   helpOverlayEl.addEventListener('click', (event) => {
@@ -566,7 +688,7 @@
   window.__minesweeperTest = {
     isReady: true,
     getState() {
-      return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden };
+      return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden, muted: sfx.isMuted() };
     },
     setState(incoming) {
       const next = structuredClone(incoming);
@@ -627,6 +749,10 @@
     flagCell(row, col) {
       toggleFlag(row, col);
       draw();
+    },
+    setMuted(value) {
+      sfx.setMuted(Boolean(value));
+      updateHud();
     },
     setBoard(config) {
       const rows = config.length;

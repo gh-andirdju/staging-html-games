@@ -685,3 +685,73 @@ test.describe('how to play help', () => {
     expect(s.paused).toBe(true);
   });
 });
+
+test.describe('sound and mute', () => {
+  test('mute button toggles aria-pressed and persists snake-muted across reload', async ({ page }) => {
+    await openGame(page);
+    const muteBtn = page.locator('#mute');
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(muteBtn).toHaveText('🔊');
+
+    await muteBtn.click();
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(muteBtn).toHaveText('🔇');
+    let stored = await page.evaluate(() => localStorage.getItem('snake-muted'));
+    expect(stored).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+    let s = await getState(page);
+    expect(s.muted).toBe(true);
+
+    await page.locator('#mute').click();
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+    stored = await page.evaluate(() => localStorage.getItem('snake-muted'));
+    expect(stored).toBe('0');
+  });
+
+  test('muted state is exposed via getState and setMuted updates it', async ({ page }) => {
+    await openGame(page);
+    let s = await getState(page);
+    expect(s.muted).toBe(false);
+
+    await page.evaluate(() => window.__snakeTest.setMuted(true));
+    s = await getState(page);
+    expect(s.muted).toBe(true);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.evaluate(() => window.__snakeTest.setMuted(false));
+    s = await getState(page);
+    expect(s.muted).toBe(false);
+  });
+
+  test('eating food, leveling up, and game over run cleanly with sound wired', async ({ page }) => {
+    await openGame(page);
+    await page.evaluate(() => {
+      window.__snakeTest.setSeededValue(7);
+      window.__snakeTest.setState({
+        snake: [{ x: 5, y: 10 }, { x: 4, y: 10 }, { x: 3, y: 10 }],
+        direction: { x: 1, y: 0 },
+        nextDirection: { x: 1, y: 0 },
+        food: { x: 6, y: 10 },
+        score: 40,
+        highScore: 40,
+        level: 1,
+        foodEaten: 4,
+        tickInterval: 12,
+        tickCounter: 0,
+        gameOver: false,
+        frame: 0
+      });
+    });
+
+    await advanceFrames(page, 12);
+    let s = await getState(page);
+    expect(s.foodEaten).toBe(5);
+    expect(s.level).toBe(2);
+
+    await advanceFrames(page, 200);
+    s = await getState(page);
+    expect(s.gameOver).toBe(true);
+  });
+});

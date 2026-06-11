@@ -25,7 +25,10 @@ Classic snake on a 20x20 grid (20px cells). The snake advances one cell per move
 | `setAutoStep(bool)` | `function` | Enable/disable the RAF loop |
 | `advanceFrames(n)` | `async function` | Step the game tick `n` times |
 | `setSeededValue(n)` | `function` | Seed the internal RNG for deterministic food placement |
+| `setMuted(bool)` | `function` | Set the sound-effects mute state (persisted as `snake-muted`) |
 | `restart()` | `async function` | Restart the game |
+
+`getState()` additionally returns `muted`. Sound effects are short WebAudio blips (eat, level up, game over, new record) created lazily after the first user gesture and fully disabled under `navigator.webdriver`.
 
 State shape returned by `getState()`:
 ```js

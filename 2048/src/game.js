@@ -3,6 +3,7 @@
   const WIN_VALUE = 2048;
   const BEST_STORAGE_KEY = '2048-best';
   const GUIDE_STORAGE_KEY = '2048-guide-seen';
+  const MUTED_STORAGE_KEY = '2048-muted';
   const GUIDE_TOTAL_STEPS = 4;
 
   const gridEl = document.getElementById('grid');
@@ -11,6 +12,7 @@
   const statusEl = document.getElementById('status');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl = document.getElementById('restart');
+  const muteEl = document.getElementById('mute');
   const guideOverlayEl = document.getElementById('guide-overlay');
   const guideNextEl = document.getElementById('guide-next');
   const guidePrevEl = document.getElementById('guide-prev');
@@ -47,6 +49,89 @@
       localStorage.setItem(BEST_STORAGE_KEY, String(value));
     } catch {}
   }
+
+  function createSfx() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let muted = readMuted();
+    let gestureSeen = false;
+    let audioCtx = null;
+
+    function readMuted() {
+      try {
+        return localStorage.getItem(MUTED_STORAGE_KEY) === '1';
+      } catch {
+        return false;
+      }
+    }
+
+    function writeMuted(value) {
+      try {
+        localStorage.setItem(MUTED_STORAGE_KEY, value ? '1' : '0');
+      } catch {}
+    }
+
+    function noteGesture() {
+      gestureSeen = true;
+    }
+
+    window.addEventListener('pointerdown', noteGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', noteGesture, { capture: true });
+
+    function getAudio() {
+      if (muted || !gestureSeen || navigator.webdriver || !AudioContextClass) return null;
+      if (!audioCtx) {
+        try {
+          audioCtx = new AudioContextClass();
+        } catch {
+          return null;
+        }
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function tone(startFreq, endFreq, duration, delay = 0, type = 'triangle', peak = 0.1) {
+      const audio = getAudio();
+      if (!audio) return;
+      try {
+        const startAt = audio.currentTime + delay;
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(startFreq, startAt);
+        if (endFreq !== startFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startAt + duration);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak, startAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+      } catch {}
+    }
+
+    return {
+      isMuted() {
+        return muted;
+      },
+      setMuted(value) {
+        muted = Boolean(value);
+        writeMuted(muted);
+      },
+      playSlide() {
+        tone(200, 200, 0.04, 0, 'triangle', 0.05);
+      },
+      playMerge(value) {
+        const freq = 280 + Math.log2(Math.max(4, value)) * 55;
+        tone(freq, freq, 0.08, 0, 'triangle', 0.11);
+      },
+      playGameOver() {
+        tone(330, 110, 0.15, 0, 'sawtooth', 0.09);
+      }
+    };
+  }
+
+  const sfx = createSfx();
 
   function createGrid() {
     return Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
@@ -192,6 +277,20 @@
     if (!hasValidMoves()) {
       state.gameOver = true;
       state.statusMessage = 'Game Over';
+      sfx.playGameOver();
+    }
+  }
+
+  function playMoveSound() {
+    let maxMerged = 0;
+    state.mergedCells.forEach(key => {
+      const [r, c] = key.split(',').map(Number);
+      maxMerged = Math.max(maxMerged, state.grid[r][c]);
+    });
+    if (maxMerged > 0) {
+      sfx.playMerge(maxMerged);
+    } else {
+      sfx.playSlide();
     }
   }
 
@@ -344,6 +443,7 @@
     if (state.gameOver) return;
     const moved = slide(direction);
     if (moved) {
+      playMoveSound();
       spawnTile();
       checkWin();
     }
@@ -369,6 +469,7 @@
     }
     const moved = slide(direction);
     if (moved) {
+      playMoveSound();
       spawnTile();
       checkWin();
     }
@@ -383,6 +484,16 @@
   }, { passive: true });
   document.addEventListener('touchend', handleTouchEnd, { passive: true });
   restartEl.addEventListener('click', restartGame);
+
+  function updateMuteButton() {
+    muteEl.textContent = sfx.isMuted() ? '🔇' : '🔊';
+    muteEl.setAttribute('aria-pressed', sfx.isMuted() ? 'true' : 'false');
+  }
+
+  muteEl.addEventListener('click', () => {
+    sfx.setMuted(!sfx.isMuted());
+    updateMuteButton();
+  });
 
   function setAutoStep(enabled) {
     autoStep = Boolean(enabled);
@@ -400,6 +511,7 @@
   }
 
   restartGame();
+  updateMuteButton();
   setAutoStep(true);
   if (!hasSeenGuide()) showGuide(0);
 
@@ -413,7 +525,8 @@
         gameOver: state.gameOver,
         won: state.won,
         rngSeed,
-        statusMessage: state.statusMessage
+        statusMessage: state.statusMessage,
+        muted: sfx.isMuted()
       };
     },
     setState(nextState) {
@@ -452,6 +565,10 @@
       checkWin();
       checkGameOver();
       render();
+    },
+    setMuted(value) {
+      sfx.setMuted(Boolean(value));
+      updateMuteButton();
     },
     isGuideVisible() { return !guideOverlayEl.hidden; },
     getGuideStep() { return guideStep; },

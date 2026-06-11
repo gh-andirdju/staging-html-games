@@ -77,6 +77,7 @@ body {
 
 #restart,
 #pause,
+#mute,
 #help,
 #help-close {
   border: 1px solid var(--accent);
@@ -94,12 +95,14 @@ body {
   transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
+#mute,
 #help {
   padding: 10px 0;
 }
 
 #restart:hover,
 #pause:hover,
+#mute:hover,
 #help:hover,
 #help-close:hover {
   filter: brightness(1.08);
@@ -107,6 +110,7 @@ body {
 
 #restart:active,
 #pause:active,
+#mute:active,
 #help:active,
 #help-close:active {
   filter: brightness(0.95);
@@ -116,6 +120,7 @@ body {
 
 #restart:focus-visible,
 #pause:focus-visible,
+#mute:focus-visible,
 #help:focus-visible,
 #help-close:focus-visible {
   outline: 2px solid var(--accent);
@@ -563,6 +568,7 @@ body {
     font-size: 13px;
   }
 
+  #mute,
   #help {
     padding: 8px 0;
     font-size: 13px;
@@ -654,6 +660,7 @@ body {
 
   #restart:active,
   #pause:active,
+  #mute:active,
   #help:active,
   #help-close:active,
   .dpad-btn:active,

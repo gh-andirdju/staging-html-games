@@ -30,12 +30,105 @@
   const playerDownBtn = document.getElementById('player-down');
   const restartBtn = document.getElementById('restart');
   const pauseBtn = document.getElementById('pause');
+  const muteBtn = document.getElementById('mute');
   const helpBtn = document.getElementById('help');
   const helpOverlayEl = document.getElementById('help-overlay');
   const helpCloseBtn = document.getElementById('help-close');
   const gameShellEl = document.querySelector('.game-shell');
 
   const HELP_SEEN_KEY = 'pong-help-seen';
+  const MUTED_KEY = 'pong-muted';
+
+  function createSfx() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let muted = readMuted();
+    let gestureSeen = false;
+    let audioCtx = null;
+
+    function readMuted() {
+      try {
+        return window.localStorage.getItem(MUTED_KEY) === '1';
+      } catch {
+        return false;
+      }
+    }
+
+    function writeMuted(value) {
+      try {
+        window.localStorage.setItem(MUTED_KEY, value ? '1' : '0');
+      } catch {}
+    }
+
+    function noteGesture() {
+      gestureSeen = true;
+    }
+
+    window.addEventListener('pointerdown', noteGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', noteGesture, { capture: true });
+
+    function getAudio() {
+      if (muted || !gestureSeen || navigator.webdriver || !AudioContextClass) return null;
+      if (!audioCtx) {
+        try {
+          audioCtx = new AudioContextClass();
+        } catch {
+          return null;
+        }
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(function () {});
+      return audioCtx;
+    }
+
+    function tone(startFreq, endFreq, duration, delay, type, peak) {
+      const audio = getAudio();
+      if (!audio) return;
+      try {
+        const startAt = audio.currentTime + (delay || 0);
+        const osc = audio.createOscillator();
+        const gain = audio.createGain();
+        osc.type = type || 'square';
+        osc.frequency.setValueAtTime(startFreq, startAt);
+        if (endFreq !== startFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startAt + duration);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak || 0.1, startAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+      } catch {}
+    }
+
+    return {
+      isMuted: function () {
+        return muted;
+      },
+      setMuted: function (value) {
+        muted = Boolean(value);
+        writeMuted(muted);
+      },
+      // hitRatio in [-1, 1] — edge hits ring slightly higher than center hits
+      playPaddleHit: function (hitRatio) {
+        const offset = Math.min(1, Math.abs(hitRatio || 0));
+        tone(460 + offset * 160, 460 + offset * 160, 0.06, 0, 'square', 0.09);
+      },
+      playWallBounce: function () {
+        tone(240, 240, 0.05, 0, 'square', 0.08);
+      },
+      playPoint: function () {
+        tone(587, 587, 0.06, 0, 'triangle');
+        tone(440, 440, 0.08, 0.07, 'triangle');
+      },
+      playWin: function () {
+        tone(392, 784, 0.14, 0, 'triangle');
+      },
+      playLose: function () {
+        tone(392, 196, 0.15, 0, 'sawtooth', 0.09);
+      }
+    };
+  }
+
+  const sfx = createSfx();
 
   const keys = { up: false, down: false };
   let autoStep = true;
@@ -92,13 +185,16 @@
     if (state.playerScore >= WIN_SCORE) {
       state.gameState = 'won';
       state.winner = 'player';
+      sfx.playWin();
     } else if (state.aiScore >= WIN_SCORE) {
       state.gameState = 'won';
       state.winner = 'ai';
+      sfx.playLose();
     } else {
       resetBall();
       state.gameState = 'serving';
       state.serveTimer = SERVE_DELAY;
+      sfx.playPoint();
     }
   }
 
@@ -142,9 +238,11 @@
     if (ball.y - BALL_R < 0) {
       ball.y = BALL_R;
       ball.dy = Math.abs(ball.dy);
+      sfx.playWallBounce();
     } else if (ball.y + BALL_R > HEIGHT) {
       ball.y = HEIGHT - BALL_R;
       ball.dy = -Math.abs(ball.dy);
+      sfx.playWallBounce();
     }
 
     // Player paddle collision (left side)
@@ -156,6 +254,7 @@
         const hitRatio = (ball.y - (pp.y + PADDLE_H / 2)) / (PADDLE_H / 2);
         ball.dy = hitRatio * speed * 0.85;
         if (Math.abs(ball.dy) < 40) ball.dy = ball.dy >= 0 ? 40 : -40;
+        sfx.playPaddleHit(hitRatio);
       }
     }
 
@@ -168,6 +267,7 @@
         const hitRatio = (ball.y - (ap.y + PADDLE_H / 2)) / (PADDLE_H / 2);
         ball.dy = hitRatio * speed * 0.85;
         if (Math.abs(ball.dy) < 40) ball.dy = ball.dy >= 0 ? 40 : -40;
+        sfx.playPaddleHit(hitRatio);
       }
     }
 
@@ -252,6 +352,8 @@
     }
     pauseBtn.textContent = state.paused ? 'Resume' : 'Pause';
     pauseBtn.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
+    muteBtn.textContent = sfx.isMuted() ? '🔇' : '🔊';
+    muteBtn.setAttribute('aria-pressed', sfx.isMuted() ? 'true' : 'false');
   }
 
   function togglePause() {
@@ -259,6 +361,11 @@
     state.paused = !state.paused;
     updateHud();
     draw();
+  }
+
+  function toggleMute() {
+    sfx.setMuted(!sfx.isMuted());
+    updateHud();
   }
 
   function hasSeenHelp() {
@@ -344,6 +451,7 @@
     snap.aiPaddle.width = PADDLE_W;
     snap.aiPaddle.height = PADDLE_H;
     snap.helpOpen = !helpOverlayEl.hidden;
+    snap.muted = sfx.isMuted();
     return snap;
   }
 
@@ -393,6 +501,9 @@
   // Pause button
   pauseBtn.addEventListener('click', togglePause);
 
+  // Mute button
+  muteBtn.addEventListener('click', toggleMute);
+
   // Help panel
   helpBtn.addEventListener('click', openHelp);
   helpCloseBtn.addEventListener('click', closeHelp);
@@ -433,6 +544,10 @@
     restart: function () {
       gameRestart();
       return publicState();
+    },
+    setMuted: function (value) {
+      sfx.setMuted(Boolean(value));
+      updateHud();
     }
   };
 
