@@ -623,6 +623,98 @@ test('pressing R restarts the game', async ({ page }) => {
   expect(levelNumber(state)).toBe(1);
 });
 
+test('pressing P pauses and freezes ball movement and power-up timers', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'movingBall');
+  await setState(page, { activeEffects: { slow: 300 } });
+
+  await page.keyboard.press('p');
+  let state = await getState(page);
+  expect(state.paused).toBe(true);
+  await expect(page.locator('#status')).toHaveText('Paused');
+
+  const before = await getState(page);
+  await advanceFrames(page, 10);
+  state = await getState(page);
+  expect(ballPosition(state)).toEqual(ballPosition(before));
+  expect(state.activeEffects.slow).toBe(300);
+});
+
+test('pressing P again resumes the simulation', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'movingBall');
+
+  await page.keyboard.press('p');
+  const before = await getState(page);
+
+  await page.keyboard.press('p');
+  let state = await getState(page);
+  expect(state.paused).toBe(false);
+
+  await advanceFrames(page, 10);
+  state = await getState(page);
+  expect(ballPosition(state)).not.toEqual(ballPosition(before));
+});
+
+test('keyboard and pointer paddle input is ignored while paused', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'centerPaddle');
+  const startX = paddleX(await getState(page));
+
+  await page.keyboard.press('p');
+
+  await page.keyboard.down('ArrowRight');
+  await advanceFrames(page, 8);
+  await page.keyboard.up('ArrowRight');
+  expect(paddleX(await getState(page))).toBe(startX);
+
+  const canvas = page.locator('canvas').first();
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.8);
+  expect(paddleX(await getState(page))).toBe(startX);
+});
+
+test('pause button toggles pause and flips its label', async ({ page }) => {
+  await openGame(page);
+  const pauseBtn = page.locator('#pause');
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+
+  await pauseBtn.click();
+  let state = await getState(page);
+  expect(state.paused).toBe(true);
+  await expect(pauseBtn).toHaveText('Resume');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'true');
+
+  await pauseBtn.click();
+  state = await getState(page);
+  expect(state.paused).toBe(false);
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('pressing R while paused restarts the game unpaused', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { score: 250, lives: 1, level: 3 });
+
+  await page.keyboard.press('p');
+  let state = await getState(page);
+  expect(state.paused).toBe(true);
+
+  await page.keyboard.press('r');
+  state = await getState(page);
+  expect(state.paused).toBe(false);
+  expect(state.score).toBe(0);
+  expect(lives(state)).toBe(3);
+  expect(levelNumber(state)).toBe(1);
+
+  const before = await getState(page);
+  await advanceFrames(page, 10);
+  state = await getState(page);
+  expect(ballPosition(state)).not.toEqual(ballPosition(before));
+});
+
 test('moves the paddle with desktop pointer control', async ({ page }) => {
   await openGame(page);
   await mutateState(page, 'centerPaddle');

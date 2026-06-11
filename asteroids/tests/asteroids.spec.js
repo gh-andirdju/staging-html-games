@@ -638,6 +638,94 @@ test('advancing frames after game over does not change score or asteroids', asyn
   expect(after.asteroids.length).toBe(1);
 });
 
+// ── Pause ─────────────────────────────────────────────────────────────────────
+
+test('pressing P pauses and freezes ship, asteroids, bullets, and invincibility', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  await setState(page, {
+    ...s,
+    ship: { x: 400, y: 300, angle: 0, vx: 2, vy: 1, radius: 14, invincible: true, invincibleFrames: 120 },
+    asteroids: [{ x: 200, y: 200, vx: 2, vy: 1, radius: 80, size: 3, seed: 4001, vertices: [] }],
+    bullets: [{ x: 600, y: 300, vx: 5, vy: 0, life: 30 }],
+    status: 'playing'
+  });
+
+  await page.keyboard.press('p');
+  const before = await getState(page);
+  expect(before.paused).toBe(true);
+  await expect(page.locator('#hud-status')).toHaveText('Paused');
+
+  await advanceFrames(page, 10);
+
+  const after = await getState(page);
+  expect(after.ship.x).toBe(before.ship.x);
+  expect(after.ship.y).toBe(before.ship.y);
+  expect(after.ship.invincibleFrames).toBe(before.ship.invincibleFrames);
+  expect(after.asteroids[0].x).toBe(before.asteroids[0].x);
+  expect(after.asteroids[0].y).toBe(before.asteroids[0].y);
+  expect(after.bullets[0].x).toBe(before.bullets[0].x);
+  expect(after.bullets[0].life).toBe(before.bullets[0].life);
+});
+
+test('pressing P again resumes the simulation', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  await setState(page, {
+    ...s,
+    asteroids: [{ x: 200, y: 200, vx: 2, vy: 1, radius: 80, size: 3, seed: 4002, vertices: [] }],
+    status: 'playing'
+  });
+
+  await page.keyboard.press('p');
+  const before = await getState(page);
+
+  await page.keyboard.press('p');
+  let after = await getState(page);
+  expect(after.paused).toBe(false);
+  await expect(page.locator('#hud-status')).toHaveText('Playing');
+
+  await advanceFrames(page, 5);
+  after = await getState(page);
+  expect(after.asteroids[0].x).not.toBe(before.asteroids[0].x);
+});
+
+test('pause button toggles pause and flips its label', async ({ page }) => {
+  await openGame(page);
+  const pauseBtn = page.locator('#pause');
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+
+  await pauseBtn.click();
+  let state = await getState(page);
+  expect(state.paused).toBe(true);
+  await expect(pauseBtn).toHaveText('Resume');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'true');
+
+  await pauseBtn.click();
+  state = await getState(page);
+  expect(state.paused).toBe(false);
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('pressing R while paused restarts the game unpaused', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  await setState(page, { ...s, score: 740, level: 3, status: 'playing' });
+
+  await page.keyboard.press('p');
+  let state = await getState(page);
+  expect(state.paused).toBe(true);
+
+  await page.keyboard.press('r');
+  state = await getState(page);
+  expect(state.paused).toBe(false);
+  expect(state.score).toBe(0);
+  expect(state.level).toBe(1);
+  expect(state.status).toBe('playing');
+});
+
 // ── Bullet edge wrapping ──────────────────────────────────────────────────────
 
 test('bullet wraps from right edge to left edge', async ({ page }) => {

@@ -106,6 +106,7 @@
       lives: 3,
       level: 1,
       status: 'playing',
+      paused: false,
       width: W,
       height: H,
       fireCooldown: 0,
@@ -140,6 +141,7 @@
   // ── Update ────────────────────────────────────────────────────────────────
   function step() {
     if (state.status === 'gameOver') return;
+    if (state.paused) return;
 
     const s = state.ship;
 
@@ -279,6 +281,18 @@
     document.getElementById('hud-score').textContent = state.score;
     document.getElementById('hud-lives').textContent = state.lives;
     document.getElementById('hud-level').textContent = state.level;
+    document.getElementById('hud-status').textContent =
+      state.status === 'gameOver' ? 'Game Over' : (state.paused ? 'Paused' : 'Playing');
+    const pauseBtn = document.getElementById('pause');
+    pauseBtn.textContent = state.paused ? 'Resume' : 'Pause';
+    pauseBtn.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
+  }
+
+  function togglePause() {
+    if (state.status === 'gameOver') return;
+    state.paused = !state.paused;
+    updateHUD();
+    render();
   }
 
   // ── Rendering ─────────────────────────────────────────────────────────────
@@ -355,6 +369,16 @@
       ctx.fillStyle = '#fef9f0';
       ctx.font = '22px "Trebuchet MS", Arial, sans-serif';
       ctx.fillText('Press R to restart', W / 2, H / 2 + 26);
+    } else if (state.paused) {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 52px "Trebuchet MS", Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Paused', W / 2, H / 2 - 20);
+      ctx.fillStyle = '#fef9f0';
+      ctx.font = '22px "Trebuchet MS", Arial, sans-serif';
+      ctx.fillText('Press P to resume', W / 2, H / 2 + 26);
     }
   }
 
@@ -392,9 +416,13 @@
 
   // ── Controls ──────────────────────────────────────────────────────────────
   document.addEventListener('keydown', (e) => {
-    keys[e.code] = true;
     if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'ArrowLeft' || e.code === 'ArrowRight') e.preventDefault();
-    if (e.code === 'KeyR' && state.status === 'gameOver') {
+    if (e.code === 'KeyP' || e.code === 'Escape') {
+      togglePause();
+      return;
+    }
+    if (!state.paused) keys[e.code] = true;
+    if (e.code === 'KeyR' && (state.status === 'gameOver' || state.paused)) {
       restart();
     }
   });
@@ -405,7 +433,7 @@
     if (!el) return;
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      touchButtons[key] = true;
+      if (!state.paused) touchButtons[key] = true;
       el.classList.add('active');
     });
     el.addEventListener('pointerup', () => {
@@ -426,6 +454,9 @@
   bindTouchButton('rotate-right', 'ArrowRight');
   bindTouchButton('thrust', 'ArrowUp');
   bindTouchButton('fire', 'Space');
+
+  document.getElementById('pause').addEventListener('click', togglePause);
+  document.getElementById('restart').addEventListener('click', () => restart());
 
   // ── Restart ───────────────────────────────────────────────────────────────
   function restart() {

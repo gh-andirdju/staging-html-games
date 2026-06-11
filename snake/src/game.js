@@ -20,6 +20,7 @@
   const statusEl     = document.getElementById('status');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl    = document.getElementById('restart');
+  const pauseEl      = document.getElementById('pause');
   const touchButtons = Array.from(document.querySelectorAll('.touch-controls [data-action]'));
 
   const HIGH_SCORE_KEY = 'snake-high-score';
@@ -114,7 +115,7 @@
   }
 
   function oneFrame() {
-    if (!state.gameOver) {
+    if (!state.gameOver && !state.paused) {
       if (state.statusMessageTimer > 0) state.statusMessageTimer -= 1;
       state.tickCounter += 1;
       if (state.tickCounter >= state.tickInterval) {
@@ -184,6 +185,17 @@
       ctx.fillStyle = '#c4a46b';
       ctx.font      = '14px "Trebuchet MS", sans-serif';
       ctx.fillText('Press R or Restart', canvas.width / 2, canvas.height / 2 + 14);
+    } else if (state.paused) {
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.62)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle    = '#f59e0b';
+      ctx.font         = 'bold 28px "Trebuchet MS", sans-serif';
+      ctx.fillText('Paused', canvas.width / 2, canvas.height / 2 - 18);
+      ctx.fillStyle = '#c4a46b';
+      ctx.font      = '14px "Trebuchet MS", sans-serif';
+      ctx.fillText('Press P to resume', canvas.width / 2, canvas.height / 2 + 14);
     }
   }
 
@@ -195,6 +207,9 @@
     if (state.gameOver) {
       statusEl.textContent      = 'Game Over';
       statusWrapEl.dataset.tone = 'warning';
+    } else if (state.paused) {
+      statusEl.textContent      = 'Paused';
+      statusWrapEl.dataset.tone = 'normal';
     } else if (state.statusMessageTimer > 0 && state.statusMessage) {
       statusEl.textContent      = state.statusMessage;
       statusWrapEl.dataset.tone = state.statusTone;
@@ -202,6 +217,8 @@
       statusEl.textContent      = `${foodToNext} food to level ${state.level + 1}`;
       statusWrapEl.dataset.tone = 'normal';
     }
+    pauseEl.textContent = state.paused ? 'Resume' : 'Pause';
+    pauseEl.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
   }
 
   function render() {
@@ -221,13 +238,23 @@
       restartGame();
       return;
     }
-    if (state.gameOver) return;
+    if (event.key === 'p' || event.key === 'P' || event.key === 'Escape') {
+      togglePause();
+      return;
+    }
+    if (state.gameOver || state.paused) return;
     switch (event.key) {
       case 'ArrowUp':    case 'w': case 'W': setNextDirection(0, -1);  break;
       case 'ArrowDown':  case 's': case 'S': setNextDirection(0,  1);  break;
       case 'ArrowLeft':  case 'a': case 'A': setNextDirection(-1, 0);  break;
       case 'ArrowRight': case 'd': case 'D': setNextDirection(1,  0);  break;
     }
+  }
+
+  function togglePause() {
+    if (state.gameOver) return;
+    state.paused = !state.paused;
+    render();
   }
 
   function restartGame() {
@@ -244,6 +271,7 @@
       tickInterval:       BASE_TICK_INTERVAL,
       tickCounter:        0,
       gameOver:           false,
+      paused:             false,
       frame:              0,
       statusMessage:      '',
       statusTone:         'normal',
@@ -254,18 +282,20 @@
   }
 
   restartEl.addEventListener('click', restartGame);
+  pauseEl.addEventListener('click', togglePause);
   window.addEventListener('keydown', onKeyDown);
 
   for (const button of touchButtons) {
     const action = button.dataset.action;
     button.addEventListener('pointerdown', (event) => {
       event.preventDefault();
+      const inputLocked = state.gameOver || state.paused;
       switch (action) {
-        case 'up':      if (!state.gameOver) setNextDirection(0, -1);  break;
-        case 'down':    if (!state.gameOver) setNextDirection(0,  1);  break;
-        case 'left':    if (!state.gameOver) setNextDirection(-1, 0);  break;
-        case 'right':   if (!state.gameOver) setNextDirection(1,  0);  break;
-        case 'restart': restartGame();                                  break;
+        case 'up':      if (!inputLocked) setNextDirection(0, -1);  break;
+        case 'down':    if (!inputLocked) setNextDirection(0,  1);  break;
+        case 'left':    if (!inputLocked) setNextDirection(-1, 0);  break;
+        case 'right':   if (!inputLocked) setNextDirection(1,  0);  break;
+        case 'restart': restartGame();                              break;
       }
     });
   }
@@ -287,6 +317,7 @@
       if (!state.nextDirection) state.nextDirection = structuredClone(state.direction);
       if (state.food == null)   spawnFood();
       if (typeof state.gameOver !== 'boolean')          state.gameOver = false;
+      if (typeof state.paused !== 'boolean')            state.paused = false;
       if (typeof state.score !== 'number')              state.score = 0;
       if (typeof state.highScore !== 'number')          state.highScore = 0;
       if (typeof state.level !== 'number')              state.level = 1;

@@ -181,6 +181,11 @@ body {
   align-content: start;
 }
 
+.action-btns {
+  display: flex;
+  gap: 8px;
+}
+
 .action-button {
   min-height: 44px;
   min-width: 44px;
