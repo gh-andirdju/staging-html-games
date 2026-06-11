@@ -16,6 +16,7 @@
         <div class="topbar-actions">
           <button id="pause" type="button" aria-pressed="false">Pause</button>
           <button id="restart" type="button">Restart</button>
+          <button id="help" type="button" aria-label="How to play">?</button>
         </div>
       </header>
 
@@ -77,6 +78,18 @@
         </div>
       </div>
     </main>
+    <div id="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+      <div class="help-panel">
+        <h2 id="help-title" class="help-title">Tetris — How to play</h2>
+        <ul class="help-list">
+          <li>Fill complete horizontal lines to clear them and score — speed rises with your level.</li>
+          <li>Keyboard: ← / → move · ↑ rotates (Z counter-rotates) · ↓ soft drops · Space hard drops · C holds a piece.</li>
+          <li>P or Esc pauses · R restarts.</li>
+          <li>Touch: ◀ ▶ move, ↻ / ↺ rotate, ▼ soft drops (hold for hard drop), tap HOLD to stash a piece.</li>
+        </ul>
+        <button id="help-close" type="button">Got it</button>
+      </div>
+    </div>
     <script src="src/game.js"></script>
   </body>
 </html>

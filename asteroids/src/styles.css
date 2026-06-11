@@ -235,6 +235,52 @@ canvas {
   transform: none;
 }
 
+/* ── Help Panel ── */
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(8, 4, 0, 0.72);
+}
+
+.help-overlay[hidden] {
+  display: none;
+}
+
+.help-panel {
+  width: min(100%, 420px);
+  border: 1px solid var(--accent);
+  border-radius: 16px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.help-title {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.help-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+#help-close {
+  justify-self: end;
+}
+
 /* Desktop: wider layout */
 @media (min-width: 600px) {
   .game-shell {

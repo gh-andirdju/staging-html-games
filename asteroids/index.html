@@ -42,7 +42,20 @@
       <section class="system-controls" aria-label="System controls">
         <button id="pause" class="system-btn" type="button" aria-pressed="false">Pause</button>
         <button id="restart" class="system-btn" type="button">Restart</button>
+        <button id="help" class="system-btn" type="button" aria-label="How to play">?</button>
       </section>
+    </div>
+    <div id="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+      <div class="help-panel">
+        <h2 id="help-title" class="help-title">Asteroids — How to play</h2>
+        <ul class="help-list">
+          <li>Blast every asteroid — big rocks split into smaller, faster ones; clear the wave for the next level.</li>
+          <li>You have 3 lives; after a hit you respawn briefly invincible.</li>
+          <li>Keyboard: ← / → rotate · ↑ thrusts · Space fires · P or Esc pauses · R restarts when paused or after game over.</li>
+          <li>Touch: ↺ / ↻ rotate, ▲ thrusts, ● fires — all below the board.</li>
+        </ul>
+        <button id="help-close" class="system-btn" type="button">Got it</button>
+      </div>
     </div>
     <script src="src/game.js"></script>
   </body>

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('pong-help-seen', '1'); } catch {} });
   const runtimeErrors = [];
   page.on('console', (message) => {
     if (message.type() === 'error') runtimeErrors.push(message.text());
@@ -640,5 +641,80 @@ test.describe('mobile touch controls', () => {
     expect(canvasBox).not.toBeNull();
     expect(canvasBox.x).toBeGreaterThanOrEqual(0);
     expect(canvasBox.x + canvasBox.width).toBeLessThanOrEqual(390);
+  });
+});
+
+test.describe('how to play help', () => {
+  async function clearHelpSeenOnce(page) {
+    await page.addInitScript(() => {
+      try {
+        if (!localStorage.getItem('pong-help-clear-done')) {
+          localStorage.removeItem('pong-help-seen');
+          localStorage.setItem('pong-help-clear-done', '1');
+        }
+      } catch {}
+    });
+  }
+
+  test('first visit shows the help panel and pauses the game', async ({ page }) => {
+    await clearHelpSeenOnce(page);
+    await openGame(page);
+
+    await expect(page.locator('#help-overlay')).toBeVisible();
+    const state = await getState(page);
+    expect(state.helpOpen).toBe(true);
+    expect(state.paused).toBe(true);
+  });
+
+  test('dismissing help sets the seen flag, unpauses, and stays hidden after reload', async ({ page }) => {
+    await clearHelpSeenOnce(page);
+    await openGame(page);
+    await expect(page.locator('#help-overlay')).toBeVisible();
+
+    await page.locator('#help-close').click();
+    await expect(page.locator('#help-overlay')).toBeHidden();
+    let state = await getState(page);
+    expect(state.helpOpen).toBe(false);
+    expect(state.paused).toBe(false);
+    const flag = await page.evaluate(() => localStorage.getItem('pong-help-seen'));
+    expect(flag).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#help-overlay')).toBeHidden();
+    state = await getState(page);
+    expect(state.helpOpen).toBe(false);
+  });
+
+  test('help button reopens the panel and Escape closes it without pausing the game', async ({ page }) => {
+    await openGame(page);
+    await expect(page.locator('#help-overlay')).toBeHidden();
+
+    await page.locator('#help').click();
+    let state = await getState(page);
+    expect(state.helpOpen).toBe(true);
+    expect(state.paused).toBe(true);
+    await expect(page.locator('#help-close')).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    state = await getState(page);
+    expect(state.helpOpen).toBe(false);
+    expect(state.paused).toBe(false);
+    await expect(page.locator('#help')).toBeFocused();
+  });
+
+  test('closing help keeps a manually paused game paused', async ({ page }) => {
+    await openGame(page);
+    await page.keyboard.press('p');
+    let state = await getState(page);
+    expect(state.paused).toBe(true);
+
+    await page.locator('#help').click();
+    state = await getState(page);
+    expect(state.helpOpen).toBe(true);
+
+    await page.locator('#help-close').click();
+    state = await getState(page);
+    expect(state.helpOpen).toBe(false);
+    expect(state.paused).toBe(true);
   });
 });

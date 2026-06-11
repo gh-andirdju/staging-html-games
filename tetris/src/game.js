@@ -35,6 +35,10 @@
   const statusEl = document.getElementById('status');
   const restartEl = document.getElementById('restart');
   const pauseEl = document.getElementById('pause');
+  const helpEl = document.getElementById('help');
+  const helpOverlayEl = document.getElementById('help-overlay');
+  const helpCloseEl = document.getElementById('help-close');
+  const gameShellEl = document.querySelector('.game-shell');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const nextCanvasEl = document.getElementById('next-canvas');
   const nextCtx = nextCanvasEl ? nextCanvasEl.getContext('2d') : null;
@@ -87,7 +91,24 @@
     } catch {}
   }
 
+  const HELP_SEEN_KEY = 'tetris-help-seen';
+
+  function hasSeenHelp() {
+    try {
+      return Boolean(window.localStorage.getItem(HELP_SEEN_KEY));
+    } catch {
+      return false;
+    }
+  }
+
+  function markHelpSeen() {
+    try {
+      window.localStorage.setItem(HELP_SEEN_KEY, '1');
+    } catch {}
+  }
+
   let state = null;
+  let helpDidPause = false;
   let autoStep = true;
   let rafId = null;
   let accumulator = 0;
@@ -461,7 +482,7 @@
   }
 
   function copyStateForTests() {
-    return structuredClone(state);
+    return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden };
   }
 
   function setStateFromTests(nextState) {
@@ -762,6 +783,13 @@
   }
 
   function onKeyDown(event) {
+    if (!helpOverlayEl.hidden) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeHelp();
+      }
+      return;
+    }
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault();
     }
@@ -834,6 +862,25 @@
     render();
   }
 
+  function openHelp() {
+    if (!helpOverlayEl.hidden) return;
+    helpDidPause = !state.gameOver && !state.paused;
+    if (helpDidPause) togglePause();
+    helpOverlayEl.hidden = false;
+    gameShellEl.setAttribute('inert', '');
+    helpCloseEl.focus();
+  }
+
+  function closeHelp() {
+    if (helpOverlayEl.hidden) return;
+    helpOverlayEl.hidden = true;
+    gameShellEl.removeAttribute('inert');
+    markHelpSeen();
+    if (helpDidPause && state.paused) togglePause();
+    helpDidPause = false;
+    helpEl.focus();
+  }
+
   function onTouchButtonDown(action) {
     if (state.paused) return;
     if (action === 'rotate-cw') rotatePiece();
@@ -849,6 +896,11 @@
 
   restartEl.addEventListener('click', restartGame);
   pauseEl.addEventListener('click', togglePause);
+  helpEl.addEventListener('click', openHelp);
+  helpCloseEl.addEventListener('click', closeHelp);
+  helpOverlayEl.addEventListener('click', (event) => {
+    if (event.target === helpOverlayEl) closeHelp();
+  });
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
 
@@ -894,6 +946,7 @@
   computeDimensions();
   restartGame();
   setAutoStep(true);
+  if (!hasSeenHelp()) openHelp();
 
   window.__tetrisTest = {
     isReady: true,

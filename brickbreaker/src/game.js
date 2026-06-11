@@ -11,6 +11,10 @@
   var statusEl = document.getElementById("status");
   var restartButton = document.getElementById("restart");
   var pauseButton = document.getElementById("pause");
+  var helpButton = document.getElementById("help");
+  var helpOverlayEl = document.getElementById("help-overlay");
+  var helpCloseButton = document.getElementById("help-close");
+  var gameShellEl = document.querySelector(".game-shell");
   var paddleDragLane = document.getElementById("paddle-drag-lane");
 
   var WIDTH = canvas.width;
@@ -72,11 +76,28 @@
     } catch {}
   }
 
+  var HELP_SEEN_KEY = "brickbreaker-help-seen";
+
+  function hasSeenHelp() {
+    try {
+      return Boolean(window.localStorage.getItem(HELP_SEEN_KEY));
+    } catch {
+      return false;
+    }
+  }
+
+  function markHelpSeen() {
+    try {
+      window.localStorage.setItem(HELP_SEEN_KEY, "1");
+    } catch {}
+  }
+
   var state;
   var lastTime = 0;
   var autoStep = true;
   var renderTick = 0;
   var activeControlPointerId = null;
+  var helpDidPause = false;
 
   function powerUpLetter(type) {
     if (type === "wide") return "E";
@@ -234,6 +255,7 @@
     snapshot.level = state.level;
     snapshot.statusMessage = getStatusText();
     snapshot.effectsDisplay = getEffectsDisplay();
+    snapshot.helpOpen = !helpOverlayEl.hidden;
     return snapshot;
   }
 
@@ -632,6 +654,35 @@
     draw();
   }
 
+  function openHelp() {
+    if (!helpOverlayEl.hidden) {
+      return;
+    }
+    keys.left = false;
+    keys.right = false;
+    helpDidPause = state.status === "Playing" && !state.paused;
+    if (helpDidPause) {
+      togglePause();
+    }
+    helpOverlayEl.hidden = false;
+    gameShellEl.setAttribute("inert", "");
+    helpCloseButton.focus();
+  }
+
+  function closeHelp() {
+    if (helpOverlayEl.hidden) {
+      return;
+    }
+    helpOverlayEl.hidden = true;
+    gameShellEl.removeAttribute("inert");
+    markHelpSeen();
+    if (helpDidPause && state.paused) {
+      togglePause();
+    }
+    helpDidPause = false;
+    helpButton.focus();
+  }
+
   function step(dt) {
     if (state.paused || state.status !== "Playing") {
       return;
@@ -884,6 +935,13 @@
   }
 
   function handleKey(event, pressed) {
+    if (!helpOverlayEl.hidden) {
+      if (event.key === "Escape" && pressed) {
+        event.preventDefault();
+        closeHelp();
+      }
+      return;
+    }
     if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
       keys.left = pressed && !state.paused;
       event.preventDefault();
@@ -967,6 +1025,13 @@
 
   restartButton.addEventListener("click", restart);
   pauseButton.addEventListener("click", togglePause);
+  helpButton.addEventListener("click", openHelp);
+  helpCloseButton.addEventListener("click", closeHelp);
+  helpOverlayEl.addEventListener("click", function (event) {
+    if (event.target === helpOverlayEl) {
+      closeHelp();
+    }
+  });
 
   window.__brickbreakerTest = {
     isReady: false,
@@ -1026,6 +1091,9 @@
   };
 
   restart();
+  if (!hasSeenHelp()) {
+    openHelp();
+  }
   window.__brickbreakerTest.isReady = true;
   window.requestAnimationFrame(frame);
 }());

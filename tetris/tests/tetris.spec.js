@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('tetris-help-seen', '1'); } catch {} });
   const runtimeErrors = [];
   page.on('console', (message) => {
     if (message.type() === 'error') runtimeErrors.push(message.text());
@@ -1464,5 +1465,83 @@ test.describe('responsive layout screenshots', () => {
         maxDiffPixels: 10
       });
     });
+  });
+});
+
+test.describe('how to play help', () => {
+  // openGame navigates twice (goto + reload), so clear the seen flag for the
+  // first two page loads only; later loads keep whatever the page has set.
+  async function clearHelpSeenOnce(page) {
+    await page.addInitScript(() => {
+      try {
+        const remaining = Number(localStorage.getItem('tetris-help-clear-count') ?? '2');
+        if (remaining > 0) {
+          localStorage.removeItem('tetris-help-seen');
+          localStorage.setItem('tetris-help-clear-count', String(remaining - 1));
+        }
+      } catch {}
+    });
+  }
+
+  test('first visit shows the help panel and pauses the game', async ({ page }) => {
+    await clearHelpSeenOnce(page);
+    await openGame(page, { keepNaturalSize: true });
+
+    await expect(page.locator('#help-overlay')).toBeVisible();
+    const s = await getState(page);
+    expect(s.helpOpen).toBe(true);
+    expect(s.paused).toBe(true);
+  });
+
+  test('dismissing help sets the seen flag, unpauses, and stays hidden after reload', async ({ page }) => {
+    await clearHelpSeenOnce(page);
+    await openGame(page, { keepNaturalSize: true });
+    await expect(page.locator('#help-overlay')).toBeVisible();
+
+    await page.locator('#help-close').click();
+    await expect(page.locator('#help-overlay')).toBeHidden();
+    let s = await getState(page);
+    expect(s.helpOpen).toBe(false);
+    expect(s.paused).toBe(false);
+    const flag = await page.evaluate(() => localStorage.getItem('tetris-help-seen'));
+    expect(flag).toBe('1');
+
+    await openGame(page, { keepNaturalSize: true });
+    await expect(page.locator('#help-overlay')).toBeHidden();
+    s = await getState(page);
+    expect(s.helpOpen).toBe(false);
+  });
+
+  test('help button reopens the panel and Escape closes it without pausing the game', async ({ page }) => {
+    await openGame(page, { keepNaturalSize: true });
+    await expect(page.locator('#help-overlay')).toBeHidden();
+
+    await page.locator('#help').click();
+    let s = await getState(page);
+    expect(s.helpOpen).toBe(true);
+    expect(s.paused).toBe(true);
+    await expect(page.locator('#help-close')).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    s = await getState(page);
+    expect(s.helpOpen).toBe(false);
+    expect(s.paused).toBe(false);
+    await expect(page.locator('#help')).toBeFocused();
+  });
+
+  test('closing help keeps a manually paused game paused', async ({ page }) => {
+    await openGame(page, { keepNaturalSize: true });
+    await page.keyboard.press('p');
+    let s = await getState(page);
+    expect(s.paused).toBe(true);
+
+    await page.locator('#help').click();
+    s = await getState(page);
+    expect(s.helpOpen).toBe(true);
+
+    await page.locator('#help-close').click();
+    s = await getState(page);
+    expect(s.helpOpen).toBe(false);
+    expect(s.paused).toBe(true);
   });
 });
