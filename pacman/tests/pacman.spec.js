@@ -642,4 +642,18 @@ test.describe('mobile portrait layout', () => {
     // D-pad should be below the canvas (or at least not overlapping it significantly)
     expect(dpadBox.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height - 10);
   });
+
+  test('page has no horizontal overflow and canvas fits the viewport width', async ({ page }) => {
+    await openGame(page);
+
+    const noOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth
+    );
+    expect(noOverflow).toBe(true);
+
+    const canvasBox = await page.locator('canvas').boundingBox();
+    expect(canvasBox).not.toBeNull();
+    expect(canvasBox.x).toBeGreaterThanOrEqual(0);
+    expect(canvasBox.x + canvasBox.width).toBeLessThanOrEqual(390);
+  });
 });
