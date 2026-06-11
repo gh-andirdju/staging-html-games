@@ -243,6 +243,21 @@ test('keyboard move rotate and hard drop work', async ({ page }) => {
   expect(dropped.score).toBeGreaterThan(rotated.score);
 });
 
+test('score pop class appears on the score value after a hard drop and clears', async ({ page }) => {
+  await openGame(page);
+
+  const popped = await page.evaluate(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ' }));
+    await window.__tetrisTest.advanceFrames(1);
+    return document.getElementById('score').classList.contains('stat-pop');
+  });
+  expect(popped).toBe(true);
+
+  const state = await getState(page);
+  expect(state.score).toBeGreaterThan(0);
+  await page.waitForFunction(() => !document.getElementById('score').classList.contains('stat-pop'));
+});
+
 test('tap left and right moves exactly one column', async ({ page }) => {
   await openGame(page);
   const start = await getState(page);

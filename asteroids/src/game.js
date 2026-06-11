@@ -48,6 +48,9 @@
   const ASTEROID_SCORE = { 3: 20, 2: 50, 1: 100 };
   const FIRE_COOLDOWN = 12;
   const LEVEL_SPAWN_BASE = 4;
+  const SHIP_SHAKE_FRAMES = 12;
+
+  const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   // ── High score persistence ────────────────────────────────────────────────
   const HIGH_SCORE_KEY = 'asteroids-high-score';
@@ -260,7 +263,8 @@
       width: W,
       height: H,
       fireCooldown: 0,
-      respawnCountdown: 0
+      respawnCountdown: 0,
+      shakeFrames: 0
     };
   }
 
@@ -290,6 +294,7 @@
 
   // ── Update ────────────────────────────────────────────────────────────────
   function step() {
+    if (state.shakeFrames > 0) state.shakeFrames--;
     if (state.status === 'gameOver') return;
     if (state.paused) return;
 
@@ -397,6 +402,7 @@
       for (const a of state.asteroids) {
         if (circlesOverlap(s.x, s.y, s.radius - 2, a.x, a.y, a.radius - 4)) {
           spawnParticles(s.x, s.y, 12, 3, '#fff');
+          state.shakeFrames = SHIP_SHAKE_FRAMES;
           state.lives--;
           if (state.lives <= 0) {
             state.lives = 0;
@@ -435,7 +441,20 @@
     state.particles = state.particles.filter(p => p.life > 0);
   }
 
+  let lastPopScore = 0;
+  const hudScoreEl = document.getElementById('hud-score');
+
+  function popStat(element) {
+    element.classList.remove('stat-pop');
+    void element.offsetWidth;
+    element.classList.add('stat-pop');
+  }
+
+  hudScoreEl.addEventListener('animationend', () => hudScoreEl.classList.remove('stat-pop'));
+
   function updateHUD() {
+    if (state.score > lastPopScore) popStat(hudScoreEl);
+    lastPopScore = state.score;
     document.getElementById('hud-score').textContent = state.score;
     document.getElementById('hud-best').textContent = state.highScore;
     document.getElementById('hud-lives').textContent = state.lives;
@@ -577,15 +596,26 @@
     }
   }
 
+  function shakeOffset() {
+    if (!state || !(state.shakeFrames > 0) || reducedMotionQuery.matches) return { x: 0, y: 0 };
+    const amplitude = Math.min(4, Math.ceil(state.shakeFrames / 3));
+    const direction = state.shakeFrames % 2 === 0 ? 1 : -1;
+    return { x: direction * amplitude, y: -direction * Math.max(1, amplitude - 1) };
+  }
+
   function render() {
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, H);
 
+    const shake = shakeOffset();
+    ctx.save();
+    ctx.translate(shake.x, shake.y);
     for (const a of state.asteroids) drawAsteroid(a);
     for (const b of state.bullets) drawBullet(b);
     for (const p of state.particles) drawParticle(p);
     if (state.ship) drawShip(state.ship);
+    ctx.restore();
     drawOverlay();
   }
 

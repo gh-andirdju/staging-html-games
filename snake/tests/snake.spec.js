@@ -160,6 +160,33 @@ test('snake moves one step per tickInterval frames and grows when eating food', 
   expect(s.snake.length).toBe(4);
 });
 
+test('score pop class appears on the score value after eating food and clears', async ({ page }) => {
+  await openGame(page);
+  const popped = await page.evaluate(async () => {
+    window.__snakeTest.setSeededValue(42);
+    window.__snakeTest.setState({
+      snake: [{ x: 5, y: 10 }, { x: 4, y: 10 }, { x: 3, y: 10 }],
+      direction: { x: 1, y: 0 },
+      nextDirection: { x: 1, y: 0 },
+      food: { x: 6, y: 10 },
+      score: 0,
+      highScore: 0,
+      level: 1,
+      foodEaten: 0,
+      tickInterval: 12,
+      tickCounter: 0,
+      gameOver: false,
+      frame: 0
+    });
+    await window.__snakeTest.advanceFrames(12);
+    return document.getElementById('score').classList.contains('stat-pop');
+  });
+  expect(popped).toBe(true);
+  const s = await getState(page);
+  expect(s.score).toBe(10);
+  await page.waitForFunction(() => !document.getElementById('score').classList.contains('stat-pop'));
+});
+
 test('wall collision sets gameOver', async ({ page }) => {
   await openGame(page);
   await page.evaluate(() => {

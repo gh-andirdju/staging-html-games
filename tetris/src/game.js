@@ -768,7 +768,19 @@
     }
   }
 
+  let lastPopScore = 0;
+
+  function popStat(element) {
+    element.classList.remove('stat-pop');
+    void element.offsetWidth;
+    element.classList.add('stat-pop');
+  }
+
+  scoreEl.addEventListener('animationend', () => scoreEl.classList.remove('stat-pop'));
+
   function updateHud() {
+    if (state.score > lastPopScore) popStat(scoreEl);
+    lastPopScore = state.score;
     scoreEl.textContent = String(state.score);
     bestEl.textContent = String(state.highScore);
     linesEl.textContent = String(state.lines);

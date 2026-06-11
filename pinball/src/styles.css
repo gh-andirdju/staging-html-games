@@ -87,6 +87,16 @@ body {
   line-height: 1.25;
 }
 
+@keyframes stat-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+.stat-pop {
+  animation: stat-pop 160ms ease-out;
+}
+
 .status-wrap strong {
   color: var(--accent);
 }

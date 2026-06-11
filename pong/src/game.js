@@ -338,7 +338,23 @@
     }
   }
 
+  let lastPlayerScorePop = 0;
+  let lastAiScorePop = 0;
+
+  function popStat(element) {
+    element.classList.remove('stat-pop');
+    void element.offsetWidth;
+    element.classList.add('stat-pop');
+  }
+
+  playerScoreEl.addEventListener('animationend', function () { playerScoreEl.classList.remove('stat-pop'); });
+  aiScoreEl.addEventListener('animationend', function () { aiScoreEl.classList.remove('stat-pop'); });
+
   function updateHud() {
+    if (state.playerScore > lastPlayerScorePop) popStat(playerScoreEl);
+    if (state.aiScore > lastAiScorePop) popStat(aiScoreEl);
+    lastPlayerScorePop = state.playerScore;
+    lastAiScorePop = state.aiScore;
     playerScoreEl.textContent = String(state.playerScore);
     aiScoreEl.textContent = String(state.aiScore);
     if (state.gameState === 'won') {

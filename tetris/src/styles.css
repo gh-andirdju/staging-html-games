@@ -297,6 +297,16 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+@keyframes stat-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+.stat-pop {
+  animation: stat-pop 160ms ease-out;
+}
+
 .status-wrap {
   text-align: center;
   padding: 2px 1px;

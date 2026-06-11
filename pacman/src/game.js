@@ -789,7 +789,24 @@
     return "Playing";
   }
 
+  // Score pop is throttled to milestone gains (power pellet, ghost eaten) so
+  // routine dot-eating does not animate the HUD every few frames.
+  var SCORE_POP_MIN_GAIN = PELLET_SCORE;
+  var lastPopScore = 0;
+
+  function popStat(element) {
+    element.classList.remove("stat-pop");
+    void element.offsetWidth;
+    element.classList.add("stat-pop");
+  }
+
+  scoreEl.addEventListener("animationend", function () {
+    scoreEl.classList.remove("stat-pop");
+  });
+
   function updateHud() {
+    if (state.score >= lastPopScore + SCORE_POP_MIN_GAIN) popStat(scoreEl);
+    lastPopScore = state.score;
     scoreEl.textContent = String(state.score);
     bestEl.textContent = String(state.highScore);
     livesEl.textContent = String(state.lives);

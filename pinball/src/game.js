@@ -74,6 +74,9 @@
   var LAUNCH_X = WALL_RIGHT - BALL_RADIUS;
   var BALL_LAUNCH_Y = HEIGHT - 100;
   var DRAIN_Y = HEIGHT + BALL_RADIUS + 4;
+  var DRAIN_SHAKE_FRAMES = 12;
+
+  var reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   var HIGH_SCORE_KEY = "pinball-high-score";
   var HELP_SEEN_KEY = "pinball-help-seen";
@@ -311,7 +314,8 @@
       status: "ready",
       paused: false,
       frame: 0,
-      plunger: { compressed: 0 }
+      plunger: { compressed: 0 },
+      shakeFrames: 0
     };
   }
 
@@ -357,7 +361,23 @@
     }
   }
 
+  var lastPopScore = 0;
+
+  function popStat(element) {
+    element.classList.remove("stat-pop");
+    void element.offsetWidth;
+    element.classList.add("stat-pop");
+  }
+
+  scoreEl.addEventListener("animationend", function () {
+    scoreEl.classList.remove("stat-pop");
+  });
+
   function updateHud() {
+    if (state.score > lastPopScore) {
+      popStat(scoreEl);
+    }
+    lastPopScore = state.score;
     scoreEl.textContent = String(state.score);
     bestEl.textContent = String(state.highScore);
     ballsEl.textContent = String(state.balls);
@@ -576,6 +596,9 @@
   }
 
   function step(dt) {
+    if (state.shakeFrames > 0) {
+      state.shakeFrames -= 1;
+    }
     if (state.paused) {
       return;
     }
@@ -785,6 +808,7 @@
     resolveFlipperCollision(ball, rf, dt);
 
     if (ball.y > DRAIN_Y) {
+      state.shakeFrames = DRAIN_SHAKE_FRAMES;
       state.balls -= 1;
       if (state.balls <= 0) {
         state.balls = 0;
@@ -1031,8 +1055,20 @@
     ctx.textAlign = "start";
   }
 
+  function shakeOffset() {
+    if (!state || !(state.shakeFrames > 0) || reducedMotionQuery.matches) {
+      return { x: 0, y: 0 };
+    }
+    var amplitude = Math.min(4, Math.ceil(state.shakeFrames / 3));
+    var direction = state.shakeFrames % 2 === 0 ? 1 : -1;
+    return { x: direction * amplitude, y: -direction * Math.max(1, amplitude - 1) };
+  }
+
   function draw() {
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    var shake = shakeOffset();
+    ctx.save();
+    ctx.translate(shake.x, shake.y);
     drawTable();
     if (state.rollovers) {
       for (var ri = 0; ri < state.rollovers.length; ri += 1) {
@@ -1059,6 +1095,7 @@
     drawFlipper(state.rightFlipper);
     drawPlunger();
     drawBall();
+    ctx.restore();
     drawOverlay();
   }
 
@@ -1281,6 +1318,11 @@
       }
       if (typeof state.newRecord !== "boolean") {
         state.newRecord = false;
+      }
+      if (typeof state.shakeFrames === "number") {
+        state.shakeFrames = Math.max(0, Math.floor(state.shakeFrames));
+      } else {
+        state.shakeFrames = 0;
       }
       updateHud();
       draw();

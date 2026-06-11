@@ -196,6 +196,26 @@ test('AI scores when ball passes the player side', async ({ page }) => {
   expect(state.gameState).toBe('serving');
 });
 
+test('score pop class appears on the player score after a point and clears', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    ball: { x: 790, y: 260, dx: 300, dy: 0 },
+    playerScore: 0,
+    aiScore: 0,
+    gameState: 'playing'
+  });
+
+  const popped = await page.evaluate(() => {
+    window.__pongTest.advanceFrames(6);
+    return document.getElementById('player-score').classList.contains('stat-pop');
+  });
+  expect(popped).toBe(true);
+
+  const state = await getState(page);
+  expect(state.playerScore).toBe(1);
+  await page.waitForFunction(() => !document.getElementById('player-score').classList.contains('stat-pop'));
+});
+
 test('ball is stationary in serving state', async ({ page }) => {
   await openGame(page);
   await setState(page, { gameState: 'serving', serveTimer: 30 });

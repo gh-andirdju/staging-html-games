@@ -275,6 +275,7 @@
         writeBestTimes(bestTimes);
         state.bestTime = state.timeElapsed;
         state.statusMessage = `Cleared in ${state.timeElapsed}s — New best time!`;
+        popStat(bestEl);
         sfx.playNewBest();
       } else {
         state.statusMessage = `Cleared in ${state.timeElapsed}s · Best ${previousBest}s`;
@@ -397,6 +398,14 @@
     resizeCanvas();
     draw();
   }
+
+  function popStat(element) {
+    element.classList.remove('stat-pop');
+    void element.offsetWidth;
+    element.classList.add('stat-pop');
+  }
+
+  bestEl.addEventListener('animationend', () => bestEl.classList.remove('stat-pop'));
 
   function updateHud() {
     const remaining = state.mines - state.flagged;

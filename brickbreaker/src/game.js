@@ -31,6 +31,12 @@
   var PICKUP_SPEED = 150;
   var LASER_SPEED = 1100;
   var LASER_COOLDOWN_FRAMES = 18;
+  var SHAKE_FRAMES_LIFE_LOST = 12;
+  var SHAKE_FRAMES_STREAK = 10;
+  var BRICK_STREAK_WINDOW = 10;
+  var BRICK_STREAK_THRESHOLD = 3;
+
+  var reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   var paddle = {
     width: 112,
@@ -395,7 +401,10 @@
       level: 1,
       status: "Playing",
       paused: false,
-      levelClears: 0
+      levelClears: 0,
+      shakeFrames: 0,
+      brickStreakCount: 0,
+      brickStreakTimer: 0
     };
     resetBall();
     updateHud();
@@ -444,6 +453,9 @@
     state.levelClears = typeof state.levelClears === "number" ? Math.max(0, Math.floor(state.levelClears)) : 0;
     state.highScore = typeof state.highScore === "number" ? state.highScore : readHighScore();
     state.newRecord = typeof state.newRecord === "boolean" ? state.newRecord : false;
+    state.shakeFrames = typeof state.shakeFrames === "number" ? Math.max(0, Math.floor(state.shakeFrames)) : 0;
+    state.brickStreakCount = typeof state.brickStreakCount === "number" ? Math.max(0, Math.floor(state.brickStreakCount)) : 0;
+    state.brickStreakTimer = typeof state.brickStreakTimer === "number" ? Math.max(0, Math.floor(state.brickStreakTimer)) : 0;
   }
 
   function recordHighScore() {
@@ -456,7 +468,23 @@
     }
   }
 
+  var lastPopScore = 0;
+
+  function popStat(element) {
+    element.classList.remove("stat-pop");
+    void element.offsetWidth;
+    element.classList.add("stat-pop");
+  }
+
+  scoreEl.addEventListener("animationend", function () {
+    scoreEl.classList.remove("stat-pop");
+  });
+
   function updateHud() {
+    if (state.score > lastPopScore) {
+      popStat(scoreEl);
+    }
+    lastPopScore = state.score;
     scoreEl.textContent = String(state.score);
     bestEl.textContent = String(state.highScore);
     livesEl.textContent = String(state.lives);
@@ -548,8 +576,17 @@
     return count;
   }
 
+  function noteBrickBroken() {
+    state.brickStreakCount = state.brickStreakTimer > 0 ? state.brickStreakCount + 1 : 1;
+    state.brickStreakTimer = BRICK_STREAK_WINDOW;
+    if (state.brickStreakCount >= BRICK_STREAK_THRESHOLD) {
+      state.shakeFrames = Math.max(state.shakeFrames, SHAKE_FRAMES_STREAK);
+    }
+  }
+
   function loseLife() {
     state.lives -= 1;
+    state.shakeFrames = SHAKE_FRAMES_LIFE_LOST;
     resetEffects();
     sfx.playLifeLost();
 
@@ -732,6 +769,7 @@
         brick.active = false;
         state.score += 10;
         recordHighScore();
+        noteBrickBroken();
         spawnPickup(brick);
         sfx.playBrickBreak(brick.row);
         state.lasers.splice(i, 1);
@@ -799,12 +837,19 @@
   }
 
   function step(dt) {
+    if (state.shakeFrames > 0) {
+      state.shakeFrames -= 1;
+    }
+
     if (state.paused || state.status !== "Playing") {
       return;
     }
 
     normalizeState();
     renderTick += 1;
+    if (state.brickStreakTimer > 0) {
+      state.brickStreakTimer -= 1;
+    }
     updateEffects();
 
     if (keys.left) {
@@ -881,6 +926,7 @@
         brick.active = false;
         state.score += 10;
         recordHighScore();
+        noteBrickBroken();
         spawnPickup(brick);
         sfx.playBrickBreak(brick.row);
         reflectFromRect(ball, brick);
@@ -968,8 +1014,21 @@
     drawArcadeCapsule(x, y, badgeWidth, badgeHeight, type, letter, blinkOn);
   }
 
+  function shakeOffset() {
+    if (!state || !(state.shakeFrames > 0) || reducedMotionQuery.matches) {
+      return { x: 0, y: 0 };
+    }
+    var amplitude = Math.min(4, Math.ceil(state.shakeFrames / 3));
+    var direction = state.shakeFrames % 2 === 0 ? 1 : -1;
+    return { x: direction * amplitude, y: -direction * Math.max(1, amplitude - 1) };
+  }
+
   function draw() {
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+    var shake = shakeOffset();
+    ctx.save();
+    ctx.translate(shake.x, shake.y);
 
     drawBricks();
 
@@ -1005,6 +1064,8 @@
       ctx.fillStyle = k === 0 ? "#38bdf8" : "#fde047";
       ctx.fill();
     }
+
+    ctx.restore();
 
     if (state.status !== "Playing") {
       ctx.fillStyle = "rgba(2, 6, 23, 0.72)";

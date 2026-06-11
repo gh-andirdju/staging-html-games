@@ -43,6 +43,9 @@
 
   var DEATH_TIMER_FRAMES = 60;
   var DEATH_FLASH_PERIOD = 6;
+  var PLAYER_HIT_SHAKE_FRAMES = 12;
+
+  var reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   var ENEMY_SPEED_SCALE = 0.9; // frames saved per enemy killed (controls acceleration)
 
   // New constants for Galaga features
@@ -327,7 +330,8 @@
       ufoSpawnTimer: 0,
       diveBombers: [],
       diveBomberCooldown: 0,
-      boss: null
+      boss: null,
+      shakeFrames: 0
     };
   }
 
@@ -478,6 +482,7 @@
                           state.player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT)) {
             db.alive = false;
             db.phase = 'return'; // keep consistent state before lives check
+            state.shakeFrames = PLAYER_HIT_SHAKE_FRAMES;
             state.lives--;
             if (state.lives <= 0) { state.lives = 0; state.status = 'gameover'; playGameOverSound(); return; }
             sfx.playPlayerHit();
@@ -541,6 +546,7 @@
   }
 
   function step(dt) {
+    if (state.shakeFrames > 0) state.shakeFrames--;
     if (state.status === 'gameover' || state.paused) return;
 
     if (state.deathTimer > 0) {
@@ -764,6 +770,7 @@
       if (rectOverlap(b.x, b.y, ENEMY_BULLET_W, ENEMY_BULLET_H,
                       state.player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT)) {
         state.enemyBullets.splice(bi, 1);
+        state.shakeFrames = PLAYER_HIT_SHAKE_FRAMES;
         state.lives--;
         if (state.lives <= 0) {
           state.lives = 0;
@@ -786,6 +793,7 @@
       } else if (rectOverlap(beam.x, beam.y, BOSS_BEAM_W, 40,
                       state.player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT)) {
         beam.active = false;
+        state.shakeFrames = PLAYER_HIT_SHAKE_FRAMES;
         state.lives--;
         if (state.lives <= 0) {
           state.lives = 0;
@@ -806,6 +814,7 @@
       if (rectOverlap(db.x, db.y, ENEMY_W, ENEMY_H,
                       state.player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT)) {
         db.alive = false;
+        state.shakeFrames = PLAYER_HIT_SHAKE_FRAMES;
         state.lives--;
         if (state.lives <= 0) {
           state.lives = 0;
@@ -843,7 +852,21 @@
     }
   }
 
+  var lastPopScore = 0;
+
+  function popStat(element) {
+    element.classList.remove('stat-pop');
+    void element.offsetWidth;
+    element.classList.add('stat-pop');
+  }
+
+  scoreEl.addEventListener('animationend', function () {
+    scoreEl.classList.remove('stat-pop');
+  });
+
   function updateHud() {
+    if (state.score > lastPopScore) popStat(scoreEl);
+    lastPopScore = state.score;
     scoreEl.textContent = state.score;
     bestEl.textContent = state.highScore;
     livesEl.textContent = state.lives;
@@ -894,6 +917,13 @@
     helpBtn.focus();
   }
 
+  function shakeOffset() {
+    if (!state || !(state.shakeFrames > 0) || reducedMotionQuery.matches) return { x: 0, y: 0 };
+    var amplitude = Math.min(4, Math.ceil(state.shakeFrames / 3));
+    var direction = state.shakeFrames % 2 === 0 ? 1 : -1;
+    return { x: direction * amplitude, y: -direction * Math.max(1, amplitude - 1) };
+  }
+
   function draw() {
     ctx.fillStyle = '#000a1a';
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -920,6 +950,10 @@
       ctx.textAlign = 'center';
       ctx.fillText('★ CHALLENGE STAGE — 2× POINTS ★', WIDTH / 2, 22);
     }
+
+    var shake = shakeOffset();
+    ctx.save();
+    ctx.translate(shake.x, shake.y);
 
     // Draw shields
     for (var si = 0; si < state.shields.length; si++) {
@@ -1006,6 +1040,8 @@
     ctx.moveTo(0, PLAYER_Y + PLAYER_HEIGHT + 4);
     ctx.lineTo(WIDTH, PLAYER_Y + PLAYER_HEIGHT + 4);
     ctx.stroke();
+
+    ctx.restore();
 
     // Paused overlay
     if (state.paused) {

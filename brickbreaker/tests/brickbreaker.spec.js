@@ -809,6 +809,19 @@ test('removes a brick or updates score on brick collision', async ({ page }) => 
   expect(liveBrickCount(after) < liveBrickCount(before) || (after.score ?? 0) > (before.score ?? 0)).toBe(true);
 });
 
+test('score pop class appears on the score value after a brick break and clears', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'brickCollision');
+
+  const popped = await page.evaluate(() => {
+    window.__brickbreakerTest.advanceFrames(6);
+    return document.getElementById('score').classList.contains('stat-pop');
+  });
+  expect(popped).toBe(true);
+
+  await page.waitForFunction(() => !document.getElementById('score').classList.contains('stat-pop'));
+});
+
 test('loses a life when the ball falls below the paddle', async ({ page }) => {
   await openGame(page);
   await mutateState(page, 'missedBall', { lives: 2 });
@@ -817,6 +830,63 @@ test('loses a life when the ball falls below the paddle', async ({ page }) => {
   await advanceFrames(page, 8);
 
   expect(lives(await getState(page))).toBeLessThan(beforeLives);
+});
+
+test('losing a life triggers screen shake that decays to zero', async ({ page }) => {
+  await openGame(page);
+  await mutateState(page, 'missedBall', { lives: 2 });
+
+  await advanceFrames(page, 8);
+  expect((await getState(page)).shakeFrames).toBeGreaterThan(0);
+
+  await advanceFrames(page, 12);
+  expect((await getState(page)).shakeFrames).toBe(0);
+});
+
+test('breaking three bricks within the streak window triggers screen shake', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    const api = window.__brickbreakerTest;
+    const state = structuredClone(api.getState());
+    const targets = state.bricks.filter((brick) => brick.active).slice(0, 3);
+    state.balls = targets.map((brick) => ({
+      x: brick.x + brick.width / 2,
+      y: brick.y + brick.height / 2,
+      dx: 0,
+      dy: -4,
+      radius: 8
+    }));
+    state.ball = state.balls[0];
+    api.setState(state);
+  });
+
+  await advanceFrames(page, 3);
+  expect((await getState(page)).shakeFrames).toBeGreaterThan(0);
+
+  await setState(page, { paused: true });
+  await advanceFrames(page, 12);
+  expect((await getState(page)).shakeFrames).toBe(0);
+});
+
+test('screen shake is render-only and does not change ball physics', async ({ page }) => {
+  await openGame(page);
+
+  const run = async (shakeFrames) => {
+    await restart(page);
+    await page.evaluate(() => window.__brickbreakerTest.setAutoStep(false));
+    await setState(page, {
+      ball: { x: 400, y: 300, dx: 120, dy: 90, radius: 8 },
+      shakeFrames
+    });
+    await advanceFrames(page, 10);
+    const state = await getState(page);
+    return state.balls[0];
+  };
+
+  const withShake = await run(12);
+  const withoutShake = await run(0);
+  expect(withShake.x).toBeCloseTo(withoutShake.x, 6);
+  expect(withShake.y).toBeCloseTo(withoutShake.y, 6);
 });
 
 test('enters game over when the final life is lost', async ({ page }) => {

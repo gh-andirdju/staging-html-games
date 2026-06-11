@@ -97,6 +97,16 @@ body {
   font-size: 13px;
 }
 
+@keyframes stat-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+.stat-pop {
+  animation: stat-pop 160ms ease-out;
+}
+
 .effects-wrap strong {
   color: var(--accent-gold);
 }

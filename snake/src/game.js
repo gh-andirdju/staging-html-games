@@ -150,6 +150,7 @@
   const sfx = createSfx();
 
   let state = null;
+  let lastPopScore = 0;
   let runStartHighScore = 0;
   let helpDidPause = false;
   let autoStep = true;
@@ -324,8 +325,18 @@
     }
   }
 
+  function popStat(element) {
+    element.classList.remove('stat-pop');
+    void element.offsetWidth;
+    element.classList.add('stat-pop');
+  }
+
+  scoreEl.addEventListener('animationend', () => scoreEl.classList.remove('stat-pop'));
+
   function updateHud() {
     const foodToNext = FOODS_PER_LEVEL - (state.foodEaten % FOODS_PER_LEVEL);
+    if (state.score > lastPopScore) popStat(scoreEl);
+    lastPopScore = state.score;
     scoreEl.textContent     = String(state.score);
     levelEl.textContent     = String(state.level);
     highScoreEl.textContent = String(state.highScore);

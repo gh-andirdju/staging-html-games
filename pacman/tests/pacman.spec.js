@@ -191,6 +191,31 @@ test('power pellet score is 50', async ({ page }) => {
   expect(after.score - before.score).toBe(50);
 });
 
+test('score pop class appears for milestone gains (power pellet) but not single dots', async ({ page }) => {
+  await openGame(page);
+  const s0 = await getState(page);
+
+  // Eating a single dot (+10) must not pop the score.
+  const dotPellet = s0.pellets.find((p) => !p.eaten);
+  await setState(page, { pacman: { tileRow: dotPellet.row, tileCol: dotPellet.col } });
+  const dotPopped = await page.evaluate(() => {
+    window.__pacmanTest.advanceFrames(1);
+    return document.getElementById('score').classList.contains('stat-pop');
+  });
+  expect(dotPopped).toBe(false);
+
+  // Eating a power pellet (+50) pops the score, and the class clears afterward.
+  const pp = s0.powerPellets.find((p) => !p.eaten);
+  await setState(page, { pacman: { tileRow: pp.row, tileCol: pp.col } });
+  const pelletPopped = await page.evaluate(() => {
+    window.__pacmanTest.advanceFrames(1);
+    return document.getElementById('score').classList.contains('stat-pop');
+  });
+  expect(pelletPopped).toBe(true);
+
+  await page.waitForFunction(() => !document.getElementById('score').classList.contains('stat-pop'));
+});
+
 test('frightenedTimer decreases over frames', async ({ page }) => {
   await openGame(page);
   await setState(page, { frightenedTimer: 100 });

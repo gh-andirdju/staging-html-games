@@ -285,6 +285,58 @@ test('enemy bullet hitting player reduces lives and sets death timer', async ({ 
   expect(stateAfter.bullets.length).toBe(0); // player bullets cleared on hit
 });
 
+test('score pop class appears on the score value after an enemy kill and clears', async ({ page }) => {
+  await openGame(page);
+  const stateBefore = await getState(page);
+  const target = stateBefore.enemies[stateBefore.enemies.length - 1];
+
+  await setState(page, {
+    bullets: [{ x: target.x + 8, y: target.y + 4 }],
+    bulletCooldown: 30
+  });
+  await advanceFrames(page, 2);
+
+  expect((await getState(page)).score).toBeGreaterThan(0);
+  // The HUD refreshes on the rAF loop, so the pop lands within a frame or two.
+  await page.waitForFunction(() => document.getElementById('score').classList.contains('stat-pop'));
+  await page.waitForFunction(() => !document.getElementById('score').classList.contains('stat-pop'));
+});
+
+test('player hit triggers screen shake that decays to zero', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    shakeFrames: 0,
+    enemyBullets: [{ x: 280, y: 436 }]
+  });
+
+  await advanceFrames(page, 1);
+  expect((await getState(page)).shakeFrames).toBeGreaterThan(0);
+
+  await advanceFrames(page, 12);
+  expect((await getState(page)).shakeFrames).toBe(0);
+});
+
+test('screen shake is render-only and does not change entity physics', async ({ page }) => {
+  await openGame(page);
+
+  const run = async (shakeFrames) => {
+    await page.evaluate(() => window.__spaceInvadersTest.restart());
+    await setState(page, { shakeFrames, enemyMoveTimer: 1 });
+    await advanceFrames(page, 10);
+    const state = await getState(page);
+    return {
+      playerX: state.player.x,
+      enemyX: state.enemies[0].x,
+      enemyY: state.enemies[0].y,
+      enemyBullets: state.enemyBullets
+    };
+  };
+
+  const withShake = await run(12);
+  const withoutShake = await run(0);
+  expect(withShake).toEqual(withoutShake);
+});
+
 test('losing last life sets status to gameover', async ({ page }) => {
   await openGame(page);
   await setState(page, {

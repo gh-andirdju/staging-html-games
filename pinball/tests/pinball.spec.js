@@ -188,6 +188,73 @@ test('ball drain decrements ball count', async ({ page }) => {
   expect(after.ball.x).toBeCloseTo(360, 0);
 });
 
+test('score pop class appears on the score value after a bumper hit and clears', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  const bumper = s.bumpers[0];
+
+  await page.evaluate((b) => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 0,
+      ball: { x: b.x, y: b.y, vx: 0, vy: 0, radius: 10, launched: true }
+    });
+  }, bumper);
+
+  const popped = await page.evaluate(() => {
+    window.__pinballTest.advanceFrames(3);
+    return document.getElementById('score').classList.contains('stat-pop');
+  });
+  expect(popped).toBe(true);
+
+  expect((await getState(page)).score).toBeGreaterThan(0);
+  await page.waitForFunction(() => !document.getElementById('score').classList.contains('stat-pop'));
+});
+
+test('ball drain triggers screen shake that decays to zero', async ({ page }) => {
+  await openGame(page);
+
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      balls: 3,
+      shakeFrames: 0,
+      ball: { x: 200, y: 720, vx: 0, vy: 200, radius: 10, launched: true }
+    });
+  });
+
+  await advanceFrames(page, 5);
+  expect((await getState(page)).shakeFrames).toBeGreaterThan(0);
+
+  await advanceFrames(page, 12);
+  expect((await getState(page)).shakeFrames).toBe(0);
+});
+
+test('screen shake is render-only and does not change ball physics', async ({ page }) => {
+  await openGame(page);
+
+  const run = async (shakeFrames) => {
+    await restartGame(page);
+    await page.evaluate((frames) => {
+      window.__pinballTest.setState({
+        status: 'playing',
+        balls: 3,
+        score: 0,
+        shakeFrames: frames,
+        ball: { x: 200, y: 560, vx: 40, vy: -120, radius: 10, launched: true }
+      });
+    }, shakeFrames);
+    await advanceFrames(page, 10);
+    const state = await getState(page);
+    return state.ball;
+  };
+
+  const withShake = await run(12);
+  const withoutShake = await run(0);
+  expect(withShake.x).toBeCloseTo(withoutShake.x, 6);
+  expect(withShake.y).toBeCloseTo(withoutShake.y, 6);
+});
+
 test('game over when last ball drains', async ({ page }) => {
   await openGame(page);
 

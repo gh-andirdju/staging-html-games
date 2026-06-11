@@ -447,6 +447,71 @@ test('score increases when asteroid is destroyed', async ({ page }) => {
   expect(after.score).toBe(50);
 });
 
+test('score pop class appears on the HUD score after an asteroid is destroyed and clears', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  await setState(page, {
+    ...s,
+    ship: { ...s.ship, invincible: true, invincibleFrames: 999 },
+    asteroids: [{ x: 300, y: 300, vx: 0, vy: 0, radius: 40, size: 2, seed: 5003, vertices: [] }],
+    bullets: [{ x: 300, y: 300, vx: 0, vy: 0, life: 10 }],
+    score: 0
+  });
+
+  const popped = await page.evaluate(async () => {
+    await window.__asteroidsTest.advanceFrames(1);
+    return document.getElementById('hud-score').classList.contains('stat-pop');
+  });
+  expect(popped).toBe(true);
+
+  await page.waitForFunction(() => !document.getElementById('hud-score').classList.contains('stat-pop'));
+});
+
+test('ship destruction triggers screen shake that decays to zero', async ({ page }) => {
+  await openGame(page);
+  const s = await getState(page);
+  await setState(page, {
+    ...s,
+    ship: { x: 400, y: 300, angle: 0, vx: 0, vy: 0, radius: 14, invincible: false, invincibleFrames: 0 },
+    asteroids: [{ x: 404, y: 300, vx: 0, vy: 0, radius: 20, size: 1, seed: 6001, vertices: [] }],
+    bullets: [],
+    lives: 3,
+    status: 'playing',
+    shakeFrames: 0
+  });
+
+  await advanceFrames(page, 1);
+  expect((await getState(page)).shakeFrames).toBeGreaterThan(0);
+
+  await advanceFrames(page, 12);
+  expect((await getState(page)).shakeFrames).toBe(0);
+});
+
+test('screen shake is render-only and does not change ship physics', async ({ page }) => {
+  await openGame(page);
+
+  const run = async (shakeFrames) => {
+    await restart(page);
+    const s = await getState(page);
+    await setState(page, {
+      ...s,
+      ship: { x: 200, y: 200, angle: 0, vx: 2, vy: 1.5, radius: 14, invincible: true, invincibleFrames: 999 },
+      asteroids: [{ x: 600, y: 500, vx: 0.4, vy: 0.3, radius: 40, size: 2, seed: 4242, vertices: [] }],
+      bullets: [],
+      particles: [],
+      status: 'playing',
+      shakeFrames
+    });
+    await advanceFrames(page, 10);
+    return (await getState(page)).ship;
+  };
+
+  const withShake = await run(12);
+  const withoutShake = await run(0);
+  expect(withShake.x).toBeCloseTo(withoutShake.x, 6);
+  expect(withShake.y).toBeCloseTo(withoutShake.y, 6);
+});
+
 test('ship colliding with asteroid loses a life', async ({ page }) => {
   await openGame(page);
   const s = await getState(page);

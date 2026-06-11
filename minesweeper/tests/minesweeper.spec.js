@@ -493,6 +493,47 @@ test('beating the stored best shows New best time! milestone status', async ({ p
   await expect(page.locator('#best')).toHaveText('3s');
 });
 
+test('best value pops only when a new best time lands and the pop class clears', async ({ page }) => {
+  await page.addInitScript(() =>
+    window.localStorage.setItem(
+      'minesweeper-best-times',
+      JSON.stringify({ easy: 10, normal: null, hard: null })
+    )
+  );
+  await openGame(page);
+
+  const winBoard = async () => {
+    const board = makeEmptyBoard(3, 3);
+    board[0][0].mine = true;
+    await page.evaluate((b) => window.__minesweeperTest.setBoard(b), board);
+  };
+  const revealAllSafeAndCheckPop = () =>
+    page.evaluate(() => {
+      const api = window.__minesweeperTest;
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          if (r === 0 && c === 0) continue;
+          api.revealCell(r, c);
+        }
+      }
+      return document.getElementById('best').classList.contains('stat-pop');
+    });
+
+  // A win slower than the stored 10s best must not pop the Best value.
+  await winBoard();
+  await advanceFrames(page, 720); // 12 seconds
+  expect(await revealAllSafeAndCheckPop()).toBe(false);
+  expect((await getState(page)).won).toBe(true);
+
+  // A win faster than the stored best pops the Best value, then it clears.
+  await page.evaluate(() => window.__minesweeperTest.restart());
+  await winBoard();
+  await advanceFrames(page, 180); // 3 seconds
+  expect(await revealAllSafeAndCheckPop()).toBe(true);
+  expect((await getState(page)).bestTime).toBe(3);
+  await page.waitForFunction(() => !document.getElementById('best').classList.contains('stat-pop'));
+});
+
 test('matches the desktop layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);
