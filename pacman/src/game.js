@@ -86,6 +86,7 @@
 
   // ── DOM ────────────────────────────────────────────────────────────────────
   var HIGH_SCORE_KEY = "pacman-high-score";
+  var HELP_SEEN_KEY = "pacman-help-seen";
 
   function readHighScore() {
     try {
@@ -101,6 +102,20 @@
     } catch {}
   }
 
+  function hasSeenHelp() {
+    try {
+      return Boolean(window.localStorage.getItem(HELP_SEEN_KEY));
+    } catch {
+      return false;
+    }
+  }
+
+  function markHelpSeen() {
+    try {
+      window.localStorage.setItem(HELP_SEEN_KEY, "1");
+    } catch {}
+  }
+
   var canvas = document.getElementById("game");
   var ctx = canvas.getContext("2d");
   var scoreEl = document.getElementById("score");
@@ -110,9 +125,14 @@
   var statusEl = document.getElementById("status");
   var restartBtn = document.getElementById("restart");
   var pauseBtn = document.getElementById("pause");
+  var helpBtn = document.getElementById("help");
+  var helpOverlayEl = document.getElementById("help-overlay");
+  var helpCloseBtn = document.getElementById("help-close");
+  var gameShellEl = document.querySelector(".game-shell");
 
   // ── State ──────────────────────────────────────────────────────────────────
   var state;
+  var helpDidPause = false;
   var autoStep = true;
   var renderTick = 0;
   var lastTimestamp = 0;
@@ -672,6 +692,25 @@
     draw();
   }
 
+  function openHelp() {
+    if (!helpOverlayEl.hidden) return;
+    helpDidPause = state.status !== "gameOver" && !state.paused;
+    if (helpDidPause) togglePause();
+    helpOverlayEl.hidden = false;
+    gameShellEl.setAttribute("inert", "");
+    helpCloseBtn.focus();
+  }
+
+  function closeHelp() {
+    if (helpOverlayEl.hidden) return;
+    helpOverlayEl.hidden = true;
+    gameShellEl.removeAttribute("inert");
+    markHelpSeen();
+    if (helpDidPause && state.paused) togglePause();
+    helpDidPause = false;
+    helpBtn.focus();
+  }
+
   // ── Draw ───────────────────────────────────────────────────────────────────
   function draw() {
     ctx.fillStyle = "#000";
@@ -851,6 +890,13 @@
   var pressedDirs = {};
 
   window.addEventListener("keydown", function (e) {
+    if (!helpOverlayEl.hidden) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeHelp();
+      }
+      return;
+    }
     if (e.key === "r" || e.key === "R") {
       restart();
       return;
@@ -904,6 +950,11 @@
 
   restartBtn.addEventListener("click", restart);
   pauseBtn.addEventListener("click", togglePause);
+  helpBtn.addEventListener("click", openHelp);
+  helpCloseBtn.addEventListener("click", closeHelp);
+  helpOverlayEl.addEventListener("click", function (e) {
+    if (e.target === helpOverlayEl) closeHelp();
+  });
 
   // ── Game loop ──────────────────────────────────────────────────────────────
   function frame(ts) {
@@ -963,6 +1014,7 @@
         level: state.level,
         status: state.status,
         paused: state.paused,
+        helpOpen: !helpOverlayEl.hidden,
         frightenedTimer: state.frightenedTimer,
         pelletsRemaining: state.pelletsRemaining
       };
@@ -1042,6 +1094,7 @@
   };
 
   restart();
+  if (!hasSeenHelp()) openHelp();
   window.__pacmanTest.isReady = true;
   window.requestAnimationFrame(frame);
 }());

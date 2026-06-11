@@ -31,10 +31,29 @@
   const statusEl    = document.getElementById('status');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl   = document.getElementById('restart');
+  const helpEl      = document.getElementById('help');
+  const helpOverlayEl = document.getElementById('help-overlay');
+  const helpCloseEl = document.getElementById('help-close');
+  const gameShellEl = document.querySelector('.game-shell');
   const diffBtns    = Array.from(document.querySelectorAll('.diff-btn'));
   const modeBtns    = Array.from(document.querySelectorAll('[data-action]'));
 
   const BEST_TIMES_KEY = 'minesweeper-best-times';
+  const HELP_SEEN_KEY  = 'minesweeper-help-seen';
+
+  function hasSeenHelp() {
+    try {
+      return Boolean(window.localStorage.getItem(HELP_SEEN_KEY));
+    } catch {
+      return false;
+    }
+  }
+
+  function markHelpSeen() {
+    try {
+      window.localStorage.setItem(HELP_SEEN_KEY, '1');
+    } catch {}
+  }
 
   function readBestTimes() {
     const times = { easy: null, normal: null, hard: null };
@@ -414,6 +433,7 @@
   }
 
   function onCanvasClick(event) {
+    if (!helpOverlayEl.hidden) return;
     if (state.gameOver) return;
     const { row, col } = cellFromEvent(event);
     const cell = state.board[row] && state.board[row][col];
@@ -433,6 +453,7 @@
 
   function onCanvasRightClick(event) {
     event.preventDefault();
+    if (!helpOverlayEl.hidden) return;
     if (state.gameOver) return;
     const { row, col } = cellFromEvent(event);
     if (!state.board[row] || !state.board[row][col]) return;
@@ -483,10 +504,31 @@
     rafId = requestAnimationFrame(frame);
   }
 
+  function openHelp() {
+    if (!helpOverlayEl.hidden) return;
+    helpOverlayEl.hidden = false;
+    gameShellEl.setAttribute('inert', '');
+    helpCloseEl.focus();
+  }
+
+  function closeHelp() {
+    if (helpOverlayEl.hidden) return;
+    helpOverlayEl.hidden = true;
+    gameShellEl.removeAttribute('inert');
+    markHelpSeen();
+    helpEl.focus();
+  }
+
   canvas.addEventListener('click', onCanvasClick);
   canvas.addEventListener('contextmenu', onCanvasRightClick);
 
   restartEl.addEventListener('click', () => restartGame());
+
+  helpEl.addEventListener('click', openHelp);
+  helpCloseEl.addEventListener('click', closeHelp);
+  helpOverlayEl.addEventListener('click', (event) => {
+    if (event.target === helpOverlayEl) closeHelp();
+  });
 
   diffBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -502,6 +544,13 @@
   });
 
   window.addEventListener('keydown', (e) => {
+    if (!helpOverlayEl.hidden) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeHelp();
+      }
+      return;
+    }
     if (e.key === 'r' || e.key === 'R') restartGame();
   });
 
@@ -512,11 +561,12 @@
 
   restartGame('easy');
   setAutoStep(true);
+  if (!hasSeenHelp()) openHelp();
 
   window.__minesweeperTest = {
     isReady: true,
     getState() {
-      return structuredClone(state);
+      return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden };
     },
     setState(incoming) {
       const next = structuredClone(incoming);

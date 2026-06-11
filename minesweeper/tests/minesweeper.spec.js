@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('minesweeper-help-seen', '1'); } catch {} });
   const runtimeErrors = [];
   page.on('console', (message) => {
     if (message.type() === 'error') runtimeErrors.push(message.text());
@@ -540,5 +541,80 @@ test.describe('mobile viewport', () => {
       fullPage: false,
       maxDiffPixels: 10
     });
+  });
+});
+
+test.describe('how to play help', () => {
+  async function clearHelpSeenOnce(page) {
+    await page.addInitScript(() => {
+      try {
+        if (!localStorage.getItem('minesweeper-help-clear-done')) {
+          localStorage.removeItem('minesweeper-help-seen');
+          localStorage.setItem('minesweeper-help-clear-done', '1');
+        }
+      } catch {}
+    });
+  }
+
+  test('first visit shows the help panel', async ({ page }) => {
+    await clearHelpSeenOnce(page);
+    await openGame(page);
+
+    await expect(page.locator('#help-overlay')).toBeVisible();
+    const s = await getState(page);
+    expect(s.helpOpen).toBe(true);
+  });
+
+  test('dismissing help sets the seen flag and stays hidden after reload', async ({ page }) => {
+    await clearHelpSeenOnce(page);
+    await openGame(page);
+    await expect(page.locator('#help-overlay')).toBeVisible();
+
+    await page.locator('#help-close').click();
+    await expect(page.locator('#help-overlay')).toBeHidden();
+    let s = await getState(page);
+    expect(s.helpOpen).toBe(false);
+    const flag = await page.evaluate(() => localStorage.getItem('minesweeper-help-seen'));
+    expect(flag).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#help-overlay')).toBeHidden();
+    s = await getState(page);
+    expect(s.helpOpen).toBe(false);
+  });
+
+  test('help button reopens the panel and Escape closes it', async ({ page }) => {
+    await openGame(page);
+    await expect(page.locator('#help-overlay')).toBeHidden();
+
+    await page.locator('#help').click();
+    let s = await getState(page);
+    expect(s.helpOpen).toBe(true);
+    await expect(page.locator('#help-close')).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    s = await getState(page);
+    expect(s.helpOpen).toBe(false);
+    await expect(page.locator('#help')).toBeFocused();
+  });
+
+  test('canvas clicks reveal nothing while help is open', async ({ page }) => {
+    await openGame(page);
+
+    await page.locator('#help').click();
+    let s = await getState(page);
+    expect(s.helpOpen).toBe(true);
+
+    await page.locator('#game').dispatchEvent('click');
+    s = await getState(page);
+    expect(s.helpOpen).toBe(true);
+    expect(s.started).toBe(false);
+    expect(s.revealed).toBe(0);
+
+    await page.locator('#help-close').click();
+    await page.locator('#game').click();
+    s = await getState(page);
+    expect(s.started).toBe(true);
+    expect(s.revealed).toBeGreaterThan(0);
   });
 });

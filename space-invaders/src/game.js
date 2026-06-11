@@ -92,6 +92,7 @@
   }
 
   var HIGH_SCORE_KEY = 'space-invaders-high-score';
+  var HELP_SEEN_KEY = 'space-invaders-help-seen';
 
   function readHighScore() {
     try {
@@ -107,6 +108,20 @@
     } catch {}
   }
 
+  function hasSeenHelp() {
+    try {
+      return Boolean(window.localStorage.getItem(HELP_SEEN_KEY));
+    } catch {
+      return false;
+    }
+  }
+
+  function markHelpSeen() {
+    try {
+      window.localStorage.setItem(HELP_SEEN_KEY, '1');
+    } catch {}
+  }
+
   var canvas = document.getElementById('game');
   var ctx = canvas.getContext('2d');
   var scoreEl = document.getElementById('score');
@@ -115,6 +130,10 @@
   var waveEl = document.getElementById('wave');
   var statusEl = document.getElementById('status-msg');
   var pauseBtn = document.getElementById('btn-pause');
+  var helpBtn = document.getElementById('help');
+  var helpOverlayEl = document.getElementById('help-overlay');
+  var helpCloseBtn = document.getElementById('help-close');
+  var gameShellEl = document.querySelector('.game-shell');
 
   function buildEnemies(variant) {
     variant = variant || 'classic';
@@ -202,6 +221,7 @@
 
   var state = initialState();
   var autoStep = true;
+  var helpDidPause = false;
 
   function recordHighScore() {
     if (state.score > state.highScore) {
@@ -721,6 +741,25 @@
     draw();
   }
 
+  function openHelp() {
+    if (!helpOverlayEl.hidden) return;
+    helpDidPause = state.status !== 'gameover' && !state.paused;
+    if (helpDidPause) togglePause();
+    helpOverlayEl.hidden = false;
+    gameShellEl.setAttribute('inert', '');
+    helpCloseBtn.focus();
+  }
+
+  function closeHelp() {
+    if (helpOverlayEl.hidden) return;
+    helpOverlayEl.hidden = true;
+    gameShellEl.removeAttribute('inert');
+    markHelpSeen();
+    if (helpDidPause && state.paused) togglePause();
+    helpDidPause = false;
+    helpBtn.focus();
+  }
+
   function draw() {
     ctx.fillStyle = '#000a1a';
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -928,6 +967,13 @@
 
   // Keyboard input
   window.addEventListener('keydown', function (e) {
+    if (!helpOverlayEl.hidden) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeHelp();
+      }
+      return;
+    }
     if (e.key === 'r' || e.key === 'R') { e.preventDefault(); restart(); return; }
     if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { togglePause(); return; }
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { e.preventDefault(); if (!state.paused) keys.left = true; }
@@ -966,16 +1012,24 @@
 
   document.getElementById('btn-restart').addEventListener('click', restart);
   pauseBtn.addEventListener('click', togglePause);
+  helpBtn.addEventListener('click', openHelp);
+  helpCloseBtn.addEventListener('click', closeHelp);
+  helpOverlayEl.addEventListener('click', function (e) {
+    if (e.target === helpOverlayEl) closeHelp();
+  });
 
   // Start
   rafId = requestAnimationFrame(frame);
+  if (!hasSeenHelp()) openHelp();
 
   // Test API
   window.__spaceInvadersTest = {
     isReady: true,
 
     getState: function () {
-      return JSON.parse(JSON.stringify(state));
+      var snapshot = JSON.parse(JSON.stringify(state));
+      snapshot.helpOpen = !helpOverlayEl.hidden;
+      return snapshot;
     },
 
     setState: function (patch) {
