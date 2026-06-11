@@ -718,3 +718,85 @@ test.describe('how to play help', () => {
     expect(state.paused).toBe(true);
   });
 });
+
+test.describe('sound and mute', () => {
+  test('mute button toggles aria-pressed and persists pong-muted across reload', async ({ page }) => {
+    await openGame(page);
+    const muteBtn = page.locator('#mute');
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(muteBtn).toHaveText('🔊');
+
+    await muteBtn.click();
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(muteBtn).toHaveText('🔇');
+    let stored = await page.evaluate(() => localStorage.getItem('pong-muted'));
+    expect(stored).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+    let state = await getState(page);
+    expect(state.muted).toBe(true);
+
+    await page.locator('#mute').click();
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+    stored = await page.evaluate(() => localStorage.getItem('pong-muted'));
+    expect(stored).toBe('0');
+  });
+
+  test('muted state is exposed via getState and setMuted updates it', async ({ page }) => {
+    await openGame(page);
+    let state = await getState(page);
+    expect(state.muted).toBe(false);
+
+    await page.evaluate(() => window.__pongTest.setMuted(true));
+    state = await getState(page);
+    expect(state.muted).toBe(true);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.evaluate(() => window.__pongTest.setMuted(false));
+    state = await getState(page);
+    expect(state.muted).toBe(false);
+  });
+
+  test('paddle hits, wall bounces, scoring, and winning run cleanly with sound wired', async ({ page }) => {
+    await openGame(page);
+
+    await setState(page, {
+      ball: { x: 400, y: 12, dx: 150, dy: -200 },
+      gameState: 'playing'
+    });
+    await advanceFrames(page, 4);
+    let state = await getState(page);
+    expect(state.ball.dy).toBeGreaterThan(0);
+
+    await setState(page, {
+      ball: { x: 60, y: 220, dx: -200, dy: 0 },
+      playerPaddle: { y: 180 },
+      gameState: 'playing'
+    });
+    await advanceFrames(page, 10);
+    state = await getState(page);
+    expect(state.ball.dx).toBeGreaterThan(0);
+
+    await setState(page, {
+      ball: { x: 780, y: 260, dx: 400, dy: 0 },
+      aiPaddle: { y: 0 },
+      gameState: 'playing'
+    });
+    await advanceFrames(page, 8);
+    state = await getState(page);
+    expect(state.playerScore).toBe(1);
+
+    await setState(page, {
+      playerScore: 6,
+      aiScore: 0,
+      ball: { x: 780, y: 260, dx: 400, dy: 0 },
+      aiPaddle: { y: 0 },
+      gameState: 'playing'
+    });
+    await advanceFrames(page, 8);
+    state = await getState(page);
+    expect(state.gameState).toBe('won');
+    expect(state.winner).toBe('player');
+  });
+});

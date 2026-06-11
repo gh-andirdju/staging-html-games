@@ -972,3 +972,91 @@ test.describe('mobile layout', () => {
     });
   });
 });
+
+// Sound & mute
+
+test.describe('sound and mute', () => {
+  test('mute button toggles aria-pressed and persists 2048-muted across reload', async ({ page }) => {
+    await openGame(page);
+    const muteBtn = page.locator('#mute');
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(muteBtn).toHaveText('🔊');
+
+    await muteBtn.click();
+    await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(muteBtn).toHaveText('🔇');
+    let stored = await page.evaluate(() => localStorage.getItem('2048-muted'));
+    expect(stored).toBe('1');
+
+    await openGame(page);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+    let state = await getState(page);
+    expect(state.muted).toBe(true);
+
+    await page.locator('#mute').click();
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'false');
+    stored = await page.evaluate(() => localStorage.getItem('2048-muted'));
+    expect(stored).toBe('0');
+  });
+
+  test('muted state is exposed via getState and setMuted updates it', async ({ page }) => {
+    await openGame(page);
+    let state = await getState(page);
+    expect(state.muted).toBe(false);
+
+    await page.evaluate(() => window.__2048Test.setMuted(true));
+    state = await getState(page);
+    expect(state.muted).toBe(true);
+    await expect(page.locator('#mute')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.evaluate(() => window.__2048Test.setMuted(false));
+    state = await getState(page);
+    expect(state.muted).toBe(false);
+  });
+
+  test('slides, merges, and game over run cleanly with sound wired', async ({ page }) => {
+    await openGame(page);
+    await setState(page, {
+      grid: [
+        [2, 0, 0, 0],
+        [0, 0, 0, 2],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0]
+      ],
+      score: 0
+    });
+
+    await page.keyboard.press('ArrowLeft');
+    let state = await getState(page);
+    expect(state.grid[1][0]).toBe(2);
+
+    await setState(page, {
+      grid: [
+        [2, 2, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0]
+      ],
+      score: 0
+    });
+    await page.keyboard.press('ArrowLeft');
+    state = await getState(page);
+    expect(state.grid[0][0]).toBe(4);
+    expect(state.score).toBe(4);
+
+    await setState(page, {
+      grid: [
+        [2, 4, 8, 16],
+        [16, 8, 4, 2],
+        [2, 4, 8, 16],
+        [16, 8, 4, 0]
+      ],
+      score: 100,
+      gameOver: false,
+      won: false
+    });
+    await page.keyboard.press('ArrowDown');
+    state = await getState(page);
+    expect(state.gameOver).toBe(true);
+  });
+});

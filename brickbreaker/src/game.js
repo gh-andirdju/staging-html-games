@@ -11,6 +11,7 @@
   var statusEl = document.getElementById("status");
   var restartButton = document.getElementById("restart");
   var pauseButton = document.getElementById("pause");
+  var muteButton = document.getElementById("mute");
   var helpButton = document.getElementById("help");
   var helpOverlayEl = document.getElementById("help-overlay");
   var helpCloseButton = document.getElementById("help-close");
@@ -91,6 +92,108 @@
       window.localStorage.setItem(HELP_SEEN_KEY, "1");
     } catch {}
   }
+
+  var MUTED_KEY = "brickbreaker-muted";
+
+  function createSfx() {
+    var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    var muted = readMuted();
+    var gestureSeen = false;
+    var audioCtx = null;
+
+    function readMuted() {
+      try {
+        return window.localStorage.getItem(MUTED_KEY) === "1";
+      } catch {
+        return false;
+      }
+    }
+
+    function writeMuted(value) {
+      try {
+        window.localStorage.setItem(MUTED_KEY, value ? "1" : "0");
+      } catch {}
+    }
+
+    function noteGesture() {
+      gestureSeen = true;
+    }
+
+    window.addEventListener("pointerdown", noteGesture, { capture: true, passive: true });
+    window.addEventListener("keydown", noteGesture, { capture: true });
+
+    function getAudio() {
+      if (muted || !gestureSeen || navigator.webdriver || !AudioContextClass) {
+        return null;
+      }
+      if (!audioCtx) {
+        try {
+          audioCtx = new AudioContextClass();
+        } catch {
+          return null;
+        }
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume().catch(function () {});
+      }
+      return audioCtx;
+    }
+
+    function tone(startFreq, endFreq, duration, delay, type, peak) {
+      var audio = getAudio();
+      if (!audio) {
+        return;
+      }
+      try {
+        var startAt = audio.currentTime + (delay || 0);
+        var osc = audio.createOscillator();
+        var gain = audio.createGain();
+        osc.type = type || "square";
+        osc.frequency.setValueAtTime(startFreq, startAt);
+        if (endFreq !== startFreq) {
+          osc.frequency.exponentialRampToValueAtTime(endFreq, startAt + duration);
+        }
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak || 0.1, startAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+      } catch {}
+    }
+
+    return {
+      isMuted: function () {
+        return muted;
+      },
+      setMuted: function (value) {
+        muted = Boolean(value);
+        writeMuted(muted);
+      },
+      playBrickBreak: function (row) {
+        var freq = Math.max(320, 700 - (row || 0) * 45);
+        tone(freq, freq, 0.05, 0, "square", 0.08);
+      },
+      playPaddleHit: function () {
+        tone(300, 300, 0.055, 0, "square", 0.09);
+      },
+      playPickup: function () {
+        tone(600, 1100, 0.09, 0, "triangle", 0.1);
+      },
+      playLifeLost: function () {
+        tone(330, 120, 0.15, 0, "sawtooth", 0.1);
+      },
+      playLevelClear: function () {
+        tone(523, 523, 0.06, 0, "triangle", 0.1);
+        tone(659, 659, 0.06, 0.07, "triangle", 0.1);
+        tone(784, 784, 0.06, 0.14, "triangle", 0.1);
+        tone(1047, 1047, 0.1, 0.21, "triangle", 0.1);
+      }
+    };
+  }
+
+  var sfx = createSfx();
 
   var state;
   var lastTime = 0;
@@ -256,6 +359,7 @@
     snapshot.statusMessage = getStatusText();
     snapshot.effectsDisplay = getEffectsDisplay();
     snapshot.helpOpen = !helpOverlayEl.hidden;
+    snapshot.muted = sfx.isMuted();
     return snapshot;
   }
 
@@ -361,6 +465,8 @@
     statusEl.textContent = getStatusText();
     pauseButton.textContent = state.paused ? "Resume" : "Pause";
     pauseButton.setAttribute("aria-pressed", state.paused ? "true" : "false");
+    muteButton.textContent = sfx.isMuted() ? "🔇" : "🔊";
+    muteButton.setAttribute("aria-pressed", sfx.isMuted() ? "true" : "false");
   }
 
   function getStatusText() {
@@ -445,6 +551,7 @@
   function loseLife() {
     state.lives -= 1;
     resetEffects();
+    sfx.playLifeLost();
 
     if (state.lives <= 0) {
       state.lives = 0;
@@ -471,6 +578,7 @@
     state.levelClears += 1;
     state.bricks = makeBricksForLevel(state.level);
     prepareLevelStart();
+    sfx.playLevelClear();
   }
 
   function spawnPickup(brick) {
@@ -578,6 +686,7 @@
 
       if (rectsOverlap(pickup, paddleRect)) {
         activatePowerUp(pickup.type);
+        sfx.playPickup();
         state.pickups.splice(i, 1);
       } else if (pickup.y > HEIGHT) {
         state.pickups.splice(i, 1);
@@ -624,6 +733,7 @@
         state.score += 10;
         recordHighScore();
         spawnPickup(brick);
+        sfx.playBrickBreak(brick.row);
         state.lasers.splice(i, 1);
         break;
       }
@@ -652,6 +762,11 @@
     state.paused = !state.paused;
     updateHud();
     draw();
+  }
+
+  function toggleMute() {
+    sfx.setMuted(!sfx.isMuted());
+    updateHud();
   }
 
   function openHelp() {
@@ -753,6 +868,7 @@
       if (ball.dy > 0 && circleHitsRect(ball, paddleRect)) {
         ball.y = paddle.y - ball.radius;
         bounceBallFromPaddle(ball);
+        sfx.playPaddleHit();
       }
 
       for (var i = 0; i < state.bricks.length; i += 1) {
@@ -766,6 +882,7 @@
         state.score += 10;
         recordHighScore();
         spawnPickup(brick);
+        sfx.playBrickBreak(brick.row);
         reflectFromRect(ball, brick);
         break;
       }
@@ -1025,6 +1142,7 @@
 
   restartButton.addEventListener("click", restart);
   pauseButton.addEventListener("click", togglePause);
+  muteButton.addEventListener("click", toggleMute);
   helpButton.addEventListener("click", openHelp);
   helpCloseButton.addEventListener("click", closeHelp);
   helpOverlayEl.addEventListener("click", function (event) {
@@ -1087,6 +1205,10 @@
     restart: function () {
       restart();
       return publicState();
+    },
+    setMuted: function (value) {
+      sfx.setMuted(Boolean(value));
+      updateHud();
     }
   };
 

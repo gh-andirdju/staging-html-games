@@ -21,6 +21,7 @@
   const statusWrapEl = statusEl.closest('.status-wrap');
   const restartEl    = document.getElementById('restart');
   const pauseEl      = document.getElementById('pause');
+  const muteEl       = document.getElementById('mute');
   const helpEl       = document.getElementById('help');
   const helpOverlayEl = document.getElementById('help-overlay');
   const helpCloseEl  = document.getElementById('help-close');
@@ -29,6 +30,7 @@
 
   const HIGH_SCORE_KEY = 'snake-high-score';
   const HELP_SEEN_KEY  = 'snake-help-seen';
+  const MUTED_KEY      = 'snake-muted';
 
   function readHighScore() {
     try {
@@ -58,7 +60,97 @@
     } catch {}
   }
 
+  function createSfx() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let muted = readMuted();
+    let gestureSeen = false;
+    let audioCtx = null;
+
+    function readMuted() {
+      try {
+        return window.localStorage.getItem(MUTED_KEY) === '1';
+      } catch {
+        return false;
+      }
+    }
+
+    function writeMuted(value) {
+      try {
+        window.localStorage.setItem(MUTED_KEY, value ? '1' : '0');
+      } catch {}
+    }
+
+    function noteGesture() {
+      gestureSeen = true;
+    }
+
+    window.addEventListener('pointerdown', noteGesture, { capture: true, passive: true });
+    window.addEventListener('keydown', noteGesture, { capture: true });
+
+    function getAudio() {
+      if (muted || !gestureSeen || navigator.webdriver || !AudioContextClass) return null;
+      if (!audioCtx) {
+        try {
+          audioCtx = new AudioContextClass();
+        } catch {
+          return null;
+        }
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function tone(startFreq, endFreq, duration, delay = 0, type = 'square', peak = 0.1) {
+      const audio = getAudio();
+      if (!audio) return;
+      try {
+        const startAt = audio.currentTime + delay;
+        const osc     = audio.createOscillator();
+        const gain    = audio.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(startFreq, startAt);
+        if (endFreq !== startFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, startAt + duration);
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak, startAt + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+        osc.connect(gain);
+        gain.connect(audio.destination);
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+      } catch {}
+    }
+
+    return {
+      isMuted() {
+        return muted;
+      },
+      setMuted(value) {
+        muted = Boolean(value);
+        writeMuted(muted);
+      },
+      playEat() {
+        tone(520, 780, 0.09);
+      },
+      playLevelUp() {
+        tone(440, 440, 0.07, 0, 'triangle');
+        tone(660, 660, 0.1, 0.08, 'triangle');
+      },
+      playGameOver() {
+        tone(330, 120, 0.15, 0, 'sawtooth', 0.09);
+      },
+      playNewRecord() {
+        tone(523, 523, 0.06, 0, 'triangle');
+        tone(659, 659, 0.06, 0.07, 'triangle');
+        tone(784, 784, 0.06, 0.14, 'triangle');
+        tone(1047, 1047, 0.1, 0.21, 'triangle');
+      }
+    };
+  }
+
+  const sfx = createSfx();
+
   let state = null;
+  let runStartHighScore = 0;
   let helpDidPause = false;
   let autoStep = true;
   let rafId = null;
@@ -100,8 +192,20 @@
       state.statusMessage = `Level ${state.level}`;
       state.statusTone = 'milestone';
       state.statusMessageTimer = LEVEL_MESSAGE_FRAMES;
+      sfx.playLevelUp();
+    } else {
+      sfx.playEat();
     }
     spawnFood();
+  }
+
+  function endGame() {
+    state.gameOver = true;
+    if (runStartHighScore > 0 && state.score > runStartHighScore) {
+      sfx.playNewRecord();
+    } else {
+      sfx.playGameOver();
+    }
   }
 
   function moveSnake() {
@@ -113,7 +217,7 @@
     const newHead = { x: head.x + state.direction.x, y: head.y + state.direction.y };
 
     if (newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.y < 0 || newHead.y >= GRID_SIZE) {
-      state.gameOver = true;
+      endGame();
       return;
     }
 
@@ -121,7 +225,7 @@
     const checkLen = ateFood ? state.snake.length : state.snake.length - 1;
     for (let i = 0; i < checkLen; i += 1) {
       if (state.snake[i].x === newHead.x && state.snake[i].y === newHead.y) {
-        state.gameOver = true;
+        endGame();
         return;
       }
     }
@@ -240,6 +344,8 @@
     }
     pauseEl.textContent = state.paused ? 'Resume' : 'Pause';
     pauseEl.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
+    muteEl.textContent = sfx.isMuted() ? '🔇' : '🔊';
+    muteEl.setAttribute('aria-pressed', sfx.isMuted() ? 'true' : 'false');
   }
 
   function render() {
@@ -285,6 +391,11 @@
     render();
   }
 
+  function toggleMute() {
+    sfx.setMuted(!sfx.isMuted());
+    updateHud();
+  }
+
   function openHelp() {
     if (!helpOverlayEl.hidden) return;
     helpDidPause = !state.gameOver && !state.paused;
@@ -324,12 +435,14 @@
       statusTone:         'normal',
       statusMessageTimer: 0
     };
+    runStartHighScore = state.highScore;
     spawnFood();
     render();
   }
 
   restartEl.addEventListener('click', restartGame);
   pauseEl.addEventListener('click', togglePause);
+  muteEl.addEventListener('click', toggleMute);
   helpEl.addEventListener('click', openHelp);
   helpCloseEl.addEventListener('click', closeHelp);
   helpOverlayEl.addEventListener('click', (event) => {
@@ -359,7 +472,7 @@
   window.__snakeTest = {
     isReady: true,
     getState() {
-      return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden };
+      return { ...structuredClone(state), helpOpen: !helpOverlayEl.hidden, muted: sfx.isMuted() };
     },
     setState(nextState) {
       state = structuredClone(nextState);
@@ -394,6 +507,10 @@
     },
     setSeededValue(n) {
       seededValue = ((n >>> 0) || 1);
+    },
+    setMuted(value) {
+      sfx.setMuted(Boolean(value));
+      updateHud();
     }
   };
 })();
