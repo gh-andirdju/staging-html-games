@@ -33,6 +33,7 @@
   const levelEl = document.getElementById('level');
   const statusEl = document.getElementById('status');
   const restartEl = document.getElementById('restart');
+  const pauseEl = document.getElementById('pause');
   const statusWrapEl = statusEl.closest('.status-wrap');
   const nextCanvasEl = document.getElementById('next-canvas');
   const nextCtx = nextCanvasEl ? nextCanvasEl.getContext('2d') : null;
@@ -402,6 +403,7 @@
       gravityTick: 0,
       lockTimer: 0,
       gameOver: false,
+      paused: false,
       frame: 0,
       clearAnimation: null,
       statusMessage: '',
@@ -435,6 +437,7 @@
     if (typeof state.gravityFrames !== 'number') state.gravityFrames = BASE_GRAVITY_FRAMES;
     if (typeof state.gravityTick !== 'number') state.gravityTick = 0;
     if (typeof state.lockTimer !== 'number') state.lockTimer = 0;
+    if (typeof state.paused !== 'boolean') state.paused = false;
     if (!('heldPiece' in state)) state.heldPiece = null;
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
@@ -517,6 +520,19 @@
         if (cell.y >= 0) drawCell(cell.x, cell.y, state.current.index);
       }
     }
+
+    if (state.paused && !state.gameOver) {
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.62)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 28px "Trebuchet MS", sans-serif';
+      ctx.fillText('Paused', canvas.width / 2, canvas.height / 2 - 18);
+      ctx.fillStyle = '#c4a46b';
+      ctx.font = '14px "Trebuchet MS", sans-serif';
+      ctx.fillText('Press P to resume', canvas.width / 2, canvas.height / 2 + 14);
+    }
   }
 
   function drawPiecePreview(canvasEl, context, type) {
@@ -561,8 +577,12 @@
     scoreEl.textContent = String(state.score);
     linesEl.textContent = String(state.lines);
     levelEl.textContent = String(state.level);
-    if (statusEl.textContent !== state.statusMessage) statusEl.textContent = state.statusMessage;
-    if (statusWrapEl && statusWrapEl.dataset.tone !== state.statusTone) statusWrapEl.dataset.tone = state.statusTone;
+    const statusText = state.paused && !state.gameOver ? 'Paused' : state.statusMessage;
+    const statusTone = state.paused && !state.gameOver ? 'normal' : state.statusTone;
+    if (statusEl.textContent !== statusText) statusEl.textContent = statusText;
+    if (statusWrapEl && statusWrapEl.dataset.tone !== statusTone) statusWrapEl.dataset.tone = statusTone;
+    pauseEl.textContent = state.paused ? 'Resume' : 'Pause';
+    pauseEl.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
     drawPiecePreview(nextCanvasEl, nextCtx, state.nextPieceType ?? null);
     drawPiecePreview(holdCanvasEl, holdCtx, state.heldPiece ?? null);
     if (holdCanvasEl) {
@@ -626,7 +646,7 @@
   }
 
   function oneFrame() {
-    if (!state.gameOver) {
+    if (!state.gameOver && !state.paused) {
       if (state.statusMessageTimer > 0 && !state.clearAnimation) {
         state.statusMessageTimer -= 1;
         if (state.statusMessageTimer === 0) syncStatusMessage({ forceFallback: true });
@@ -651,7 +671,7 @@
         stepDown({ rewardSoftDrop: false });
       }
       state.frame += 1;
-    } else {
+    } else if (state.gameOver) {
       if (state.statusMessage !== 'Game Over') syncStatusMessage();
     }
     render();
@@ -695,7 +715,11 @@
       restartGame();
       return;
     }
-    if (state.gameOver) return;
+    if (event.key === 'p' || event.key === 'P' || event.key === 'Escape') {
+      togglePause();
+      return;
+    }
+    if (state.gameOver || state.paused) return;
     if (event.key === 'ArrowLeft') {
       if (event.repeat) return;
       setHorizontalHold('left', true);
@@ -750,7 +774,14 @@
     }
   }
 
+  function togglePause() {
+    if (state.gameOver) return;
+    state.paused = !state.paused;
+    render();
+  }
+
   function onTouchButtonDown(action) {
+    if (state.paused) return;
     if (action === 'rotate-cw') rotatePiece();
     else if (action === 'rotate-ccw') rotatePieceCcw();
     else if (action === 'hold') holdPiece();
@@ -763,6 +794,7 @@
   }
 
   restartEl.addEventListener('click', restartGame);
+  pauseEl.addEventListener('click', togglePause);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
 

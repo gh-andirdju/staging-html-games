@@ -21,6 +21,10 @@
           <span class="label">Level</span>
           <strong id="level">1</strong>
         </div>
+        <div class="stat-chip">
+          <span class="label">Status</span>
+          <strong id="status">Playing</strong>
+        </div>
       </header>
 
       <canvas id="game" width="800" height="520" aria-label="Pac-Man game canvas"></canvas>
@@ -37,6 +41,7 @@
         </div>
         <div class="thumb-zone action-zone">
           <span class="control-label">System</span>
+          <button id="pause" type="button" class="action-button" aria-pressed="false" aria-label="Pause game">Pause</button>
           <button id="restart" type="button" class="action-button" aria-label="Restart game">Restart</button>
         </div>
       </section>

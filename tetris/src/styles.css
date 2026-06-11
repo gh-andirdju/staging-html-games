@@ -69,7 +69,14 @@ body {
   line-height: 1;
 }
 
-#restart {
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#restart,
+#pause {
   border: 1px solid var(--accent);
   border-radius: 14px;
   background: var(--button-bg);
@@ -85,22 +92,26 @@ body {
   transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-#restart:hover {
+#restart:hover,
+#pause:hover {
   filter: brightness(1.08);
 }
 
-#restart:active {
+#restart:active,
+#pause:active {
   filter: brightness(0.95);
   transform: translateY(1px);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-#restart:focus-visible {
+#restart:focus-visible,
+#pause:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-#restart:disabled {
+#restart:disabled,
+#pause:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   filter: none;
@@ -489,7 +500,8 @@ body {
     font-size: 19px;
   }
 
-  #restart {
+  #restart,
+  #pause {
     padding: 8px 12px;
     font-size: 13px;
   }
@@ -579,6 +591,7 @@ body {
   }
 
   #restart:active,
+  #pause:active,
   .dpad-btn:active,
   .rotate-btn:active,
   .hold-preview:active {

@@ -189,8 +189,9 @@ body {
 }
 
 .action-zone {
-  display: grid;
-  justify-items: end;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .action-button {

@@ -638,6 +638,99 @@ test('rollover lights up and scores once', async ({ page }) => {
   expect(after.score).toBe(120);
 });
 
+test('pressing P pauses the game and freezes ball physics across advanceFrames', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      ball: { x: 200, y: 300, vx: 60, vy: -120, radius: 10, launched: true }
+    });
+  });
+
+  await page.keyboard.press('p');
+  const before = await getState(page);
+  expect(before.paused).toBe(true);
+  await expect(page.locator('#status')).toHaveText('Paused');
+
+  await page.keyboard.down('z');
+  await advanceFrames(page, 30);
+  await page.keyboard.up('z');
+  const after = await getState(page);
+  expect(after.paused).toBe(true);
+  expect(after.ball.x).toBe(before.ball.x);
+  expect(after.ball.y).toBe(before.ball.y);
+  expect(after.ball.vx).toBe(before.ball.vx);
+  expect(after.ball.vy).toBe(before.ball.vy);
+  expect(after.leftFlipper.angle).toBe(before.leftFlipper.angle);
+  expect(after.frame).toBe(before.frame);
+});
+
+test('pressing P again resumes ball physics', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      ball: { x: 200, y: 300, vx: 60, vy: -120, radius: 10, launched: true }
+    });
+  });
+
+  await page.keyboard.press('p');
+  await advanceFrames(page, 30);
+  let s = await getState(page);
+  expect(s.ball.y).toBe(300);
+
+  await page.keyboard.press('Escape');
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+  await expect(page.locator('#status')).toHaveText('Playing');
+
+  await advanceFrames(page, 10);
+  s = await getState(page);
+  expect(s.ball.y).not.toBe(300);
+  expect(s.frame).toBeGreaterThan(0);
+});
+
+test('pause button toggles pause and flips its label', async ({ page }) => {
+  await openGame(page);
+  const pauseBtn = page.locator('#pause');
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+
+  await pauseBtn.click();
+  let s = await getState(page);
+  expect(s.paused).toBe(true);
+  await expect(pauseBtn).toHaveText('Resume');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'true');
+
+  await pauseBtn.click();
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('pressing R while paused restarts the game unpaused', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__pinballTest.setState({
+      status: 'playing',
+      score: 500,
+      ball: { x: 200, y: 300, vx: 60, vy: -120, radius: 10, launched: true }
+    });
+  });
+
+  await page.keyboard.press('p');
+  let s = await getState(page);
+  expect(s.paused).toBe(true);
+
+  await page.keyboard.press('r');
+  s = await getState(page);
+  expect(s.paused).toBe(false);
+  expect(s.score).toBe(0);
+  expect(s.status).toBe('ready');
+  await expect(page.locator('#status')).toHaveText('Ready');
+});
+
 test('desktop layout screenshot', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page);

@@ -555,6 +555,98 @@ test('shields reset to full health when a new wave starts', async ({ page }) => 
   expect(stateAfter.shields[0].cells[0]).toBe(3);
 });
 
+// ─── Pause ────────────────────────────────────────────────────────────────────
+
+test('pressing P pauses the game and freezes gameplay across advanceFrames', async ({ page }) => {
+  await openGame(page);
+  await setState(page, {
+    bullets: [{ x: 300, y: 200 }],
+    enemyBullets: [{ x: 320, y: 240, zigzag: false, age: 0 }],
+    ufo: { x: 100, y: 18, dir: 1, speed: 60, pointValue: 100 }
+  });
+
+  await page.keyboard.press('p');
+  const before = await getState(page);
+  expect(before.paused).toBe(true);
+  await expect(page.locator('#status-msg')).toHaveText('Paused');
+
+  await page.keyboard.down('ArrowLeft');
+  await page.keyboard.down(' ');
+  await advanceFrames(page, 60);
+  await page.keyboard.up(' ');
+  await page.keyboard.up('ArrowLeft');
+  const after = await getState(page);
+  expect(after.paused).toBe(true);
+  expect(after.player.x).toBe(before.player.x);
+  expect(after.bullets).toEqual(before.bullets);
+  expect(after.enemyBullets).toEqual(before.enemyBullets);
+  expect(after.ufo).toEqual(before.ufo);
+  expect(after.enemies).toEqual(before.enemies);
+  expect(after.enemyMoveTimer).toBe(before.enemyMoveTimer);
+});
+
+test('pressing P again resumes gameplay', async ({ page }) => {
+  await openGame(page);
+  // y=300 sits in clear space between the formation bottom and the shields
+  await setState(page, { bullets: [{ x: 300, y: 300 }] });
+
+  await page.keyboard.press('p');
+  await advanceFrames(page, 30);
+  let state = await getState(page);
+  expect(state.bullets[0].y).toBe(300);
+
+  await page.keyboard.press('Escape');
+  state = await getState(page);
+  expect(state.paused).toBe(false);
+  await expect(page.locator('#status-msg')).toHaveText('');
+
+  const moveTimerBefore = state.enemyMoveTimer;
+  await advanceFrames(page, 10);
+  state = await getState(page);
+  // BULLET_SPEED=380 px/s, FIXED_DT=1/60 → 380/60*10 ≈ 63.3 px upward
+  expect(state.bullets[0].y).toBeCloseTo(300 - (380 / 60) * 10, 0);
+  expect(state.enemyMoveTimer).not.toBe(moveTimerBefore);
+});
+
+test('pause button toggles pause and flips its label', async ({ page }) => {
+  await openGame(page);
+  const pauseBtn = page.locator('#btn-pause');
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+
+  await pauseBtn.click();
+  let state = await getState(page);
+  expect(state.paused).toBe(true);
+  await expect(pauseBtn).toHaveText('Resume');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'true');
+
+  await pauseBtn.click();
+  state = await getState(page);
+  expect(state.paused).toBe(false);
+  await expect(pauseBtn).toHaveText('Pause');
+  await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('pressing R while paused restarts the game unpaused', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { score: 500, wave: 2 });
+
+  await page.keyboard.press('p');
+  let state = await getState(page);
+  expect(state.paused).toBe(true);
+
+  await page.keyboard.press('r');
+  state = await getState(page);
+  expect(state.paused).toBe(false);
+  expect(state.score).toBe(0);
+  expect(state.wave).toBe(1);
+  expect(state.status).toBe('playing');
+
+  await advanceFrames(page, 10);
+  state = await getState(page);
+  expect(state.enemyMoveTimer).toBe(50); // 60 initial − 10 frames
+});
+
 // ─── Screenshot tests ─────────────────────────────────────────────────────────
 
 test('matches the desktop layout baseline', async ({ page }) => {
