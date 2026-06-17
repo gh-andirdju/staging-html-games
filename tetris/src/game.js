@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-refined-2026-06-17.4';
+  const BUILD_ID = 'tetris-hifi-2026-06-17.5';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -20,8 +20,8 @@
   const STATUS_MESSAGE_FRAMES = 180;
   const MILESTONE_LEVEL_INTERVAL = 5;
 
-  // Vibrant, gem-like tetromino palette (index 1..7 → I O T S Z J L).
-  const COLORS = ['#000000', '#2ee0f2', '#ffd23f', '#b388ff', '#37e08a', '#ff5d6c', '#4f8cff', '#ff9f43'];
+  // Hi-Fi tetromino palette (index 1..7 → I O T S Z J L).
+  const COLORS = ['#000000', '#34d2e8', '#f4c52e', '#b05de0', '#46cf6d', '#ef4a5e', '#3f7ef6', '#ff9f2e'];
   const PIECES = [
     { type: 'I', index: 1, rotations: [[[-1, 0], [0, 0], [1, 0], [2, 0]], [[1, -1], [1, 0], [1, 1], [1, 2]], [[-1, 1], [0, 1], [1, 1], [2, 1]], [[0, -1], [0, 0], [0, 1], [0, 2]]] },
     { type: 'O', index: 2, rotations: [[[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]]] },
@@ -53,37 +53,41 @@
   const nextCtx2 = nextCanvas2El ? nextCanvas2El.getContext('2d') : null;
   const nextCanvas3El = document.getElementById('next-canvas-3');
   const nextCtx3 = nextCanvas3El ? nextCanvas3El.getContext('2d') : null;
+  const nextCanvas4El = document.getElementById('next-canvas-4');
+  const nextCtx4 = nextCanvas4El ? nextCanvas4El.getContext('2d') : null;
+  const nextCanvas5El = document.getElementById('next-canvas-5');
+  const nextCtx5 = nextCanvas5El ? nextCanvas5El.getContext('2d') : null;
+  const nextSlots = [
+    [nextCanvasEl, nextCtx],
+    [nextCanvas2El, nextCtx2],
+    [nextCanvas3El, nextCtx3],
+    [nextCanvas4El, nextCtx4],
+    [nextCanvas5El, nextCtx5]
+  ];
   const holdCanvasEl = document.getElementById('hold-canvas');
   const holdCtx = holdCanvasEl ? holdCanvasEl.getContext('2d') : null;
+  const pauseLabelEl = pauseEl ? pauseEl.querySelector('.btn-label') : null;
+  const meterFillEl = document.getElementById('meter-fill');
+  const meterCountEl = document.getElementById('meter-count');
+  const meterTargetEl = document.getElementById('meter-target');
   const touchButtons = Array.from(document.querySelectorAll('[data-action]'));
 
   function computeDimensions() {
     const shellEl = canvas.closest('.game-shell');
-    const topbarEl = shellEl.querySelector('.topbar');
-    const controlEl = shellEl.querySelector('.control-deck');
     const areaEl = shellEl.querySelector('.game-area');
 
-    const topbarRect = topbarEl.getBoundingClientRect();
-    const controlRect = controlEl.getBoundingClientRect();
-    const shellRect = shellEl.getBoundingClientRect();
-    const shellStyle = getComputedStyle(shellEl);
-    const shellPadTop = parseFloat(shellStyle.paddingTop) || 0;
-    const shellPadBottom = parseFloat(shellStyle.paddingBottom) || 0;
-    const shellRowGap = parseFloat(shellStyle.rowGap) || 6;
-
-    // Measure the shell's real height so cabinet padding/bezel is already excluded.
-    const availH = shellRect.height - topbarRect.height - controlRect.height
-      - shellRowGap * 2 - shellPadTop - shellPadBottom;
-
-    // Width budget: the play area minus the two flanking rails and their gaps,
-    // so the board never overflows when HOLD/NEXT sit beside it.
+    // The game-area is the grid's flexible (1fr) row, so its own box gives the
+    // space the board may occupy — already excluding the top bar, stats, deck, hint.
     const areaRect = areaEl.getBoundingClientRect();
     const areaStyle = getComputedStyle(areaEl);
     const colGap = parseFloat(areaStyle.columnGap || areaStyle.gap) || 6;
     const padX = (parseFloat(areaStyle.paddingLeft) || 0) + (parseFloat(areaStyle.paddingRight) || 0);
+    const padY = (parseFloat(areaStyle.paddingTop) || 0) + (parseFloat(areaStyle.paddingBottom) || 0);
     let railTotal = 0;
     const rails = areaEl.querySelectorAll('.rail');
     rails.forEach((rail) => { railTotal += rail.getBoundingClientRect().width; });
+
+    const availH = areaRect.height - padY - 2;
     const availW = areaRect.width - railTotal - colGap * (rails.length || 0) - padX - 2;
 
     // Target 30px cells; shrink to honor whichever of height/width is tighter.
@@ -284,7 +288,7 @@
     return order;
   }
 
-  const NEXT_QUEUE_SIZE = 3;
+  const NEXT_QUEUE_SIZE = 5;
 
   function ensureBag(count) {
     while (bag.length < count) bag = bag.concat(shuffleBag());
@@ -749,16 +753,6 @@
     };
   }
 
-  // amount in [-1, 1]: positive lightens toward white, negative darkens toward black.
-  function shadeColor(hex, amount) {
-    const { r, g, b } = hexToRgb(hex);
-    const mix = (c) => (amount >= 0
-      ? Math.round(c + (255 - c) * amount)
-      : Math.round(c * (1 + amount)));
-    const to2 = (c) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, '0');
-    return `#${to2(mix(r))}${to2(mix(g))}${to2(mix(b))}`;
-  }
-
   function withAlpha(hex, alpha) {
     const { r, g, b } = hexToRgb(hex);
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
@@ -775,72 +769,75 @@
     context.closePath();
   }
 
-  // Shared block painter: a glossy, beveled gem used on the board and in previews.
+  const CELL_GAP = 2;
+
+  // Cell pitch carries a small gap so blocks read as a segmented grid (per the handoff).
+  function cellGap() {
+    return cellSize >= 18 ? CELL_GAP : 1;
+  }
+
+  // Shared block painter: a beveled gem (handoff spec — four inset highlight/shade bars).
   function paintGem(context, px, py, size, base, ghost = false) {
-    const inset = Math.max(1, size * 0.05);
-    const x0 = px + inset;
-    const y0 = py + inset;
-    const sz = size - inset * 2;
-    const radius = Math.max(2, sz * 0.18);
+    const radius = Math.max(2, Math.round(size * 0.18));
 
     if (ghost) {
-      roundRectPath(context, x0, y0, sz, sz, radius);
-      context.fillStyle = withAlpha(base, 0.14);
+      roundRectPath(context, px, py, size, size, radius);
+      context.fillStyle = withAlpha(base, 0.10);
       context.fill();
-      context.lineWidth = Math.max(1, size * 0.06);
-      context.strokeStyle = withAlpha(base, 0.7);
+      context.lineWidth = 1.5;
+      context.strokeStyle = base;
       context.stroke();
       return;
     }
 
-    // Diagonal body gradient: bright top-left, deep bottom-right.
-    const body = context.createLinearGradient(x0, y0, x0 + sz, y0 + sz);
-    body.addColorStop(0, shadeColor(base, 0.42));
-    body.addColorStop(0.5, base);
-    body.addColorStop(1, shadeColor(base, -0.34));
-    roundRectPath(context, x0, y0, sz, sz, radius);
-    context.fillStyle = body;
+    roundRectPath(context, px, py, size, size, radius);
+    context.fillStyle = base;
     context.fill();
 
-    // Glossy highlight across the top.
-    roundRectPath(context, x0 + sz * 0.16, y0 + sz * 0.12, sz * 0.68, sz * 0.3, radius * 0.6);
-    const gloss = context.createLinearGradient(0, y0, 0, y0 + sz * 0.5);
-    gloss.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
-    gloss.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    context.fillStyle = gloss;
-    context.fill();
-
-    // Crisp dark edge for separation between adjacent blocks.
-    roundRectPath(context, x0, y0, sz, sz, radius);
-    context.lineWidth = Math.max(1, size * 0.05);
-    context.strokeStyle = shadeColor(base, -0.5);
-    context.stroke();
+    // Bevel: top/left highlights + bottom/right shades, clipped to the rounded square.
+    context.save();
+    roundRectPath(context, px, py, size, size, radius);
+    context.clip();
+    const tH = Math.max(1, size * 0.10);
+    const bH = Math.max(1, size * 0.14);
+    const sW = Math.max(1, size * 0.10);
+    context.fillStyle = 'rgba(255, 255, 255, 0.38)';
+    context.fillRect(px, py, size, tH);
+    context.fillStyle = 'rgba(0, 0, 0, 0.28)';
+    context.fillRect(px, py + size - bH, size, bH);
+    context.fillStyle = 'rgba(255, 255, 255, 0.14)';
+    context.fillRect(px, py, sW, size);
+    context.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    context.fillRect(px + size - sW, py, sW, size);
+    context.restore();
   }
 
   function drawCell(x, y, index) {
-    paintGem(ctx, x * cellSize, y * cellSize, cellSize, COLORS[index]);
+    const g = cellGap();
+    paintGem(ctx, x * cellSize + g / 2, y * cellSize + g / 2, cellSize - g, COLORS[index]);
   }
 
   function drawBoardBackground() {
     const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    bg.addColorStop(0, '#0e1220');
-    bg.addColorStop(1, '#080a12');
+    bg.addColorStop(0, '#090b10');
+    bg.addColorStop(1, '#0b0e14');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Subtle playfield grid so empty space reads as a board.
-    ctx.strokeStyle = 'rgba(150, 170, 210, 0.05)';
+    // Faint per-cell wells so the empty playfield reads as a segmented grid.
+    const g = cellGap();
+    const s = cellSize - g;
+    const radius = Math.max(2, Math.round(s * 0.18));
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let c = 1; c < boardCols; c += 1) {
-      ctx.moveTo(Math.round(c * cellSize) + 0.5, 0);
-      ctx.lineTo(Math.round(c * cellSize) + 0.5, canvas.height);
+    for (let y = 0; y < boardRows; y += 1) {
+      for (let x = 0; x < boardCols; x += 1) {
+        roundRectPath(ctx, x * cellSize + g / 2, y * cellSize + g / 2, s, s, radius);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.022)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+        ctx.stroke();
+      }
     }
-    for (let r = 1; r < boardRows; r += 1) {
-      ctx.moveTo(0, Math.round(r * cellSize) + 0.5);
-      ctx.lineTo(canvas.width, Math.round(r * cellSize) + 0.5);
-    }
-    ctx.stroke();
   }
 
   function drawBoard() {
@@ -848,9 +845,10 @@
     drawBoardBackground();
 
     if (state.current && !state.clearAnimation) {
+      const g = cellGap();
       const ghostCells = getGhostCells(state.current);
       for (const cell of ghostCells) {
-        if (cell.y >= 0) paintGem(ctx, cell.x * cellSize, cell.y * cellSize, cellSize, COLORS[state.current.index], true);
+        if (cell.y >= 0) paintGem(ctx, cell.x * cellSize + g / 2, cell.y * cellSize + g / 2, cellSize - g, COLORS[state.current.index], true);
       }
     }
 
@@ -879,19 +877,19 @@
     }
 
     if (state.paused && !state.gameOver) {
-      drawBoardOverlay('PAUSED', 'Press P to resume', '#f4f2ea');
+      drawBoardOverlay('PAUSED', 'Press P to resume', '#eef1f6');
     }
 
     if (state.gameOver) {
       drawBoardOverlay('GAME OVER', [
         `Score ${state.score} · Best ${state.highScore}`,
         'Press R or tap Restart'
-      ], state.newRecord ? '#3fe0d0' : '#ff3b30');
+      ], state.newRecord ? '#34d2e8' : '#ef4a5e');
     }
   }
 
-  function drawBoardOverlay(title, subtitle, titleColor = '#f4f2ea') {
-    ctx.fillStyle = 'rgba(6, 10, 22, 0.74)';
+  function drawBoardOverlay(title, subtitle, titleColor = '#eef1f6') {
+    ctx.fillStyle = 'rgba(7, 9, 13, 0.8)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -899,12 +897,12 @@
     ctx.shadowColor = withAlpha(titleColor, 0.6);
     ctx.shadowBlur = 18;
     ctx.fillStyle = titleColor;
-    ctx.font = '36px "Anton", "Trebuchet MS", sans-serif';
+    ctx.font = '700 30px "Chakra Petch", system-ui, sans-serif';
     const lines = Array.isArray(subtitle) ? subtitle : [subtitle];
     ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 22);
     ctx.restore();
-    ctx.fillStyle = '#aeb6c8';
-    ctx.font = '13px "Space Mono", ui-monospace, monospace';
+    ctx.fillStyle = 'rgba(238, 241, 246, 0.7)';
+    ctx.font = '500 13px "Chakra Petch", system-ui, sans-serif';
     lines.forEach((line, i) => {
       ctx.fillText(line, canvas.width / 2, canvas.height / 2 + 10 + i * 22);
     });
@@ -952,6 +950,14 @@
   let prevLevelShown = null;
   let prevLinesShown = null;
 
+  function updateLevelMeter() {
+    const linesIntoLevel = state.lines % 10;
+    const pct = Math.round((linesIntoLevel / 10) * 100);
+    if (meterFillEl) meterFillEl.style.setProperty('--meter-pct', `${pct}%`);
+    if (meterCountEl) meterCountEl.textContent = `${linesIntoLevel}/10`;
+    if (meterTargetEl) meterTargetEl.textContent = `To Lvl ${state.level + 1}`;
+  }
+
   function updateHud() {
     scoreEl.textContent = String(state.score);
     bestEl.textContent = String(state.highScore);
@@ -961,18 +967,20 @@
     if (prevLinesShown !== null && state.lines > prevLinesShown) popStat(linesEl);
     prevLevelShown = state.level;
     prevLinesShown = state.lines;
+    updateLevelMeter();
     const statusText = state.paused && !state.gameOver ? 'Paused' : state.statusMessage;
     const statusTone = state.paused && !state.gameOver ? 'normal' : state.statusTone;
     if (statusEl.textContent !== statusText) statusEl.textContent = statusText;
     if (statusWrapEl && statusWrapEl.dataset.tone !== statusTone) statusWrapEl.dataset.tone = statusTone;
-    pauseEl.textContent = state.paused ? 'Resume' : 'Pause';
+    if (pauseLabelEl) pauseLabelEl.textContent = state.paused ? 'Resume' : 'Pause';
     pauseEl.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
-    muteEl.textContent = sfx.isMuted() ? '🔇' : '🔊';
+    muteEl.setAttribute('data-muted', sfx.isMuted() ? 'true' : 'false');
     muteEl.setAttribute('aria-pressed', sfx.isMuted() ? 'true' : 'false');
     const queue = Array.isArray(state.nextQueue) ? state.nextQueue : [];
-    drawPiecePreview(nextCanvasEl, nextCtx, queue[0] ?? state.nextPieceType ?? null);
-    drawPiecePreview(nextCanvas2El, nextCtx2, queue[1] ?? null);
-    drawPiecePreview(nextCanvas3El, nextCtx3, queue[2] ?? null);
+    nextSlots.forEach(([el, context], i) => {
+      const type = i === 0 ? (queue[0] ?? state.nextPieceType ?? null) : (queue[i] ?? null);
+      drawPiecePreview(el, context, type);
+    });
     drawPiecePreview(holdCanvasEl, holdCtx, state.heldPiece ?? null);
     if (holdCanvasEl) {
       const holdBox = holdCanvasEl.closest('.preview-box');
@@ -1140,34 +1148,11 @@
     else if (event.key === 'ArrowDown') held.softDrop = false;
   }
 
-  let longPressHardDropMs = 350;
-  let softDropLongPressTimer = null;
-
-  function cancelSoftDropLongPress() {
-    if (softDropLongPressTimer !== null) {
-      clearTimeout(softDropLongPressTimer);
-      softDropLongPressTimer = null;
-    }
-  }
-
-  function startSoftDropLongPress() {
-    cancelSoftDropLongPress();
-    softDropLongPressTimer = setTimeout(() => {
-      softDropLongPressTimer = null;
-      if (!held.softDrop) return;
-      held.softDrop = false;
-      hardDrop();
-    }, longPressHardDropMs);
-  }
-
+  // Hard drop is now an explicit pad (⤓), so soft-drop is a plain continuous hold.
   function setTouchHeld(action, isHeld) {
     if (action === 'left') setHorizontalHold('left', isHeld);
     else if (action === 'right') setHorizontalHold('right', isHeld);
-    else if (action === 'soft-drop') {
-      held.softDrop = isHeld;
-      if (isHeld) startSoftDropLongPress();
-      else cancelSoftDropLongPress();
-    }
+    else if (action === 'soft-drop') held.softDrop = isHeld;
   }
 
   function togglePause() {
@@ -1403,8 +1388,8 @@
     setHandedness: (_value) => {
       // no-op stub for test API compatibility
     },
-    setLongPressHardDropMs: (ms) => {
-      longPressHardDropMs = ms;
+    setLongPressHardDropMs: (_ms) => {
+      // no-op: hard drop is now an explicit pad, not a soft-drop long-press.
     },
     getBoardSize: () => ({ cols: boardCols, rows: boardRows, cellSize }),
     setBoardSize: (cols, rows) => {

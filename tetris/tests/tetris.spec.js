@@ -98,7 +98,7 @@ async function getPortraitLayout(page) {
       left: readBox('[data-action="left"]'),
       right: readBox('[data-action="right"]'),
       softDrop: readBox('[data-action="soft-drop"]'),
-      dpadRotateCw: readBox('.dpad-cluster [data-action="rotate-cw"]'),
+      hardDrop: readBox('.dpad-cluster [data-action="hard-drop"]'),
       rotateCw: readBox('.rotate-cluster [data-action="rotate-cw"]'),
       rotateCcw: readBox('[data-action="rotate-ccw"]')
     };
@@ -137,13 +137,13 @@ function expectPortraitErgonomics(layout) {
     left,
     right,
     softDrop,
-    dpadRotateCw,
+    hardDrop,
     rotateCw,
     rotateCcw
   } = layout;
 
   for (const box of [board, controlDeck, gameArea, dpadCluster, rotateCluster,
-    left, right, softDrop, dpadRotateCw, rotateCw, rotateCcw]) {
+    left, right, softDrop, hardDrop, rotateCw, rotateCcw]) {
     expect(box).not.toBeNull();
     expectVisibleInViewport(box, viewport);
   }
@@ -151,11 +151,12 @@ function expectPortraitErgonomics(layout) {
   expect(scrollHeight).toBeLessThanOrEqual(viewport.height + 1);
   expect(controlDeck.y).toBeGreaterThanOrEqual(board.bottom - 2);
   expect(controlDeck.height).toBeLessThanOrEqual(viewport.height * 0.30);
+  // Move/drop pad on the right, rotate cluster on the left (two-thumb ergonomics).
   expect(centerX(dpadCluster)).toBeGreaterThan(centerX(rotateCluster));
   expectInside(left, dpadCluster);
   expectInside(right, dpadCluster);
   expectInside(softDrop, dpadCluster);
-  expectInside(dpadRotateCw, dpadCluster);
+  expectInside(hardDrop, dpadCluster);
   expectInside(rotateCw, rotateCluster);
   expectInside(rotateCcw, rotateCluster);
   expect(Math.abs(left.width - right.width)).toBeLessThan(4);
@@ -163,7 +164,9 @@ function expectPortraitErgonomics(layout) {
   expect(Math.abs(left.y - right.y)).toBeLessThan(4);
   expect(Math.abs(rotateCw.width - rotateCcw.width)).toBeLessThan(4);
   expect(Math.abs(rotateCw.height - rotateCcw.height)).toBeLessThan(4);
-  expect(dpadRotateCw.y).toBeLessThan(softDrop.y);
+  // Diamond pad: hard drop sits at the top, soft drop at the bottom.
+  expect(hardDrop.y).toBeLessThan(softDrop.y);
+  expect(softDrop.bottom).toBeGreaterThan(left.bottom);
 }
 
 async function prepareVisualLayout(page) {
@@ -228,7 +231,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-refined-2026-06-17.4');
+  expect(marker.win).toBe('tetris-hifi-2026-06-17.5');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -853,6 +856,8 @@ test.describe('combo and back-to-back scoring', () => {
 });
 
 test('control deck buttons are keyboard-activatable via Enter', async ({ page }) => {
+  // Touch deck is shown on the mobile breakpoint (keyboard-only on desktop).
+  await page.setViewportSize({ width: 390, height: 844 });
   await openGame(page);
   const initial = await getState(page);
 
@@ -930,6 +935,8 @@ test('natural gravity locks piece immediately with no extra delay', async ({ pag
 });
 
 test('control deck buttons are keyboard-activatable via Space', async ({ page }) => {
+  // Touch deck is shown on the mobile breakpoint (keyboard-only on desktop).
+  await page.setViewportSize({ width: 390, height: 844 });
   await openGame(page);
   const initial = await getState(page);
 
@@ -1482,22 +1489,19 @@ test.describe('mobile touch controls', () => {
     const rotated = await getState(page);
     expect(rotated.current.rotation).not.toBe(beforeRotate);
 
-    await page.evaluate(() => window.__tetrisTest.setLongPressHardDropMs(200));
     const soft = page.locator('[data-action="soft-drop"]');
     const beforeSoftY = rotated.current.y;
     await soft.dispatchEvent('pointerdown');
     await advanceFrames(page, 6);
-    // Release before the 200ms long-press threshold so this stays a soft-drop.
     await soft.dispatchEvent('pointerup');
     const softened = await getState(page);
     expect(softened.current.y).toBeGreaterThan(beforeSoftY);
 
-    // Long-press the soft-drop button to trigger hard-drop.
-    await page.evaluate(() => window.__tetrisTest.setLongPressHardDropMs(40));
+    // The explicit hard-drop pad (⤓) slams the piece and awards drop points.
+    const hardBtn = page.locator('[data-action="hard-drop"]');
     const scoreBeforeHard = softened.score;
-    await soft.dispatchEvent('pointerdown');
-    await page.waitForTimeout(120);
-    await soft.dispatchEvent('pointerup');
+    await hardBtn.dispatchEvent('pointerdown');
+    await hardBtn.dispatchEvent('pointerup');
     await advanceFrames(page, 2);
     const hardened = await getState(page);
     expect(hardened.score).toBeGreaterThan(scoreBeforeHard);
@@ -1528,14 +1532,15 @@ test.describe('mobile touch controls', () => {
     const restartStyles = await page.locator('#restart').evaluate((element) => {
       const style = window.getComputedStyle(element);
       return {
-        borderTopColor: style.borderTopColor,
-        backgroundImage: style.backgroundImage
+        backgroundColor: style.backgroundColor,
+        borderWidth: style.borderTopWidth
       };
     });
 
     expectPortraitErgonomics(layout);
-    expect(restartStyles.borderTopColor).not.toBe('rgb(51, 65, 85)');
-    expect(restartStyles.backgroundImage).toContain('gradient');
+    // Restart is a styled glass icon button (non-transparent fill + visible border).
+    expect(restartStyles.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+    expect(parseFloat(restartStyles.borderWidth)).toBeGreaterThan(0);
   });
 
   test('keeps the handheld deck in view on shorter portrait screens', async ({ page }) => {
@@ -1865,11 +1870,11 @@ test.describe('sound and mute', () => {
     await openGame(page);
     const muteBtn = page.locator('#mute');
     await expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
-    await expect(muteBtn).toHaveText('🔊');
+    await expect(muteBtn).toHaveAttribute('data-muted', 'false');
 
     await muteBtn.click();
     await expect(muteBtn).toHaveAttribute('aria-pressed', 'true');
-    await expect(muteBtn).toHaveText('🔇');
+    await expect(muteBtn).toHaveAttribute('data-muted', 'true');
     let stored = await page.evaluate(() => localStorage.getItem('tetris-muted'));
     expect(stored).toBe('1');
 
