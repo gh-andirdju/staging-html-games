@@ -218,6 +218,18 @@ test('renders and exposes ready test API', async ({ page }) => {
   }).toBeGreaterThan(500);
 });
 
+test('exposes a build marker on window and in the page head', async ({ page }) => {
+  await openGame(page);
+  const marker = await page.evaluate(() => ({
+    win: window.__tetrisBuild,
+    hook: window.__tetrisTest.buildId,
+    meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
+  }));
+  expect(marker.win).toBe('tetris-gestures-2026-06-17.1');
+  expect(marker.hook).toBe(marker.win);
+  expect(marker.meta).toBe(marker.win);
+});
+
 test('getControlsState returns handedness stub', async ({ page }) => {
   await openGame(page);
   const controls = await getControlsState(page);
