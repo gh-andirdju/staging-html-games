@@ -1577,6 +1577,148 @@ test.describe('mobile touch controls', () => {
   });
 });
 
+test.describe('board touch gestures', () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true
+  });
+
+  // Dispatch a synthetic PointerEvent on the board at board-local (x, y) CSS pixels.
+  async function boardPointer(page, type, x, y) {
+    await page.evaluate(({ type, x, y }) => {
+      const canvas = document.getElementById('game');
+      const rect = canvas.getBoundingClientRect();
+      canvas.dispatchEvent(new PointerEvent(type, {
+        clientX: rect.left + x,
+        clientY: rect.top + y,
+        pointerId: 1,
+        bubbles: true
+      }));
+    }, { type, x, y });
+  }
+
+  async function placePiece(page, piece, extra = {}) {
+    const state = await getState(page);
+    await setState(page, {
+      ...state,
+      board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+      current: piece,
+      score: 0, lines: 0, level: 1,
+      gravityTick: 0, gravityFrames: 48, lockTimer: 0,
+      heldPiece: null, holdUsed: false,
+      ...extra
+    });
+  }
+
+  test('tap rotates the active piece clockwise', async ({ page }) => {
+    await openGame(page);
+    await placePiece(page, { type: 'T', index: 3, x: 4, y: 4, rotation: 0 });
+
+    await boardPointer(page, 'pointerdown', 150, 150);
+    await boardPointer(page, 'pointerup', 151, 151);
+
+    const after = await getState(page);
+    expect(after.current.rotation).toBe(1);
+    expect(after.current.x).toBe(4); // a tap must not nudge the piece sideways
+  });
+
+  test('horizontal drag moves one cell per cell-width dragged', async ({ page }) => {
+    await openGame(page);
+    await placePiece(page, { type: 'T', index: 3, x: 4, y: 4, rotation: 0 });
+
+    // Drag right by two cell-widths (cellSize is 30 at the locked 10x20 board).
+    await boardPointer(page, 'pointerdown', 60, 150);
+    await boardPointer(page, 'pointermove', 120, 150);
+    await boardPointer(page, 'pointerup', 120, 150);
+
+    const right = await getState(page);
+    expect(right.current.x).toBe(6);
+    expect(right.current.rotation).toBe(0); // a move gesture must not also rotate
+
+    // Drag back left by three cell-widths.
+    await boardPointer(page, 'pointerdown', 200, 150);
+    await boardPointer(page, 'pointermove', 110, 150);
+    await boardPointer(page, 'pointerup', 110, 150);
+
+    const left = await getState(page);
+    expect(left.current.x).toBe(3);
+  });
+
+  test('downward flick hard drops the piece', async ({ page }) => {
+    await openGame(page);
+    await placePiece(page, { type: 'O', index: 2, x: 4, y: 0, rotation: 0 });
+
+    // A fast, long downward motion released quickly registers as a hard drop.
+    await boardPointer(page, 'pointerdown', 150, 40);
+    await boardPointer(page, 'pointermove', 150, 130);
+    await boardPointer(page, 'pointerup', 150, 130);
+
+    const after = await getState(page);
+    // O-piece slammed to the floor (rows 18-19) and a new piece spawned.
+    expect(after.board[18][4]).toBeGreaterThan(0);
+    expect(after.board[19][4]).toBeGreaterThan(0);
+    expect(after.score).toBeGreaterThan(0);
+  });
+
+  test('slow downward drag soft drops without slamming to the floor', async ({ page }) => {
+    await openGame(page);
+    await placePiece(page, { type: 'O', index: 2, x: 4, y: 0, rotation: 0 });
+
+    await boardPointer(page, 'pointerdown', 150, 40);
+    await boardPointer(page, 'pointermove', 150, 130); // ~3 cells of soft drop
+    // Hold past the hard-drop flick window so release stays a soft drop.
+    await page.waitForTimeout(320);
+    await boardPointer(page, 'pointerup', 150, 130);
+
+    const after = await getState(page);
+    expect(after.current).not.toBeNull();
+    expect(after.current.y).toBeGreaterThan(0);
+    expect(after.current.y).toBeLessThan(10); // did not reach the floor
+  });
+
+  test('swipe up holds the active piece', async ({ page }) => {
+    await openGame(page);
+    await placePiece(page, { type: 'T', index: 3, x: 4, y: 8, rotation: 0 });
+
+    await boardPointer(page, 'pointerdown', 150, 300);
+    await boardPointer(page, 'pointermove', 150, 250);
+    await boardPointer(page, 'pointerup', 150, 250);
+
+    const after = await getState(page);
+    expect(after.heldPiece).toBe('T');
+    expect(after.holdUsed).toBe(true);
+  });
+
+  test('tap after game over restarts the game', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    await setState(page, { ...state, gameOver: true, score: 500, lines: 8, level: 2 });
+
+    await boardPointer(page, 'pointerdown', 150, 300);
+    await boardPointer(page, 'pointerup', 150, 300);
+
+    const after = await getState(page);
+    expect(after.gameOver).toBe(false);
+    expect(after.score).toBe(0);
+    expect(after.lines).toBe(0);
+  });
+
+  test('board gestures are ignored while paused', async ({ page }) => {
+    await openGame(page);
+    await placePiece(page, { type: 'T', index: 3, x: 4, y: 4, rotation: 0 });
+    await page.keyboard.press('p');
+
+    await boardPointer(page, 'pointerdown', 60, 150);
+    await boardPointer(page, 'pointermove', 200, 150);
+    await boardPointer(page, 'pointerup', 200, 150);
+
+    const after = await getState(page);
+    expect(after.paused).toBe(true);
+    expect(after.current.x).toBe(4); // untouched while paused
+  });
+});
+
 test.describe('responsive layout screenshots', () => {
   test('matches the tablet landscape layout baseline', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });

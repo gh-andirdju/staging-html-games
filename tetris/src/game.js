@@ -1097,6 +1097,120 @@
     });
   }
 
+  // ── Direct board gestures ───────────────────────────────────────
+  // Touch the board itself: drag horizontally to move (one cell per cell-width
+  // dragged), drag down to soft drop, flick down to hard drop, swipe up to hold,
+  // and tap to rotate. Tapping after game over restarts. These layer on top of
+  // the off-canvas button deck so either style of play works.
+  const TAP_MAX_MOVE_PX = 8;
+  const TAP_MAX_MS = 300;
+  const HARD_DROP_FLICK_MS = 260;
+  const HARD_DROP_FLICK_CELLS = 1.5;
+  const HOLD_SWIPE_CELLS = 1;
+
+  const boardGesture = {
+    active: false,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    startCol: 0,
+    lastCol: 0,
+    softSteps: 0,
+    axis: null,
+    moved: false,
+    cssCell: cellSize
+  };
+
+  function axisLockThreshold(cssCell) {
+    return Math.max(TAP_MAX_MOVE_PX + 2, cssCell * 0.35);
+  }
+
+  function onBoardPointerDown(event) {
+    if (!helpOverlayEl.hidden || state.paused) return;
+    event.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    boardGesture.active = true;
+    boardGesture.pointerId = event.pointerId;
+    boardGesture.startX = event.clientX;
+    boardGesture.startY = event.clientY;
+    boardGesture.startTime = performance.now();
+    boardGesture.startCol = state.current ? state.current.x : 0;
+    boardGesture.lastCol = boardGesture.startCol;
+    boardGesture.softSteps = 0;
+    boardGesture.axis = null;
+    boardGesture.moved = false;
+    boardGesture.cssCell = (rect.width / boardCols) || cellSize;
+    try { canvas.setPointerCapture(event.pointerId); } catch (_) { /* synthetic event */ }
+  }
+
+  function onBoardPointerMove(event) {
+    if (!boardGesture.active || event.pointerId !== boardGesture.pointerId) return;
+    if (state.gameOver || state.paused || !state.current || state.clearAnimation) return;
+    const dx = event.clientX - boardGesture.startX;
+    const dy = event.clientY - boardGesture.startY;
+    const cssCell = boardGesture.cssCell;
+    if (boardGesture.axis === null) {
+      const threshold = axisLockThreshold(cssCell);
+      if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
+      boardGesture.axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      boardGesture.moved = true;
+    }
+    if (boardGesture.axis === 'h') {
+      const targetCol = boardGesture.startCol + Math.round(dx / cssCell);
+      while (boardGesture.lastCol < targetCol && movePiece(1)) boardGesture.lastCol += 1;
+      while (boardGesture.lastCol > targetCol && movePiece(-1)) boardGesture.lastCol -= 1;
+    } else if (boardGesture.axis === 'v' && dy > 0) {
+      const desired = Math.floor(dy / cssCell);
+      while (boardGesture.softSteps < desired && state.current) {
+        stepDown({ rewardSoftDrop: true });
+        boardGesture.softSteps += 1;
+      }
+    }
+  }
+
+  function endBoardGesture(event) {
+    if (!boardGesture.active || event.pointerId !== boardGesture.pointerId) return;
+    try { canvas.releasePointerCapture(event.pointerId); } catch (_) { /* synthetic event */ }
+    const dx = event.clientX - boardGesture.startX;
+    const dy = event.clientY - boardGesture.startY;
+    const dt = performance.now() - boardGesture.startTime;
+    const cssCell = boardGesture.cssCell;
+    const moved = boardGesture.moved;
+    const axis = boardGesture.axis;
+    boardGesture.active = false;
+    boardGesture.pointerId = null;
+    if (state.paused || !helpOverlayEl.hidden) return;
+    const isTap = !moved && Math.abs(dx) < TAP_MAX_MOVE_PX && Math.abs(dy) < TAP_MAX_MOVE_PX && dt < TAP_MAX_MS;
+    if (state.gameOver) {
+      if (isTap) restartGame();
+      return;
+    }
+    if (isTap) {
+      rotatePiece();
+      return;
+    }
+    if (axis === 'v') {
+      if (dy > 0 && dt < HARD_DROP_FLICK_MS && dy > HARD_DROP_FLICK_CELLS * cssCell) {
+        hardDrop();
+      } else if (dy < 0 && Math.abs(dy) > HOLD_SWIPE_CELLS * cssCell) {
+        holdPiece();
+      }
+    }
+  }
+
+  function cancelBoardGesture(event) {
+    if (event.pointerId !== boardGesture.pointerId) return;
+    try { canvas.releasePointerCapture(event.pointerId); } catch (_) { /* synthetic event */ }
+    boardGesture.active = false;
+    boardGesture.pointerId = null;
+  }
+
+  canvas.addEventListener('pointerdown', onBoardPointerDown);
+  canvas.addEventListener('pointermove', onBoardPointerMove);
+  canvas.addEventListener('pointerup', endBoardGesture);
+  canvas.addEventListener('pointercancel', cancelBoardGesture);
+
   let _resizeTimer = null;
   window.addEventListener('resize', () => {
     clearTimeout(_resizeTimer);

@@ -18,6 +18,8 @@ Sound effects are short WebAudio blips (rotate, lock, hard drop, hold, line-clea
 
 Scoring tracks a `combo` counter (consecutive line-clearing drops; `-1` when idle, `0` on the first clear of a chain) and a `b2bActive` flag (the last clear was a Tetris). A combo adds `50 × combo × level`, and a back-to-back Tetris adds half the base Tetris score again. Both are surfaced via `getState()`.
 
+Mobile input has two layers. The off-canvas button deck (D-pad + rotate cluster) stays the discoverable, accessible default and must remain outside the gameplay area. On top of it, pointer gestures on the `#game` canvas drive faster play: an axis-locked horizontal drag moves one cell per cell-width dragged, a downward drag soft drops, a quick downward flick hard drops, a swipe up holds, a tap rotates clockwise, and a tap after game over restarts. Gesture thresholds are expressed in CSS cell-widths (read from the canvas rect) so they scale with board size; keep them deterministic so Playwright can drive synthetic `PointerEvent`s.
+
 ## Testing Guidelines
 Use deterministic state setup through test hooks (`getState`, `setState`, `advanceFrames`, `setAutoStep`). Cover input behavior (keyboard and touch), line clear flow, level speed progression, scoring, game-over, and restart behavior. Keep tests free of wall-clock race assumptions.
 
