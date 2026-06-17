@@ -2,8 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="tetris-build" content="tetris-hifi-2026-06-17.5">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="tetris-build" content="tetris-hifi-2026-06-17.6">
     <title>Marathon Tetris</title>
     <link rel="preload" href="src/fonts/chakra-petch-700-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="src/fonts/chakra-petch-600-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -19,6 +19,13 @@
             <span class="eyebrow">Endless · Tetris</span>
           </div>
         </div>
+
+        <div class="hud-score">
+          <span class="hud-label">Score</span>
+          <strong id="score">0</strong>
+          <span class="hud-sub">Lvl <strong id="level">1</strong> · <strong id="lines">0</strong> Lines · Best <strong id="best">0</strong></span>
+        </div>
+
         <div class="toolbar">
           <button id="pause" class="iconbtn pause-btn" type="button" aria-pressed="false">
             <span class="ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="2" y="1.5" width="3.5" height="11" rx="1.2" fill="currentColor"/><rect x="8.5" y="1.5" width="3.5" height="11" rx="1.2" fill="currentColor"/></svg></span>
@@ -28,7 +35,7 @@
             <span class="ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 8a5 5 0 1 1-1.6-3.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13 2.2V5h-2.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </button>
           <button id="mute" class="iconbtn" type="button" aria-pressed="false" aria-label="Mute sound" data-muted="false">
-            <span class="ico ico-sound" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 6h2.4L9 3v10L5.4 10H3V6z" fill="currentColor"/><path class="snd-wave" d="M11 5.5c1 .9 1 4.1 0 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path class="snd-mute" d="M11 6l3 3M14 6l-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+            <span class="ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 6h2.4L9 3v10L5.4 10H3V6z" fill="currentColor"/><path class="snd-wave" d="M11 5.5c1 .9 1 4.1 0 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path class="snd-mute" d="M11 6l3 3M14 6l-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
           </button>
           <button id="help" class="iconbtn" type="button" aria-label="How to play">
             <span class="ico" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 6a2 2 0 1 1 2.6 1.9c-.6.2-.9.6-.9 1.2v.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.7" cy="11.6" r="0.9" fill="currentColor"/></svg></span>
@@ -36,43 +43,36 @@
         </div>
       </header>
 
-      <div class="stats">
-        <div class="stat stat-score">
-          <span class="stat-label">Score</span>
-          <strong id="score">0</strong>
-        </div>
-        <div class="stat stat-best">
-          <span class="stat-label">Best</span>
-          <strong id="best">0</strong>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Lvl</span>
-          <strong id="level">1</strong>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Lines</span>
-          <strong id="lines">0</strong>
-        </div>
-      </div>
-
       <div class="game-area" role="region" aria-label="Game area">
-        <aside class="rail rail-left" aria-label="Hold and level progress">
+        <div class="hold-chip">
+          <span class="chip-label">Hold</span>
           <div class="preview-box hold-preview" data-action="hold" role="button" tabindex="0" aria-label="Hold piece">
-            <span class="panel-label">Hold</span>
-            <canvas id="hold-canvas" width="56" height="44" role="img" aria-label="Held piece preview"></canvas>
+            <canvas id="hold-canvas" width="52" height="38" role="img" aria-label="Held piece preview"></canvas>
           </div>
-          <div class="meter" aria-label="Lines to next level">
+        </div>
+
+        <div class="meter" aria-label="Lines to next level">
+          <div class="meter-head">
             <span class="meter-top" id="meter-target">To Lvl 2</span>
-            <div class="meter-track">
-              <div class="meter-fill" id="meter-fill"></div>
-              <span class="meter-cap">Lines</span>
-              <span class="meter-count" id="meter-count">0/10</span>
-            </div>
+            <span class="meter-count" id="meter-count">0/10</span>
           </div>
-        </aside>
+          <div class="meter-track"><div class="meter-fill" id="meter-fill"></div></div>
+        </div>
+
+        <div class="next-row">
+          <span class="chip-label">Next</span>
+          <div class="next-chips">
+            <div class="chip chip-lead"><canvas id="next-canvas" width="40" height="30" role="img" aria-label="Next piece preview"></canvas></div>
+            <div class="chip"><canvas id="next-canvas-2" width="30" height="24" role="img" aria-label="Upcoming piece 2"></canvas></div>
+            <div class="chip"><canvas id="next-canvas-3" width="30" height="24" role="img" aria-label="Upcoming piece 3"></canvas></div>
+            <div class="chip next-desktop"><canvas id="next-canvas-4" width="30" height="24" role="img" aria-label="Upcoming piece 4"></canvas></div>
+            <div class="chip next-desktop"><canvas id="next-canvas-5" width="30" height="24" role="img" aria-label="Upcoming piece 5"></canvas></div>
+          </div>
+        </div>
 
         <div class="board-area">
           <div class="board-wrap">
+            <div class="board-glow" aria-hidden="true"></div>
             <canvas id="game" role="img" aria-label="Tetris board"></canvas>
           </div>
           <div class="status-wrap" role="status" aria-live="polite">
@@ -80,28 +80,17 @@
           </div>
         </div>
 
-        <aside class="rail rail-right" aria-label="Next pieces and controls">
-          <div class="preview-box next-panel">
-            <span class="panel-label">Next</span>
-            <canvas id="next-canvas" width="56" height="44" role="img" aria-label="Next piece preview"></canvas>
-            <div class="next-divider" aria-hidden="true"></div>
-            <canvas id="next-canvas-2" class="next-mini" width="44" height="34" role="img" aria-label="Upcoming piece 2"></canvas>
-            <canvas id="next-canvas-3" class="next-mini" width="44" height="34" role="img" aria-label="Upcoming piece 3"></canvas>
-            <canvas id="next-canvas-4" class="next-mini next-desktop" width="44" height="34" role="img" aria-label="Upcoming piece 4"></canvas>
-            <canvas id="next-canvas-5" class="next-mini next-desktop" width="44" height="34" role="img" aria-label="Upcoming piece 5"></canvas>
+        <div class="legend" aria-label="Keyboard controls">
+          <span class="chip-label">Controls</span>
+          <div class="legend-card">
+            <div class="key-row"><span class="keycaps"><kbd>←</kbd><kbd>→</kbd></span><span class="key-label">Move</span></div>
+            <div class="key-row"><span class="keycaps"><kbd>↓</kbd></span><span class="key-label">Soft drop</span></div>
+            <div class="key-row"><span class="keycaps"><kbd>Z</kbd><kbd>X</kbd></span><span class="key-label">Rotate</span></div>
+            <div class="key-row"><span class="keycaps"><kbd class="wide">Space</kbd></span><span class="key-label">Hard drop</span></div>
+            <div class="key-row"><span class="keycaps"><kbd>C</kbd></span><span class="key-label">Hold</span></div>
+            <div class="key-row"><span class="keycaps"><kbd class="wide">Esc</kbd></span><span class="key-label">Pause</span></div>
           </div>
-          <div class="legend" aria-label="Keyboard controls">
-            <span class="panel-label">Controls</span>
-            <div class="legend-card">
-              <div class="key-row"><span class="keycaps"><kbd>←</kbd><kbd>→</kbd></span><span class="key-label">Move</span></div>
-              <div class="key-row"><span class="keycaps"><kbd>↓</kbd></span><span class="key-label">Soft drop</span></div>
-              <div class="key-row"><span class="keycaps"><kbd>Z</kbd><kbd>X</kbd></span><span class="key-label">Rotate</span></div>
-              <div class="key-row"><span class="keycaps"><kbd class="wide">Space</kbd></span><span class="key-label">Hard drop</span></div>
-              <div class="key-row"><span class="keycaps"><kbd>C</kbd></span><span class="key-label">Hold</span></div>
-              <div class="key-row"><span class="keycaps"><kbd class="wide">Esc</kbd></span><span class="key-label">Pause</span></div>
-            </div>
-          </div>
-        </aside>
+        </div>
       </div>
 
       <div class="control-deck" role="group" aria-label="Touch controls">
@@ -128,7 +117,7 @@
         </div>
       </div>
 
-      <p class="hint">◀▶ move · ↺ ↻ rotate · ▼ soft drop · <span class="accent-text">⤓ hard drop</span></p>
+      <p class="hint">also: <span class="hint-dim">tap board</span> rotate · <span class="hint-dim">swipe</span> move · <span class="accent-text">swipe ↓ hard drop</span></p>
     </main>
 
     <div id="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>

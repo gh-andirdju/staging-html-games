@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-hifi-2026-06-17.5';
+  const BUILD_ID = 'tetris-hifi-2026-06-17.6';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -74,21 +74,18 @@
 
   function computeDimensions() {
     const shellEl = canvas.closest('.game-shell');
-    const areaEl = shellEl.querySelector('.game-area');
+    const areaEl = shellEl.querySelector('.board-area');
 
-    // The game-area is the grid's flexible (1fr) row, so its own box gives the
-    // space the board may occupy — already excluding the top bar, stats, deck, hint.
+    // The board sits in its own grid cell (`.board-area`); its box is exactly the
+    // space available for the canvas at the current breakpoint.
     const areaRect = areaEl.getBoundingClientRect();
     const areaStyle = getComputedStyle(areaEl);
-    const colGap = parseFloat(areaStyle.columnGap || areaStyle.gap) || 6;
     const padX = (parseFloat(areaStyle.paddingLeft) || 0) + (parseFloat(areaStyle.paddingRight) || 0);
     const padY = (parseFloat(areaStyle.paddingTop) || 0) + (parseFloat(areaStyle.paddingBottom) || 0);
-    let railTotal = 0;
-    const rails = areaEl.querySelectorAll('.rail');
-    rails.forEach((rail) => { railTotal += rail.getBoundingClientRect().width; });
 
-    const availH = areaRect.height - padY - 2;
-    const availW = areaRect.width - railTotal - colGap * (rails.length || 0) - padX - 2;
+    // Reserve room for the status line below the board.
+    const availH = areaRect.height - padY - 20;
+    const availW = areaRect.width - padX - 2;
 
     // Target 30px cells; shrink to honor whichever of height/width is tighter.
     const TARGET_CELL = 30;
