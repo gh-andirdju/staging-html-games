@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-gestures-2026-06-17.1';
+  const BUILD_ID = 'tetris-constructivist-2026-06-17.2';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -20,7 +20,8 @@
   const STATUS_MESSAGE_FRAMES = 180;
   const MILESTONE_LEVEL_INTERVAL = 5;
 
-  const COLORS = ['#000000', '#22d3ee', '#fbbf24', '#a78bfa', '#34d399', '#f87171', '#60a5fa', '#fb923c'];
+  // Vibrant, gem-like tetromino palette (index 1..7 → I O T S Z J L).
+  const COLORS = ['#000000', '#2ee0f2', '#ffd23f', '#b388ff', '#37e08a', '#ff5d6c', '#4f8cff', '#ff9f43'];
   const PIECES = [
     { type: 'I', index: 1, rotations: [[[-1, 0], [0, 0], [1, 0], [2, 0]], [[1, -1], [1, 0], [1, 1], [1, 2]], [[-1, 1], [0, 1], [1, 1], [2, 1]], [[0, -1], [0, 0], [0, 1], [0, 2]]] },
     { type: 'O', index: 2, rotations: [[[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]]] },
@@ -695,44 +696,122 @@
     return pieceCells(ghost);
   }
 
+  function hexToRgb(hex) {
+    const n = hex.replace('#', '');
+    return {
+      r: parseInt(n.slice(0, 2), 16),
+      g: parseInt(n.slice(2, 4), 16),
+      b: parseInt(n.slice(4, 6), 16)
+    };
+  }
+
+  // amount in [-1, 1]: positive lightens toward white, negative darkens toward black.
+  function shadeColor(hex, amount) {
+    const { r, g, b } = hexToRgb(hex);
+    const mix = (c) => (amount >= 0
+      ? Math.round(c + (255 - c) * amount)
+      : Math.round(c * (1 + amount)));
+    const to2 = (c) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, '0');
+    return `#${to2(mix(r))}${to2(mix(g))}${to2(mix(b))}`;
+  }
+
+  function withAlpha(hex, alpha) {
+    const { r, g, b } = hexToRgb(hex);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function roundRectPath(context, x, y, w, h, radius) {
+    const r = Math.max(0, Math.min(radius, w / 2, h / 2));
+    context.beginPath();
+    context.moveTo(x + r, y);
+    context.arcTo(x + w, y, x + w, y + h, r);
+    context.arcTo(x + w, y + h, x, y + h, r);
+    context.arcTo(x, y + h, x, y, r);
+    context.arcTo(x, y, x + w, y, r);
+    context.closePath();
+  }
+
+  // Shared block painter: a glossy, beveled gem used on the board and in previews.
+  function paintGem(context, px, py, size, base, ghost = false) {
+    const inset = Math.max(1, size * 0.05);
+    const x0 = px + inset;
+    const y0 = py + inset;
+    const sz = size - inset * 2;
+    const radius = Math.max(2, sz * 0.18);
+
+    if (ghost) {
+      roundRectPath(context, x0, y0, sz, sz, radius);
+      context.fillStyle = withAlpha(base, 0.14);
+      context.fill();
+      context.lineWidth = Math.max(1, size * 0.06);
+      context.strokeStyle = withAlpha(base, 0.7);
+      context.stroke();
+      return;
+    }
+
+    // Diagonal body gradient: bright top-left, deep bottom-right.
+    const body = context.createLinearGradient(x0, y0, x0 + sz, y0 + sz);
+    body.addColorStop(0, shadeColor(base, 0.42));
+    body.addColorStop(0.5, base);
+    body.addColorStop(1, shadeColor(base, -0.34));
+    roundRectPath(context, x0, y0, sz, sz, radius);
+    context.fillStyle = body;
+    context.fill();
+
+    // Glossy highlight across the top.
+    roundRectPath(context, x0 + sz * 0.16, y0 + sz * 0.12, sz * 0.68, sz * 0.3, radius * 0.6);
+    const gloss = context.createLinearGradient(0, y0, 0, y0 + sz * 0.5);
+    gloss.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+    gloss.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    context.fillStyle = gloss;
+    context.fill();
+
+    // Crisp dark edge for separation between adjacent blocks.
+    roundRectPath(context, x0, y0, sz, sz, radius);
+    context.lineWidth = Math.max(1, size * 0.05);
+    context.strokeStyle = shadeColor(base, -0.5);
+    context.stroke();
+  }
+
   function drawCell(x, y, index) {
-    ctx.fillStyle = COLORS[index];
-    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-    ctx.strokeStyle = '#0f172a';
-    ctx.strokeRect(x * cellSize + 0.5, y * cellSize + 0.5, cellSize - 1, cellSize - 1);
+    paintGem(ctx, x * cellSize, y * cellSize, cellSize, COLORS[index]);
+  }
+
+  function drawBoardBackground() {
+    const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    bg.addColorStop(0, '#15100d');
+    bg.addColorStop(1, '#0a0706');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Subtle playfield grid so empty space reads as a board.
+    ctx.strokeStyle = 'rgba(229, 180, 140, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let c = 1; c < boardCols; c += 1) {
+      ctx.moveTo(Math.round(c * cellSize) + 0.5, 0);
+      ctx.lineTo(Math.round(c * cellSize) + 0.5, canvas.height);
+    }
+    for (let r = 1; r < boardRows; r += 1) {
+      ctx.moveTo(0, Math.round(r * cellSize) + 0.5);
+      ctx.lineTo(canvas.width, Math.round(r * cellSize) + 0.5);
+    }
+    ctx.stroke();
   }
 
   function drawBoard() {
     const clearAnimation = state.clearAnimation;
-    const shouldShowBlinkRows =
-      !clearAnimation ||
-      Math.floor(clearAnimation.frame / clearAnimation.blinkInterval) % 2 === 0;
-    const clearRowSet = clearAnimation ? new Set(clearAnimation.rows) : null;
-    ctx.fillStyle = '#020617';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawBoardBackground();
 
     if (state.current && !state.clearAnimation) {
       const ghostCells = getGhostCells(state.current);
-      ctx.save();
-      ctx.globalAlpha = 0.22;
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
       for (const cell of ghostCells) {
-        if (cell.y >= 0) {
-          ctx.strokeRect(
-            cell.x * cellSize + 2,
-            cell.y * cellSize + 2,
-            cellSize - 4,
-            cellSize - 4
-          );
-        }
+        if (cell.y >= 0) paintGem(ctx, cell.x * cellSize, cell.y * cellSize, cellSize, COLORS[state.current.index], true);
       }
-      ctx.restore();
     }
 
     for (let y = 0; y < boardRows; y += 1) {
       for (let x = 0; x < boardCols; x += 1) {
-        if (clearRowSet && clearRowSet.has(y) && !shouldShowBlinkRows) continue;
         const value = state.board[y][x];
         if (value !== 0) drawCell(x, y, value);
       }
@@ -743,32 +822,48 @@
       }
     }
 
+    // Bright clearing flash that fades as the rows resolve.
+    if (clearAnimation) {
+      const progress = clearAnimation.frame / clearAnimation.totalFrames;
+      const flash = 0.85 * (1 - progress);
+      ctx.save();
+      ctx.fillStyle = `rgba(255, 255, 255, ${flash})`;
+      for (const row of clearAnimation.rows) {
+        ctx.fillRect(0, row * cellSize, canvas.width, cellSize);
+      }
+      ctx.restore();
+    }
+
     if (state.paused && !state.gameOver) {
-      ctx.fillStyle = 'rgba(2, 6, 23, 0.62)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = 'bold 28px "Trebuchet MS", sans-serif';
-      ctx.fillText('Paused', canvas.width / 2, canvas.height / 2 - 18);
-      ctx.fillStyle = '#c4a46b';
-      ctx.font = '14px "Trebuchet MS", sans-serif';
-      ctx.fillText('Press P to resume', canvas.width / 2, canvas.height / 2 + 14);
+      drawBoardOverlay('PAUSED', 'Press P to resume', '#f3ead6');
     }
 
     if (state.gameOver) {
-      ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = 'bold 28px "Trebuchet MS", sans-serif';
-      ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 24);
-      ctx.fillStyle = '#c4a46b';
-      ctx.font = '14px "Trebuchet MS", sans-serif';
-      ctx.fillText(`Score ${state.score} · Best ${state.highScore}`, canvas.width / 2, canvas.height / 2 + 8);
-      ctx.fillText('Press R or tap Restart', canvas.width / 2, canvas.height / 2 + 32);
+      drawBoardOverlay('GAME OVER', [
+        `Score ${state.score} · Best ${state.highScore}`,
+        'Press R or tap Restart'
+      ], state.newRecord ? '#f2b134' : '#e5392b');
     }
+  }
+
+  function drawBoardOverlay(title, subtitle, titleColor = '#f3ead6') {
+    ctx.fillStyle = 'rgba(6, 10, 22, 0.74)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.save();
+    ctx.shadowColor = withAlpha(titleColor, 0.6);
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = titleColor;
+    ctx.font = '30px "Russo One", "Trebuchet MS", sans-serif';
+    const lines = Array.isArray(subtitle) ? subtitle : [subtitle];
+    ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 22);
+    ctx.restore();
+    ctx.fillStyle = '#d8c8ac';
+    ctx.font = '13px "Space Mono", ui-monospace, monospace';
+    lines.forEach((line, i) => {
+      ctx.fillText(line, canvas.width / 2, canvas.height / 2 + 10 + i * 22);
+    });
   }
 
   function drawPiecePreview(canvasEl, context, type) {
@@ -799,21 +894,29 @@
 
     const color = COLORS[pieceDef.index];
     for (const [dx, dy] of cells) {
-      const px = offsetX + dx * previewCell;
-      const py = offsetY + dy * previewCell;
-      context.fillStyle = color;
-      context.fillRect(px, py, previewCell, previewCell);
-      context.strokeStyle = '#0f172a';
-      context.lineWidth = 0.5;
-      context.strokeRect(px + 0.5, py + 0.5, previewCell - 1, previewCell - 1);
+      paintGem(context, offsetX + dx * previewCell, offsetY + dy * previewCell, previewCell, color);
     }
   }
+
+  function popStat(el) {
+    if (!el) return;
+    el.classList.remove('stat-pop');
+    void el.offsetWidth; // force reflow so the animation can retrigger
+    el.classList.add('stat-pop');
+  }
+
+  let prevLevelShown = null;
+  let prevLinesShown = null;
 
   function updateHud() {
     scoreEl.textContent = String(state.score);
     bestEl.textContent = String(state.highScore);
     linesEl.textContent = String(state.lines);
     levelEl.textContent = String(state.level);
+    if (prevLevelShown !== null && state.level > prevLevelShown) popStat(levelEl);
+    if (prevLinesShown !== null && state.lines > prevLinesShown) popStat(linesEl);
+    prevLevelShown = state.level;
+    prevLinesShown = state.lines;
     const statusText = state.paused && !state.gameOver ? 'Paused' : state.statusMessage;
     const statusTone = state.paused && !state.gameOver ? 'normal' : state.statusTone;
     if (statusEl.textContent !== statusText) statusEl.textContent = statusText;

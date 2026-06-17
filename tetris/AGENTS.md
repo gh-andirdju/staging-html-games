@@ -20,6 +20,10 @@ Scoring tracks a `combo` counter (consecutive line-clearing drops; `-1` when idl
 
 Mobile input has two layers. The off-canvas button deck (D-pad + rotate cluster) stays the discoverable, accessible default and must remain outside the gameplay area. On top of it, pointer gestures on the `#game` canvas drive faster play: an axis-locked horizontal drag moves one cell per cell-width dragged, a downward drag soft drops, a quick downward flick hard drops, a swipe up holds, a tap rotates clockwise, and a tap after game over restarts. Gesture thresholds are expressed in CSS cell-widths (read from the canvas rect) so they scale with board size; keep them deterministic so Playwright can drive synthetic `PointerEvent`s.
 
+Visual identity is a "constructivist arcade" theme: ink background with signal-red (`--accent`) and bone-cream type, warm radial glows, and enamel-bright tetromino gems. Type is self-hosted (no CDN, no system fonts) — Russo One (display: title, HUD numbers, buttons) and Space Mono (mono ticker/body) live in `src/fonts/*.woff2`, declared via `@font-face` and preloaded in `index.html`. Blocks render through `paintGem()` (a shared glossy/beveled painter used on the board and in previews); the board draws a gradient + grid background and a fading white flash over clearing rows. Any change to canvas rendering or theme requires regenerating the `toHaveScreenshot` baselines (`bun run test -- -g "layout baseline" --update-snapshots`); `prepareVisualLayout` awaits `document.fonts.ready` so baselines are font-stable.
+
+An invisible build marker (`window.__tetrisBuild`, `window.__tetrisTest.buildId`, and `<meta name="tetris-build">`) lets a deployed device be checked against the committed source; bump it when shipping a visible change.
+
 ## Testing Guidelines
 Use deterministic state setup through test hooks (`getState`, `setState`, `advanceFrames`, `setAutoStep`). Cover input behavior (keyboard and touch), line clear flow, level speed progression, scoring, game-over, and restart behavior. Keep tests free of wall-clock race assumptions.
 

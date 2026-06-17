@@ -201,6 +201,8 @@ async function prepareVisualLayout(page) {
     holdUsed: true,
     nextPieceType: 'I'
   });
+  // Self-hosted webfonts must be ready before any visual baseline is captured.
+  await page.evaluate(() => document.fonts.ready);
 }
 
 test('renders and exposes ready test API', async ({ page }) => {
@@ -225,7 +227,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-gestures-2026-06-17.1');
+  expect(marker.win).toBe('tetris-constructivist-2026-06-17.2');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
