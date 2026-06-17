@@ -1,4 +1,9 @@
 (() => {
+  // Invisible build marker — lets a deployed device be checked against the
+  // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
+  const BUILD_ID = 'tetris-gestures-2026-06-17.1';
+  try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
+
   let boardCols = 10;
   let boardRows = 20;
   let cellSize = 30;
@@ -1229,6 +1234,7 @@
 
   window.__tetrisTest = {
     isReady: true,
+    buildId: BUILD_ID,
     getState: copyStateForTests,
     readState: copyStateForTests,
     setState: setStateFromTests,
