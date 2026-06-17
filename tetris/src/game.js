@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-constructivist-2026-06-17.2';
+  const BUILD_ID = 'tetris-cabinet-2026-06-17.3';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -49,6 +49,10 @@
   const statusWrapEl = statusEl.closest('.status-wrap');
   const nextCanvasEl = document.getElementById('next-canvas');
   const nextCtx = nextCanvasEl ? nextCanvasEl.getContext('2d') : null;
+  const nextCanvas2El = document.getElementById('next-canvas-2');
+  const nextCtx2 = nextCanvas2El ? nextCanvas2El.getContext('2d') : null;
+  const nextCanvas3El = document.getElementById('next-canvas-3');
+  const nextCtx3 = nextCanvas3El ? nextCanvas3El.getContext('2d') : null;
   const holdCanvasEl = document.getElementById('hold-canvas');
   const holdCtx = holdCanvasEl ? holdCanvasEl.getContext('2d') : null;
   const touchButtons = Array.from(document.querySelectorAll('[data-action]'));
@@ -57,18 +61,36 @@
     const shellEl = canvas.closest('.game-shell');
     const topbarEl = shellEl.querySelector('.topbar');
     const controlEl = shellEl.querySelector('.control-deck');
+    const areaEl = shellEl.querySelector('.game-area');
 
     const topbarRect = topbarEl.getBoundingClientRect();
     const controlRect = controlEl.getBoundingClientRect();
+    const shellRect = shellEl.getBoundingClientRect();
     const shellStyle = getComputedStyle(shellEl);
-    const shellPadTop = parseFloat(shellStyle.paddingTop) || 8;
+    const shellPadTop = parseFloat(shellStyle.paddingTop) || 0;
+    const shellPadBottom = parseFloat(shellStyle.paddingBottom) || 0;
     const shellRowGap = parseFloat(shellStyle.rowGap) || 6;
 
-    const availH = window.innerHeight - topbarRect.height - controlRect.height - shellRowGap * 2 - shellPadTop;
+    // Measure the shell's real height so cabinet padding/bezel is already excluded.
+    const availH = shellRect.height - topbarRect.height - controlRect.height
+      - shellRowGap * 2 - shellPadTop - shellPadBottom;
 
-    // Target 30px cells; shrink only if available height can't fit minimum 20 rows.
+    // Width budget: the play area minus the two flanking rails and their gaps,
+    // so the board never overflows when HOLD/NEXT sit beside it.
+    const areaRect = areaEl.getBoundingClientRect();
+    const areaStyle = getComputedStyle(areaEl);
+    const colGap = parseFloat(areaStyle.columnGap || areaStyle.gap) || 6;
+    const padX = (parseFloat(areaStyle.paddingLeft) || 0) + (parseFloat(areaStyle.paddingRight) || 0);
+    let railTotal = 0;
+    const rails = areaEl.querySelectorAll('.rail');
+    rails.forEach((rail) => { railTotal += rail.getBoundingClientRect().width; });
+    const availW = areaRect.width - railTotal - colGap * (rails.length || 0) - padX - 2;
+
+    // Target 30px cells; shrink to honor whichever of height/width is tighter.
     const TARGET_CELL = 30;
-    const cs = availH < 20 * TARGET_CELL ? Math.max(16, Math.floor(availH / 20)) : TARGET_CELL;
+    const heightCell = availH < 20 * TARGET_CELL ? Math.floor(availH / 20) : TARGET_CELL;
+    const widthCell = availW > 0 ? Math.floor(availW / 10) : TARGET_CELL;
+    const cs = Math.max(14, Math.min(TARGET_CELL, heightCell, widthCell));
 
     boardCols = 10;
     boardRows = Math.max(20, Math.min(40, Math.floor(availH / cs)));
@@ -262,15 +284,31 @@
     return order;
   }
 
+  const NEXT_QUEUE_SIZE = 3;
+
+  function ensureBag(count) {
+    while (bag.length < count) bag = bag.concat(shuffleBag());
+  }
+
+  function peekNextTypes(count) {
+    ensureBag(count);
+    return bag.slice(0, count).map((index) => PIECES[index].type);
+  }
+
   function peekNextPieceType() {
-    if (bag.length === 0) bag = shuffleBag();
-    return PIECES[bag[0]].type;
+    return peekNextTypes(1)[0];
+  }
+
+  function syncNextQueue() {
+    if (!state) return;
+    state.nextQueue = peekNextTypes(NEXT_QUEUE_SIZE);
+    state.nextPieceType = state.nextQueue[0];
   }
 
   function nextPiece() {
-    if (bag.length === 0) bag = shuffleBag();
+    ensureBag(1);
     const pieceDef = PIECES[bag.shift()];
-    if (state) state.nextPieceType = peekNextPieceType();
+    syncNextQueue();
     return {
       type: pieceDef.type,
       index: pieceDef.index,
@@ -611,6 +649,7 @@
       heldPiece: null,
       holdUsed: false,
       nextPieceType: null,
+      nextQueue: [],
       score: 0,
       highScore: readHighScore(),
       newRecord: false,
@@ -664,6 +703,11 @@
     if (!('heldPiece' in state)) state.heldPiece = null;
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
+    // Derive the preview queue from whatever the test provided, falling back to the bag.
+    if (!Array.isArray(state.nextQueue) || state.nextQueue.length === 0) {
+      state.nextQueue = state.nextPieceType ? [state.nextPieceType] : peekNextTypes(NEXT_QUEUE_SIZE);
+    }
+    state.nextPieceType = state.nextQueue[0] ?? state.nextPieceType ?? null;
     // Normalize board to current dimensions, padding missing cells with zero.
     if (state.board) {
       const normalized = createBoard();
@@ -925,7 +969,10 @@
     pauseEl.setAttribute('aria-pressed', state.paused ? 'true' : 'false');
     muteEl.textContent = sfx.isMuted() ? '🔇' : '🔊';
     muteEl.setAttribute('aria-pressed', sfx.isMuted() ? 'true' : 'false');
-    drawPiecePreview(nextCanvasEl, nextCtx, state.nextPieceType ?? null);
+    const queue = Array.isArray(state.nextQueue) ? state.nextQueue : [];
+    drawPiecePreview(nextCanvasEl, nextCtx, queue[0] ?? state.nextPieceType ?? null);
+    drawPiecePreview(nextCanvas2El, nextCtx2, queue[1] ?? null);
+    drawPiecePreview(nextCanvas3El, nextCtx3, queue[2] ?? null);
     drawPiecePreview(holdCanvasEl, holdCtx, state.heldPiece ?? null);
     if (holdCanvasEl) {
       const holdBox = holdCanvasEl.closest('.preview-box');

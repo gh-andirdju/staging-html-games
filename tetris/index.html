@@ -3,90 +3,106 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="tetris-build" content="tetris-constructivist-2026-06-17.2">
+    <meta name="tetris-build" content="tetris-cabinet-2026-06-17.3">
     <title>Tetris</title>
     <link rel="preload" href="src/fonts/russo-one-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="src/fonts/space-mono-400-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="src/styles.css">
   </head>
   <body>
-    <main class="game-shell">
-      <header class="topbar">
-        <div class="topbar-copy">
-          <span class="eyebrow">Endless Marathon</span>
-          <strong class="title">Tetris</strong>
-        </div>
-        <div class="topbar-actions">
-          <button id="pause" type="button" aria-pressed="false">Pause</button>
-          <button id="restart" type="button">Restart</button>
-          <button id="mute" type="button" aria-pressed="false" aria-label="Mute sound">🔊</button>
-          <button id="help" type="button" aria-label="How to play">?</button>
-        </div>
-      </header>
-
-      <div class="game-area" role="region" aria-label="Game area">
-        <div class="board-wrap">
-          <canvas id="game" role="img" aria-label="Tetris board"></canvas>
-        </div>
-
-        <aside class="side-rail" aria-label="Game status">
-          <div class="preview-box next-preview">
-            <span class="preview-label">NEXT</span>
-            <canvas id="next-canvas" width="50" height="34" role="img" aria-label="Next piece preview"></canvas>
-          </div>
-          <div class="stat-block">
-            <span class="stat-label">SCORE</span>
-            <strong id="score">0</strong>
-          </div>
-          <div class="stat-block">
-            <span class="stat-label">BEST</span>
-            <strong id="best">0</strong>
-          </div>
-          <div class="stat-block">
-            <span class="stat-label">LVL</span>
-            <strong id="level">1</strong>
-          </div>
-          <div class="stat-block">
-            <span class="stat-label">LINES</span>
-            <strong id="lines">0</strong>
-          </div>
-          <div class="preview-box hold-preview" data-action="hold" role="button" tabindex="0" aria-label="Hold piece">
-            <span class="preview-label">HOLD</span>
-            <canvas id="hold-canvas" width="50" height="34" role="img" aria-label="Held piece preview"></canvas>
-          </div>
-          <div class="status-wrap" role="status" aria-live="polite">
-            <strong id="status"></strong>
-          </div>
-        </aside>
+    <div class="cabinet">
+      <div class="cabinet-bolts" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
       </div>
-
-      <div class="control-deck" role="group" aria-label="Touch controls">
-        <div class="rotate-area">
-          <div class="rotate-cluster" role="group" aria-label="Rotation controls">
-            <button type="button" class="rotate-btn ccw" data-action="rotate-ccw" aria-label="Rotate Left">↺</button>
-            <button type="button" class="rotate-btn cw" data-action="rotate-cw" aria-label="Rotate Right">↻</button>
+      <main class="game-shell">
+        <header class="marquee topbar">
+          <div class="marquee-brand">
+            <span class="eyebrow">Endless Marathon</span>
+            <strong class="title">Tetris</strong>
           </div>
-          <p class="cluster-label">rotate left · rotate right</p>
+          <div class="topbar-actions">
+            <button id="pause" type="button" aria-pressed="false">Pause</button>
+            <button id="restart" type="button">Restart</button>
+            <button id="mute" type="button" aria-pressed="false" aria-label="Mute sound">🔊</button>
+            <button id="help" type="button" aria-label="How to play">?</button>
+          </div>
+        </header>
+
+        <div class="game-area" role="region" aria-label="Game area">
+          <aside class="rail rail-left" aria-label="Hold and score">
+            <div class="preview-box hold-preview" data-action="hold" role="button" tabindex="0" aria-label="Hold piece">
+              <span class="preview-label">Hold</span>
+              <canvas id="hold-canvas" width="56" height="40" role="img" aria-label="Held piece preview"></canvas>
+            </div>
+            <div class="scoreboard">
+              <div class="stat-block stat-score">
+                <span class="stat-label">Score</span>
+                <strong id="score">0</strong>
+              </div>
+              <div class="stat-block">
+                <span class="stat-label">Best</span>
+                <strong id="best">0</strong>
+              </div>
+              <div class="stat-duo">
+                <div class="stat-block">
+                  <span class="stat-label">Lvl</span>
+                  <strong id="level">1</strong>
+                </div>
+                <div class="stat-block">
+                  <span class="stat-label">Lines</span>
+                  <strong id="lines">0</strong>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <div class="board-wrap">
+            <canvas id="game" role="img" aria-label="Tetris board"></canvas>
+            <div class="scanlines" aria-hidden="true"></div>
+          </div>
+
+          <aside class="rail rail-right" aria-label="Next pieces and status">
+            <div class="preview-box next-preview">
+              <span class="preview-label">Next</span>
+              <canvas id="next-canvas" width="56" height="40" role="img" aria-label="Next piece preview"></canvas>
+              <canvas id="next-canvas-2" class="next-mini" width="44" height="30" role="img" aria-label="Second next piece"></canvas>
+              <canvas id="next-canvas-3" class="next-mini" width="44" height="30" role="img" aria-label="Third next piece"></canvas>
+            </div>
+            <div class="status-wrap" role="status" aria-live="polite">
+              <strong id="status"></strong>
+            </div>
+          </aside>
         </div>
 
-        <div class="dpad-cluster">
-          <div class="dpad" role="group" aria-label="Directional pad">
-            <div class="dpad-v-bar"></div>
-            <div class="dpad-h-bar"></div>
-            <button type="button" class="dpad-btn dpad-up" data-action="rotate-cw" aria-label="Rotate Right">↻</button>
-            <button type="button" class="dpad-btn dpad-left" data-action="left" aria-label="Left">◀</button>
-            <button type="button" class="dpad-btn dpad-right" data-action="right" aria-label="Right">▶</button>
-            <button type="button" class="dpad-btn dpad-down" data-action="soft-drop" aria-label="Soft Drop, hold for Hard Drop">▼</button>
+        <div class="control-deck" role="group" aria-label="Touch controls">
+          <div class="rotate-area">
+            <div class="rotate-cluster" role="group" aria-label="Rotation controls">
+              <button type="button" class="rotate-btn ccw" data-action="rotate-ccw" aria-label="Rotate Left">↺</button>
+              <button type="button" class="rotate-btn cw" data-action="rotate-cw" aria-label="Rotate Right">↻</button>
+            </div>
+            <p class="cluster-label">rotate left · rotate right</p>
           </div>
-          <p class="cluster-label">◀▶ move · <span class="accent-text">↻ rotate</span> · ▼ soft drop · hold ▼ HARD DROP</p>
+
+          <div class="dpad-cluster">
+            <div class="dpad" role="group" aria-label="Directional pad">
+              <div class="dpad-v-bar"></div>
+              <div class="dpad-h-bar"></div>
+              <button type="button" class="dpad-btn dpad-up" data-action="rotate-cw" aria-label="Rotate Right">↻</button>
+              <button type="button" class="dpad-btn dpad-left" data-action="left" aria-label="Left">◀</button>
+              <button type="button" class="dpad-btn dpad-right" data-action="right" aria-label="Right">▶</button>
+              <button type="button" class="dpad-btn dpad-down" data-action="soft-drop" aria-label="Soft Drop, hold for Hard Drop">▼</button>
+            </div>
+            <p class="cluster-label">◀▶ move · <span class="accent-text">↻ rotate</span> · ▼ soft drop · hold ▼ HARD DROP</p>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
     <div id="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
       <div class="help-panel">
         <h2 id="help-title" class="help-title">Tetris — How to play</h2>
         <ul class="help-list">
           <li>Fill complete horizontal lines to clear them and score — speed rises with your level.</li>
+          <li>Plan ahead with the 3-piece <strong>Next</strong> queue and stash a piece in <strong>Hold</strong>.</li>
           <li>Chain clears for a Combo bonus, and stack back-to-back Tetrises for an extra reward.</li>
           <li>Keyboard: ← / → move · ↑ rotates (Z counter-rotates) · ↓ soft drops · Space hard drops · C holds a piece.</li>
           <li>P or Esc pauses · R restarts.</li>
