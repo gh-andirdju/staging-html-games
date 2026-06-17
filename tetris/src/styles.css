@@ -2,13 +2,13 @@
   box-sizing: border-box;
 }
 
-/* Self-hosted type — geometric display (Russo One) + console mono (Space Mono). */
+/* Self-hosted type — condensed poster display (Anton) + console mono (Space Mono). */
 @font-face {
-  font-family: "Russo One";
+  font-family: "Anton";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("fonts/russo-one-latin.woff2") format("woff2");
+  src: url("fonts/anton-latin.woff2") format("woff2");
 }
 @font-face {
   font-family: "Space Mono";
@@ -26,25 +26,24 @@
 }
 
 :root {
-  /* Constructivist arcade cabinet: ink + signal red + cyan, enamel-bright pieces. */
-  --bg-top: #241712;
-  --bg-bottom: #060403;
-  --board-bg: #0c0908;
-  --panel: rgba(30, 20, 16, 0.82);
-  --panel-strong: rgba(20, 13, 11, 0.94);
-  --panel-border: rgba(229, 57, 43, 0.36);
-  --chassis: linear-gradient(165deg, #211511 0%, #140c0a 60%, #0c0706 100%);
-  --text-main: #f6eedb;
-  --text-dim: #b39a85;
-  --accent: #e5392b;
-  --accent-rgb: 229, 57, 43;
-  --accent-2: #25c9d8;
-  --accent-2-rgb: 37, 201, 216;
-  --tone-milestone: #f5b431;
-  --tone-warn: #ff8a5c;
-  --button-bg: linear-gradient(180deg, #ef4d3a, #c8261c);
-  --shadow: 0 16px 42px rgba(0, 0, 0, 0.6);
-  --display: "Russo One", "Trebuchet MS", sans-serif;
+  /* Restrained instrument palette: cool graphite, one signal red, cyan for live data only. */
+  --bg-top: #161a23;
+  --bg-bottom: #0a0c12;
+  --board-bg: #0b0e16;
+  --panel: rgba(21, 25, 34, 0.82);
+  --panel-strong: rgba(16, 19, 27, 0.95);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text-main: #f4f2ea;
+  --text-dim: #8b93a7;
+  --accent: #ff3b30;
+  --accent-rgb: 255, 59, 48;
+  --accent-2: #3fe0d0;
+  --accent-2-rgb: 63, 224, 208;
+  --tone-milestone: #3fe0d0;
+  --tone-warn: #ff7a66;
+  --button-bg: linear-gradient(180deg, #ff4a40, #e0241b);
+  --shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+  --display: "Anton", "Trebuchet MS", sans-serif;
   --mono: "Space Mono", ui-monospace, monospace;
   --rail-w: 60px;
 }
@@ -53,9 +52,7 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(50% 38% at 10% 0%, rgba(var(--accent-2-rgb), 0.12), transparent 60%),
-    radial-gradient(60% 50% at 100% 0%, rgba(var(--accent-rgb), 0.22), transparent 62%),
-    radial-gradient(140% 100% at 50% 125%, rgba(var(--accent-rgb), 0.12), transparent 60%),
+    radial-gradient(90% 60% at 50% -10%, rgba(255, 255, 255, 0.05), transparent 60%),
     linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
   color: var(--text-main);
   font-family: var(--mono);
@@ -71,39 +68,6 @@ body {
   padding: 12px;
   display: flex;
 }
-
-.cabinet::before {
-  /* Inner bezel frame around the whole machine. */
-  content: "";
-  position: absolute;
-  inset: 6px;
-  border: 2px solid rgba(var(--accent-rgb), 0.3);
-  border-radius: 22px;
-  box-shadow:
-    inset 0 0 0 2px rgba(0, 0, 0, 0.5),
-    inset 0 0 60px rgba(0, 0, 0, 0.55);
-  pointer-events: none;
-}
-
-.cabinet-bolts {
-  position: absolute;
-  inset: 14px;
-  pointer-events: none;
-}
-
-.cabinet-bolts span {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #6b6055, #1a1310 70%);
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
-}
-
-.cabinet-bolts span:nth-child(1) { top: 6px; left: 6px; }
-.cabinet-bolts span:nth-child(2) { top: 6px; right: 6px; }
-.cabinet-bolts span:nth-child(3) { bottom: 6px; left: 6px; }
-.cabinet-bolts span:nth-child(4) { bottom: 6px; right: 6px; }
 
 .game-shell {
   position: relative;
@@ -126,44 +90,41 @@ body {
 
 .topbar {
   border: 1px solid var(--panel-border);
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(var(--accent-rgb), 0.16), transparent 70%),
-    var(--panel);
+  border-top: 3px solid var(--accent);
+  border-radius: 4px 4px 14px 14px;
+  background: var(--panel);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: var(--shadow);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 9px 14px;
 }
 
 .marquee-brand {
   display: grid;
-  gap: 2px;
+  gap: 1px;
+  min-width: 0;
 }
 
 .eyebrow {
-  color: var(--accent-2);
-  font-size: 10px;
+  color: var(--text-dim);
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.34em;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
 }
 
 .title {
   font-family: var(--display);
-  font-size: 26px;
-  line-height: 1;
-  letter-spacing: 0.06em;
+  font-size: 30px;
+  line-height: 0.92;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--text-main);
-  text-shadow:
-    2px 2px 0 var(--accent),
-    4px 4px 0 rgba(0, 0, 0, 0.5),
-    0 0 18px rgba(var(--accent-rgb), 0.5);
+  text-shadow: 3px 3px 0 var(--accent);
 }
 
 .topbar-actions {
@@ -317,13 +278,15 @@ body {
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
-  border: 1px solid rgba(var(--accent-rgb), 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   background: var(--board-bg);
+  /* Recessed screen: inset depth + a faint cool screen-light bloom. */
   box-shadow:
-    inset 0 0 0 1px rgba(var(--accent-rgb), 0.12),
-    0 0 26px rgba(var(--accent-rgb), 0.26),
-    0 0 70px rgba(var(--accent-2-rgb), 0.1);
+    inset 0 2px 20px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 16px 44px rgba(0, 0, 0, 0.55),
+    0 0 46px rgba(var(--accent-2-rgb), 0.09);
 }
 
 .scanlines {
@@ -333,13 +296,13 @@ body {
   border-radius: 12px;
   background: repeating-linear-gradient(
     0deg,
-    rgba(0, 0, 0, 0.16) 0px,
-    rgba(0, 0, 0, 0.16) 1px,
+    rgba(0, 0, 0, 0.14) 0px,
+    rgba(0, 0, 0, 0.14) 1px,
     transparent 2px,
     transparent 3px
   );
   mix-blend-mode: multiply;
-  opacity: 0.5;
+  opacity: 0.32;
 }
 
 /* ── Rails (HOLD + score / NEXT + status) ─────────────────────── */

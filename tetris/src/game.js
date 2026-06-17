@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-cabinet-2026-06-17.3';
+  const BUILD_ID = 'tetris-refined-2026-06-17.4';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -823,13 +823,13 @@
 
   function drawBoardBackground() {
     const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    bg.addColorStop(0, '#15100d');
-    bg.addColorStop(1, '#0a0706');
+    bg.addColorStop(0, '#0e1220');
+    bg.addColorStop(1, '#080a12');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Subtle playfield grid so empty space reads as a board.
-    ctx.strokeStyle = 'rgba(229, 180, 140, 0.05)';
+    ctx.strokeStyle = 'rgba(150, 170, 210, 0.05)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let c = 1; c < boardCols; c += 1) {
@@ -879,18 +879,18 @@
     }
 
     if (state.paused && !state.gameOver) {
-      drawBoardOverlay('PAUSED', 'Press P to resume', '#f3ead6');
+      drawBoardOverlay('PAUSED', 'Press P to resume', '#f4f2ea');
     }
 
     if (state.gameOver) {
       drawBoardOverlay('GAME OVER', [
         `Score ${state.score} · Best ${state.highScore}`,
         'Press R or tap Restart'
-      ], state.newRecord ? '#f2b134' : '#e5392b');
+      ], state.newRecord ? '#3fe0d0' : '#ff3b30');
     }
   }
 
-  function drawBoardOverlay(title, subtitle, titleColor = '#f3ead6') {
+  function drawBoardOverlay(title, subtitle, titleColor = '#f4f2ea') {
     ctx.fillStyle = 'rgba(6, 10, 22, 0.74)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.textAlign = 'center';
@@ -899,11 +899,11 @@
     ctx.shadowColor = withAlpha(titleColor, 0.6);
     ctx.shadowBlur = 18;
     ctx.fillStyle = titleColor;
-    ctx.font = '30px "Russo One", "Trebuchet MS", sans-serif';
+    ctx.font = '36px "Anton", "Trebuchet MS", sans-serif';
     const lines = Array.isArray(subtitle) ? subtitle : [subtitle];
     ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 22);
     ctx.restore();
-    ctx.fillStyle = '#d8c8ac';
+    ctx.fillStyle = '#aeb6c8';
     ctx.font = '13px "Space Mono", ui-monospace, monospace';
     lines.forEach((line, i) => {
       ctx.fillText(line, canvas.width / 2, canvas.height / 2 + 10 + i * 22);
