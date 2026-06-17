@@ -14,7 +14,9 @@
 ## Coding Style & Naming Conventions
 Use plain JavaScript, two-space indentation, and descriptive camelCase names. Keep frame-step logic deterministic so tests can drive behavior through `advanceFrames()`. Preserve the `window.__tetrisTest` contract unless tests are updated in the same change.
 
-Sound effects are short WebAudio blips (rotate, lock, hard drop, hold, line-clear arpeggio scaled by line count, level up, game over, new record) created lazily after the first user gesture and fully disabled under `navigator.webdriver`. The mute state persists as `tetris-muted`; `getState()` returns `muted` and the hook exposes `setMuted(bool)`.
+Sound effects are short WebAudio blips (rotate, lock, hard drop, hold, line-clear arpeggio scaled by line count, combo blip that climbs with the chain length, level up, game over, new record) created lazily after the first user gesture and fully disabled under `navigator.webdriver`. The mute state persists as `tetris-muted`; `getState()` returns `muted` and the hook exposes `setMuted(bool)`.
+
+Scoring tracks a `combo` counter (consecutive line-clearing drops; `-1` when idle, `0` on the first clear of a chain) and a `b2bActive` flag (the last clear was a Tetris). A combo adds `50 × combo × level`, and a back-to-back Tetris adds half the base Tetris score again. Both are surfaced via `getState()`.
 
 ## Testing Guidelines
 Use deterministic state setup through test hooks (`getState`, `setState`, `advanceFrames`, `setAutoStep`). Cover input behavior (keyboard and touch), line clear flow, level speed progression, scoring, game-over, and restart behavior. Keep tests free of wall-clock race assumptions.

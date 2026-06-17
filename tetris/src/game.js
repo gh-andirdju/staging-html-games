@@ -198,6 +198,11 @@
           tone(notes[index], notes[index], index === count - 1 ? 0.1 : 0.06, index * 0.07, 'triangle');
         }
       },
+      // Combo blip climbs in pitch with each consecutive line-clearing drop.
+      playCombo(combo) {
+        const freq = Math.min(1320, 660 + Math.max(0, combo) * 80);
+        tone(freq, freq, 0.05, 0, 'triangle', 0.07);
+      },
       playLevelUp() {
         tone(440, 440, 0.07, 0, 'triangle');
         tone(660, 660, 0.1, 0.08, 'triangle');
@@ -397,21 +402,33 @@
     }
   }
 
-  function onLinesResolved(cleared) {
+  function onLinesResolved(cleared, { backToBack = false, combo = 0 } = {}) {
     const previousLevel = state.level;
     updateLevelAndSpeed();
+
+    // Bonus tags only ever appear for skilled play (a combo chain or a back-to-back
+    // Tetris); a lone clear leaves the suffix empty so base messages stay unchanged.
+    const tags = [];
+    if (backToBack) tags.push('Back-to-Back');
+    if (combo >= 1) tags.push(`Combo ${combo}`);
+    const suffix = tags.length ? ` · ${tags.join(' · ')}` : '';
+
     if (cleared === 4) {
       const linesToNextLevel = (10 - (state.lines % 10)) || 10;
       const levelTag = state.level > previousLevel ? ` · Level ${state.level}!` : '';
-      setStatusMessage(`Tetris clear: ${linesToNextLevel} lines to next level${levelTag}`, 'milestone');
+      setStatusMessage(`Tetris clear: ${linesToNextLevel} lines to next level${levelTag}${suffix}`, 'milestone');
       return;
     }
     if (state.level > previousLevel) {
       if (state.level % MILESTONE_LEVEL_INTERVAL === 0) {
-        setStatusMessage(`Milestone reached: level ${state.level}`, 'milestone');
+        setStatusMessage(`Milestone reached: level ${state.level}${suffix}`, 'milestone');
       } else {
-        setStatusMessage(`Level ${state.level} speed up`, 'normal');
+        setStatusMessage(`Level ${state.level} speed up${suffix}`, tags.length ? 'milestone' : 'normal');
       }
+      return;
+    }
+    if (tags.length) {
+      setStatusMessage(`Nice! ${tags.join(' · ')}`, 'milestone');
       return;
     }
     syncStatusMessage({ forceFallback: true });
@@ -451,11 +468,21 @@
     state.clearAnimation = null;
     if (cleared > 0) {
       const previousLevel = state.level;
+      // A Tetris is the only "difficult" clear here (no T-spin detection); chaining two
+      // difficult clears without a non-difficult clear between them earns a back-to-back bonus.
+      const isDifficult = cleared === 4;
+      const backToBack = isDifficult && state.b2bActive;
+      state.combo += 1;
       state.lines += cleared;
-      state.score += CLEAR_SCORES[cleared] * state.level;
+      let gained = CLEAR_SCORES[cleared] * state.level;
+      if (backToBack) gained += Math.floor(CLEAR_SCORES[cleared] / 2) * state.level;
+      if (state.combo > 0) gained += 50 * state.combo * state.level;
+      state.score += gained;
+      state.b2bActive = isDifficult;
       recordHighScore();
-      onLinesResolved(cleared);
+      onLinesResolved(cleared, { backToBack, combo: state.combo });
       sfx.playLineClear(cleared);
+      if (state.combo > 0) sfx.playCombo(state.combo);
       if (state.level > previousLevel) sfx.playLevelUp();
     }
     spawnPiece();
@@ -466,8 +493,13 @@
     const rows = findFullRows();
     state.current = null;
     if (!silent) sfx.playLock();
-    if (rows.length > 0) startClearAnimation(rows);
-    else spawnPiece();
+    if (rows.length > 0) {
+      startClearAnimation(rows);
+    } else {
+      // A drop that clears nothing breaks the combo chain (back-to-back persists).
+      state.combo = -1;
+      spawnPiece();
+    }
   }
 
   function movePiece(dx) {
@@ -578,6 +610,8 @@
       newRecord: false,
       lines: 0,
       level: 1,
+      combo: -1,
+      b2bActive: false,
       gravityFrames: BASE_GRAVITY_FRAMES,
       gravityTick: 0,
       lockTimer: 0,
@@ -619,6 +653,8 @@
     if (typeof state.paused !== 'boolean') state.paused = false;
     if (typeof state.highScore !== 'number') state.highScore = readHighScore();
     if (typeof state.newRecord !== 'boolean') state.newRecord = false;
+    if (typeof state.combo !== 'number') state.combo = -1;
+    if (typeof state.b2bActive !== 'boolean') state.b2bActive = false;
     if (!('heldPiece' in state)) state.heldPiece = null;
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
