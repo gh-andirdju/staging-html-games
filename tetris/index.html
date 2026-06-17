@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="tetris-build" content="tetris-hifi-2026-06-17.6">
+    <meta name="tetris-build" content="tetris-hifi-2026-06-17.7">
     <title>Marathon Tetris</title>
     <link rel="preload" href="src/fonts/chakra-petch-700-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="src/fonts/chakra-petch-600-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -44,29 +44,19 @@
       </header>
 
       <div class="game-area" role="region" aria-label="Game area">
-        <div class="hold-chip">
-          <span class="chip-label">Hold</span>
-          <div class="preview-box hold-preview" data-action="hold" role="button" tabindex="0" aria-label="Hold piece">
-            <canvas id="hold-canvas" width="52" height="38" role="img" aria-label="Held piece preview"></canvas>
+        <div class="rail rail-left">
+          <div class="hold-chip">
+            <span class="chip-label">Hold</span>
+            <div class="preview-box hold-preview" data-action="hold" role="button" tabindex="0" aria-label="Hold piece">
+              <canvas id="hold-canvas" width="52" height="38" role="img" aria-label="Held piece preview"></canvas>
+            </div>
           </div>
-        </div>
-
-        <div class="meter" aria-label="Lines to next level">
-          <div class="meter-head">
-            <span class="meter-top" id="meter-target">To Lvl 2</span>
-            <span class="meter-count" id="meter-count">0/10</span>
-          </div>
-          <div class="meter-track"><div class="meter-fill" id="meter-fill"></div></div>
-        </div>
-
-        <div class="next-row">
-          <span class="chip-label">Next</span>
-          <div class="next-chips">
-            <div class="chip chip-lead"><canvas id="next-canvas" width="40" height="30" role="img" aria-label="Next piece preview"></canvas></div>
-            <div class="chip"><canvas id="next-canvas-2" width="30" height="24" role="img" aria-label="Upcoming piece 2"></canvas></div>
-            <div class="chip"><canvas id="next-canvas-3" width="30" height="24" role="img" aria-label="Upcoming piece 3"></canvas></div>
-            <div class="chip next-desktop"><canvas id="next-canvas-4" width="30" height="24" role="img" aria-label="Upcoming piece 4"></canvas></div>
-            <div class="chip next-desktop"><canvas id="next-canvas-5" width="30" height="24" role="img" aria-label="Upcoming piece 5"></canvas></div>
+          <div class="meter" aria-label="Lines to next level">
+            <div class="meter-head">
+              <span class="meter-top" id="meter-target">To Lvl 2</span>
+              <span class="meter-count" id="meter-count">0/10</span>
+            </div>
+            <div class="meter-track"><div class="meter-fill" id="meter-fill"></div></div>
           </div>
         </div>
 
@@ -80,15 +70,27 @@
           </div>
         </div>
 
-        <div class="legend" aria-label="Keyboard controls">
-          <span class="chip-label">Controls</span>
-          <div class="legend-card">
-            <div class="key-row"><span class="keycaps"><kbd>←</kbd><kbd>→</kbd></span><span class="key-label">Move</span></div>
-            <div class="key-row"><span class="keycaps"><kbd>↓</kbd></span><span class="key-label">Soft drop</span></div>
-            <div class="key-row"><span class="keycaps"><kbd>Z</kbd><kbd>X</kbd></span><span class="key-label">Rotate</span></div>
-            <div class="key-row"><span class="keycaps"><kbd class="wide">Space</kbd></span><span class="key-label">Hard drop</span></div>
-            <div class="key-row"><span class="keycaps"><kbd>C</kbd></span><span class="key-label">Hold</span></div>
-            <div class="key-row"><span class="keycaps"><kbd class="wide">Esc</kbd></span><span class="key-label">Pause</span></div>
+        <div class="rail rail-right">
+          <div class="next-row">
+            <span class="chip-label">Next</span>
+            <div class="next-chips">
+              <div class="chip chip-lead"><canvas id="next-canvas" width="40" height="30" role="img" aria-label="Next piece preview"></canvas></div>
+              <div class="chip"><canvas id="next-canvas-2" width="30" height="24" role="img" aria-label="Upcoming piece 2"></canvas></div>
+              <div class="chip"><canvas id="next-canvas-3" width="30" height="24" role="img" aria-label="Upcoming piece 3"></canvas></div>
+              <div class="chip next-desktop"><canvas id="next-canvas-4" width="30" height="24" role="img" aria-label="Upcoming piece 4"></canvas></div>
+              <div class="chip next-desktop"><canvas id="next-canvas-5" width="30" height="24" role="img" aria-label="Upcoming piece 5"></canvas></div>
+            </div>
+          </div>
+          <div class="legend" aria-label="Keyboard controls">
+            <span class="chip-label">Controls</span>
+            <div class="legend-card">
+              <div class="key-row"><span class="keycaps"><kbd>←</kbd><kbd>→</kbd></span><span class="key-label">Move</span></div>
+              <div class="key-row"><span class="keycaps"><kbd>↓</kbd></span><span class="key-label">Soft drop</span></div>
+              <div class="key-row"><span class="keycaps"><kbd>Z</kbd><kbd>X</kbd></span><span class="key-label">Rotate</span></div>
+              <div class="key-row"><span class="keycaps"><kbd class="wide">Space</kbd></span><span class="key-label">Hard drop</span></div>
+              <div class="key-row"><span class="keycaps"><kbd>C</kbd></span><span class="key-label">Hold</span></div>
+              <div class="key-row"><span class="keycaps"><kbd class="wide">Esc</kbd></span><span class="key-label">Pause</span></div>
+            </div>
           </div>
         </div>
       </div>
@@ -132,6 +134,16 @@
           <li>Or use the pads: ↺ ↻ rotate, ◀ ▶ move, ▼ soft drop, ⤓ hard drop, tap Hold to stash.</li>
           <li>Two players on one keyboard? Play <strong><a href="versus.html">2-Player Versus →</a></strong>.</li>
         </ul>
+        <div class="theme-row">
+          <span class="theme-label">Accent</span>
+          <div class="swatches" id="swatches" role="group" aria-label="Accent color">
+            <button type="button" class="swatch" data-accent="#34d2e8" style="--sw:#34d2e8" aria-label="Cyan accent"></button>
+            <button type="button" class="swatch" data-accent="#ffb02e" style="--sw:#ffb02e" aria-label="Amber accent"></button>
+            <button type="button" class="swatch" data-accent="#ff4d8d" style="--sw:#ff4d8d" aria-label="Magenta accent"></button>
+            <button type="button" class="swatch" data-accent="#46cf6d" style="--sw:#46cf6d" aria-label="Green accent"></button>
+            <button type="button" class="swatch" data-accent="#b05de0" style="--sw:#b05de0" aria-label="Purple accent"></button>
+          </div>
+        </div>
         <button id="help-close" type="button">Got it</button>
       </div>
     </div>

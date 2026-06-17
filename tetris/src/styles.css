@@ -179,6 +179,10 @@ body {
   min-height: 0;
 }
 
+/* Mobile: the rail wrappers are transparent so hold/meter/next/legend place
+   directly into the strip grid. Desktop overrides them to flex columns. */
+.rail-left, .rail-right { display: contents; }
+
 .hold-chip { grid-area: hold; display: flex; align-items: center; gap: 8px; }
 .meter { grid-area: meter; display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 150px; justify-self: center; width: 100%; }
 .next-row { grid-area: next; display: flex; align-items: center; gap: 8px; }
@@ -359,6 +363,22 @@ body {
 .help-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; color: var(--text-dim); font-size: 13px; line-height: 1.45; }
 .help-list strong { color: var(--accent); font-weight: 700; }
 .help-list a { color: var(--accent); }
+
+.theme-row { display: flex; align-items: center; gap: 12px; }
+.theme-label { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-faint); }
+.swatches { display: flex; gap: 8px; }
+.swatch {
+  width: 26px; height: 26px; padding: 0;
+  border-radius: 8px;
+  background: var(--sw);
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 10px color-mix(in srgb, var(--sw) 50%, transparent);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.swatch:hover { transform: scale(1.1); }
+.swatch:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.swatch[aria-pressed="true"] { border-color: var(--text); }
 #help-close { justify-self: end; min-width: 44px; min-height: 40px; padding: 0 18px; border-radius: 11px; background: var(--surface-hi); border: 1px solid var(--stroke-hi); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08); color: var(--text); font: 700 13px/1 var(--font); letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; }
 #help-close:hover { filter: brightness(1.15); }
 #help-close:active { transform: scale(0.97); }
@@ -375,18 +395,19 @@ body {
 
   .game-area {
     grid-template-columns: 264px 1fr 264px;
-    grid-template-rows: auto auto 1fr;
-    grid-template-areas:
-      "hold  board next"
-      "meter board legend"
-      ".     board legend";
+    grid-template-rows: 1fr;
+    grid-template-areas: "left board right";
     align-items: start;
-    gap: 16px 36px;
+    gap: 36px;
   }
-  .board-area { align-self: center; justify-content: center; }
+  /* Desktop: rails become flex columns so HOLD + meter group tightly. */
+  .rail-left, .rail-right { display: flex; flex-direction: column; gap: 16px; }
+  .rail-left { grid-area: left; }
+  .rail-right { grid-area: right; }
+  .board-area { grid-area: board; align-self: center; justify-content: center; }
   .hold-chip { flex-direction: column; align-items: stretch; gap: 8px; }
   .hold-preview { width: 100%; height: 120px; }
-  .meter { max-width: none; align-self: start; }
+  .meter { max-width: none; }
   .next-row { flex-direction: column; align-items: stretch; gap: 8px; }
   .next-chips { flex-direction: column; align-items: center; gap: 10px; }
   .chip { width: 64px; height: 48px; }

@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-hifi-2026-06-17.6';
+  const BUILD_ID = 'tetris-hifi-2026-06-17.7';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -135,6 +135,29 @@
     try {
       window.localStorage.setItem(HELP_SEEN_KEY, '1');
     } catch {}
+  }
+
+  // Themeable accent — drives the score, hard-drop pad, level meter and board glow.
+  const ACCENT_KEY = 'tetris-accent';
+  const ACCENTS = ['#34d2e8', '#ffb02e', '#ff4d8d', '#46cf6d', '#b05de0'];
+  const swatchEls = Array.from(document.querySelectorAll('.swatch'));
+
+  function readAccent() {
+    try {
+      const v = window.localStorage.getItem(ACCENT_KEY);
+      return ACCENTS.includes(v) ? v : ACCENTS[0];
+    } catch {
+      return ACCENTS[0];
+    }
+  }
+
+  function applyAccent(hex) {
+    const value = ACCENTS.includes(hex) ? hex : ACCENTS[0];
+    const { r, g, b } = hexToRgb(value);
+    document.documentElement.style.setProperty('--accent', value);
+    document.documentElement.style.setProperty('--accent-rgb', `${r}, ${g}, ${b}`);
+    swatchEls.forEach((s) => s.setAttribute('aria-pressed', s.dataset.accent === value ? 'true' : 'false'));
+    try { window.localStorage.setItem(ACCENT_KEY, value); } catch {}
   }
 
   const MUTED_KEY = 'tetris-muted';
@@ -1200,6 +1223,7 @@
   muteEl.addEventListener('click', toggleMute);
   helpEl.addEventListener('click', openHelp);
   helpCloseEl.addEventListener('click', closeHelp);
+  swatchEls.forEach((s) => s.addEventListener('click', () => applyAccent(s.dataset.accent)));
   helpOverlayEl.addEventListener('click', (event) => {
     if (event.target === helpOverlayEl) closeHelp();
   });
@@ -1359,6 +1383,7 @@
     }, 200);
   });
 
+  applyAccent(readAccent());
   computeDimensions();
   restartGame();
   setAutoStep(true);
@@ -1399,6 +1424,8 @@
     setMuted: (value) => {
       sfx.setMuted(Boolean(value));
       updateHud();
-    }
+    },
+    setAccent: (hex) => applyAccent(hex),
+    getAccent: () => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
   };
 })();

@@ -231,7 +231,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-hifi-2026-06-17.6');
+  expect(marker.win).toBe('tetris-hifi-2026-06-17.7');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -240,6 +240,23 @@ test('getControlsState returns handedness stub', async ({ page }) => {
   await openGame(page);
   const controls = await getControlsState(page);
   expect(controls).toEqual({ handedness: 'right' });
+});
+
+test('accent theme: a swatch recolors --accent and persists across reload', async ({ page }) => {
+  await openGame(page);
+  // Default accent is cyan.
+  expect(await page.evaluate(() => window.__tetrisTest.getAccent())).toBe('#34d2e8');
+
+  // Pick the amber swatch from the help panel.
+  await page.locator('#help').click();
+  await page.locator('.swatch[data-accent="#ffb02e"]').click();
+  expect(await page.evaluate(() => window.__tetrisTest.getAccent())).toBe('#ffb02e');
+  await expect(page.locator('.swatch[data-accent="#ffb02e"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => localStorage.getItem('tetris-accent'))).toBe('#ffb02e');
+
+  // Persists across reload.
+  await openGame(page);
+  expect(await page.evaluate(() => window.__tetrisTest.getAccent())).toBe('#ffb02e');
 });
 
 test('keyboard move rotate and hard drop work', async ({ page }) => {
