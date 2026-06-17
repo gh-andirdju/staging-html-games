@@ -1,0 +1,155 @@
+/* Versus mode — reuses tokens/fonts from styles.css. */
+:root { --p1: #34d2e8; --p2: #ff4d8d; }
+
+.versus-body { overflow-x: hidden; }
+.accent-p1 { color: var(--p1); }
+.accent-p2 { color: var(--p2); }
+
+.versus-shell {
+  position: relative;
+  width: 100vw;
+  min-height: 100vh;
+  padding: 20px 40px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: var(--font);
+  color: var(--text);
+}
+
+/* dual ambient wash */
+.versus-shell::before, .versus-shell::after {
+  content: "";
+  position: absolute;
+  top: 0; height: 260px; width: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+.versus-shell::before { left: 0; background: radial-gradient(70% 100% at 40% 0%, rgba(52, 210, 232, 0.10), transparent 70%); }
+.versus-shell::after { right: 0; background: radial-gradient(70% 100% at 60% 0%, rgba(255, 77, 141, 0.10), transparent 70%); }
+.versus-shell > * { position: relative; z-index: 1; }
+
+/* ── Top bar ── */
+.vs-topbar { display: flex; align-items: center; justify-content: space-between; }
+.vs-brand { display: flex; align-items: center; gap: 11px; }
+.vs-brand .title { font-size: 26px; }
+.vs-pill {
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--surface-hi);
+  border: 1px solid var(--stroke-hi);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-dim);
+}
+.vs-link { font: 700 13px/1 var(--font); letter-spacing: 0.06em; text-decoration: none; }
+
+/* ── Body: P1 | VS | P2 ── */
+.vs-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+}
+
+.player-side { display: flex; flex-direction: column; gap: 12px; }
+
+.player-tag { display: flex; align-items: center; gap: 10px; }
+.player-side.p2 .player-tag { flex-direction: row-reverse; }
+.tag-badge {
+  width: 34px; height: 34px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 17px; color: #06080c;
+}
+.p1 .tag-badge { background: var(--p1); box-shadow: 0 0 16px rgba(52, 210, 232, 0.4); }
+.p2 .tag-badge { background: var(--p2); box-shadow: 0 0 16px rgba(255, 77, 141, 0.4); }
+.tag-text { display: grid; gap: 2px; }
+.tag-text strong { font-size: 17px; line-height: 1; }
+.tag-text span { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); font-weight: 600; }
+.player-side.p2 .tag-text { text-align: right; }
+
+.ps-board-row { display: flex; align-items: flex-start; gap: 10px; }
+.ps-board {
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  box-shadow: inset 0 2px 24px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 0, 0, 0.4);
+}
+.p1 .ps-board { box-shadow: inset 0 2px 24px rgba(0, 0, 0, 0.6), 0 0 34px rgba(52, 210, 232, 0.16); }
+.p2 .ps-board { box-shadow: inset 0 2px 24px rgba(0, 0, 0, 0.6), 0 0 34px rgba(255, 77, 141, 0.16); }
+.ps-board canvas { display: block; border-radius: 12px; }
+
+.ps-rail { width: 60px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.chip-label { font-size: 9px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint); }
+.chip {
+  width: 52px; min-height: 30px;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 4px;
+}
+.hold-box { height: 46px; }
+.chip canvas { display: block; }
+
+.ps-stats { display: flex; gap: 16px; justify-content: center; }
+.player-side.p1 .ps-stats { padding-left: 70px; justify-content: flex-start; }
+.player-side.p2 .ps-stats { padding-right: 70px; justify-content: flex-end; flex-direction: row-reverse; }
+.vstat { text-align: center; }
+.vstat span { display: block; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); font-weight: 600; }
+.vstat strong { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ── VS column ── */
+.vs-col { width: 120px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.vs-word { font-size: 30px; font-weight: 700; letter-spacing: 0.04em; }
+.vs-bestof { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-faint); font-weight: 600; }
+.round-score { display: flex; align-items: baseline; gap: 8px; font-size: 30px; font-weight: 700; }
+.round-score .dash { color: var(--text-faint); font-size: 18px; }
+
+.garbage-meter {
+  margin-top: 8px;
+  width: 16px; height: 280px;
+  border-radius: 9px;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  overflow: hidden;
+  position: relative;
+}
+.meter-top { position: absolute; top: 0; left: 0; right: 0; height: 0; background: var(--p2); box-shadow: 0 0 14px rgba(255, 77, 141, 0.53); transition: height 0.2s ease; }
+.meter-bot { position: absolute; bottom: 0; left: 0; right: 0; height: 0; background: var(--p1); box-shadow: 0 0 14px rgba(52, 210, 232, 0.53); transition: height 0.2s ease; }
+.meter-mid { position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed var(--stroke-hi); }
+.garbage-cap { font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-faint); font-weight: 600; text-align: center; line-height: 1.5; }
+
+/* ── Banner ── */
+.vs-banner {
+  text-align: center;
+  min-height: 20px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.vs-banner.show { opacity: 1; }
+
+/* ── Keyboard guide ── */
+.kb-guide { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 0; }
+.kb-line { margin: 0; font-size: 11px; color: var(--text-faint); letter-spacing: 0.02em; }
+.kb-line .accent-p1, .kb-line .accent-p2 { font-weight: 700; }
+.player-side.p2 ~ * .kb-line { text-align: right; }
+.kb-mid { margin: 0; flex: 1; text-align: center; font-size: 11px; color: var(--text-dim); max-width: 260px; }
+.kb-mid b { color: var(--text); }
+
+/* ── Smaller screens ── */
+@media (max-width: 900px) {
+  .versus-shell { padding: 14px 16px; }
+  .vs-body { gap: 12px; }
+  .ps-rail { width: 44px; }
+  .chip { width: 40px; }
+  .kb-guide { flex-direction: column; gap: 6px; }
+  .kb-mid { max-width: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter-top, .meter-bot, .vs-banner { transition: none; }
+}
