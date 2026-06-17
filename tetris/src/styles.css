@@ -2,31 +2,60 @@
   box-sizing: border-box;
 }
 
+/* Self-hosted type — geometric display (Russo One) + console mono (Space Mono). */
+@font-face {
+  font-family: "Russo One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/russo-one-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/space-mono-400-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fonts/space-mono-700-latin.woff2") format("woff2");
+}
+
 :root {
-  --bg-top: #1a0e00;
-  --bg-bottom: #080400;
-  --board-bg: #020617;
-  --panel: rgba(20, 10, 0, 0.78);
-  --panel-strong: rgba(25, 12, 0, 0.92);
-  --panel-border: rgba(245, 158, 11, 0.28);
-  --text-main: #fef9f0;
-  --text-dim: #c4a46b;
-  --accent: #f59e0b;
-  --accent-rgb: 245, 158, 11;
-  --tone-warn: #fb7185;
-  --button-bg: linear-gradient(180deg, var(--accent), #d97706);
-  --shadow: 0 18px 40px rgba(8, 3, 0, 0.34);
+  /* Constructivist arcade: ink + signal red + bone, with enamel-bright pieces. */
+  --bg-top: #1c1714;
+  --bg-bottom: #080605;
+  --board-bg: #0d0a08;
+  --panel: rgba(28, 20, 17, 0.82);
+  --panel-strong: rgba(20, 14, 12, 0.94);
+  --panel-border: rgba(229, 57, 43, 0.34);
+  --text-main: #f3ead6;
+  --text-dim: #b09a86;
+  --accent: #e5392b;
+  --accent-rgb: 229, 57, 43;
+  --accent-2: #f2b134;
+  --tone-milestone: #f2b134;
+  --tone-warn: #ff8a5c;
+  --button-bg: linear-gradient(180deg, #ef4d3a, #c8261c);
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  --display: "Russo One", "Trebuchet MS", sans-serif;
+  --mono: "Space Mono", ui-monospace, monospace;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(var(--accent-rgb), 0.12), transparent 34%),
-    radial-gradient(120% 70% at 50% 110%, rgba(var(--accent-rgb), 0.05), transparent 60%),
+    radial-gradient(55% 40% at 12% 0%, rgba(242, 177, 52, 0.1), transparent 60%),
+    radial-gradient(70% 55% at 100% 4%, rgba(var(--accent-rgb), 0.2), transparent 62%),
+    radial-gradient(130% 90% at 50% 122%, rgba(var(--accent-rgb), 0.12), transparent 60%),
     linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
   color: var(--text-main);
-  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  font-family: var(--mono);
 }
 
 .game-shell {
@@ -43,6 +72,8 @@ body {
   border: 1px solid var(--panel-border);
   border-radius: 18px;
   background: var(--panel);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   box-shadow: var(--shadow);
   display: flex;
   align-items: center;
@@ -65,8 +96,13 @@ body {
 }
 
 .title {
+  font-family: var(--display);
   font-size: 22px;
   line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.55);
 }
 
 .topbar-actions {
@@ -80,19 +116,23 @@ body {
 #mute,
 #help,
 #help-close {
-  border: 1px solid var(--accent);
-  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 12px;
   background: var(--button-bg);
-  color: #fff7ed;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  font: inherit;
-  font-weight: 700;
+  color: #fff4e8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    3px 3px 0 rgba(0, 0, 0, 0.5);
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   cursor: pointer;
   padding: 10px 14px;
   min-height: 44px;
   min-width: 44px;
   white-space: nowrap;
-  transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
+  transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
 }
 
 #mute,
@@ -114,8 +154,10 @@ body {
 #help:active,
 #help-close:active {
   filter: brightness(0.95);
-  transform: translateY(1px);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  transform: translate(3px, 3px);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 0 0 rgba(0, 0, 0, 0.5);
 }
 
 #restart:focus-visible,
@@ -162,8 +204,11 @@ body {
 
 .help-title {
   margin: 0;
+  font-family: var(--display);
   font-size: 18px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
 .help-list {
@@ -204,12 +249,13 @@ body {
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
-  border: 1px solid rgba(var(--accent-rgb), 0.35);
-  border-radius: 8px;
+  border: 1px solid rgba(var(--accent-rgb), 0.5);
+  border-radius: 10px;
   background: var(--board-bg);
   box-shadow:
-    inset 0 0 0 1px rgba(var(--accent-rgb), 0.06),
-    0 0 18px rgba(var(--accent-rgb), 0.1);
+    inset 0 0 0 1px rgba(var(--accent-rgb), 0.12),
+    0 0 24px rgba(var(--accent-rgb), 0.24),
+    0 0 64px rgba(242, 177, 52, 0.08);
 }
 
 /* ── Side rail ────────────────────────────────────────────────── */
@@ -294,10 +340,23 @@ body {
 
 .stat-block strong {
   display: block;
-  font-size: 18px;
+  font-family: var(--display);
+  font-size: 19px;
   line-height: 1.1;
   color: var(--text-main);
   font-variant-numeric: tabular-nums;
+  transition: transform 0.12s ease, color 0.12s ease;
+}
+
+/* Brief pop when a stat ticks up. */
+.stat-block strong.stat-pop {
+  animation: stat-pop 0.34s ease;
+}
+
+@keyframes stat-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.28); color: var(--accent-2); }
+  100% { transform: scale(1); }
 }
 
 .status-wrap {
@@ -308,15 +367,19 @@ body {
 
 #status {
   display: block;
-  font: 700 9px/1.3 monospace;
-  letter-spacing: 0.06em;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 9px;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-dim);
   word-break: break-word;
 }
 
 .status-wrap[data-tone="milestone"] #status {
-  color: var(--accent);
+  color: var(--tone-milestone);
+  text-shadow: 0 0 10px rgba(255, 210, 63, 0.4);
 }
 
 .status-wrap[data-tone="warning"] #status {
@@ -333,6 +396,8 @@ body {
   padding: 10px 12px 14px;
   padding-bottom: max(14px, env(safe-area-inset-bottom));
   background: var(--panel);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-radius: 0 0 18px 18px;
   border: 1px solid var(--panel-border);
   border-top-style: dashed;
@@ -361,7 +426,7 @@ body {
   top: 0;
   width: 40px;
   height: 120px;
-  background: rgba(15, 8, 0, 0.9);
+  background: rgba(14, 18, 40, 0.92);
   border: 2px solid var(--panel-border);
   border-radius: 6px;
 }
@@ -372,7 +437,7 @@ body {
   top: 40px;
   width: 120px;
   height: 40px;
-  background: rgba(15, 8, 0, 0.9);
+  background: rgba(14, 18, 40, 0.92);
   border: 2px solid var(--panel-border);
   border-radius: 6px;
 }
@@ -509,7 +574,7 @@ body {
 }
 
 .rotate-btn.ccw {
-  background: #2a4d7a;
+  background: linear-gradient(160deg, #2bb6c9, #157d92);
   left: 8px;
   top: 50px;
   box-shadow:
@@ -518,7 +583,7 @@ body {
 }
 
 .rotate-btn.cw {
-  background: #7a1f3d;
+  background: linear-gradient(160deg, #9a6cff, #6d3ad6);
   left: 70px;
   top: 10px;
   box-shadow:
