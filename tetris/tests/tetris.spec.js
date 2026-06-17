@@ -199,7 +199,8 @@ async function prepareVisualLayout(page) {
     lockTimer: 0,
     heldPiece: 'S',
     holdUsed: true,
-    nextPieceType: 'I'
+    nextPieceType: 'I',
+    nextQueue: ['I', 'L', 'Z']
   });
   // Self-hosted webfonts must be ready before any visual baseline is captured.
   await page.evaluate(() => document.fonts.ready);
@@ -227,7 +228,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-constructivist-2026-06-17.2');
+  expect(marker.win).toBe('tetris-cabinet-2026-06-17.3');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -1640,20 +1641,23 @@ test.describe('board touch gestures', () => {
   test('horizontal drag moves one cell per cell-width dragged', async ({ page }) => {
     await openGame(page);
     await placePiece(page, { type: 'T', index: 3, x: 4, y: 4, rotation: 0 });
+    // Drag in real cell-widths so the test is robust to the responsive board size.
+    const { cellSize } = await page.evaluate(() => window.__tetrisTest.getBoardSize());
+    const startX = cellSize * 2;
 
-    // Drag right by two cell-widths (cellSize is 30 at the locked 10x20 board).
-    await boardPointer(page, 'pointerdown', 60, 150);
-    await boardPointer(page, 'pointermove', 120, 150);
-    await boardPointer(page, 'pointerup', 120, 150);
+    // Drag right by two cell-widths.
+    await boardPointer(page, 'pointerdown', startX, 150);
+    await boardPointer(page, 'pointermove', startX + cellSize * 2, 150);
+    await boardPointer(page, 'pointerup', startX + cellSize * 2, 150);
 
     const right = await getState(page);
     expect(right.current.x).toBe(6);
     expect(right.current.rotation).toBe(0); // a move gesture must not also rotate
 
     // Drag back left by three cell-widths.
-    await boardPointer(page, 'pointerdown', 200, 150);
-    await boardPointer(page, 'pointermove', 110, 150);
-    await boardPointer(page, 'pointerup', 110, 150);
+    await boardPointer(page, 'pointerdown', startX + cellSize * 5, 150);
+    await boardPointer(page, 'pointermove', startX + cellSize * 2, 150);
+    await boardPointer(page, 'pointerup', startX + cellSize * 2, 150);
 
     const left = await getState(page);
     expect(left.current.x).toBe(3);
