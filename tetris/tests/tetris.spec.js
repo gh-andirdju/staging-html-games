@@ -683,6 +683,160 @@ test('Tetris clear message shown even when clear also causes a level-up', async 
   expect(after.statusTone).toBe('milestone');
 });
 
+test.describe('combo and back-to-back scoring', () => {
+  const emptyBoard = () => Array.from({ length: 20 }, () => Array(10).fill(0));
+
+  // Row 19 filled except cols 4-5; an O-piece resting at y=18 completes exactly one line.
+  function singleClearBoard() {
+    const board = emptyBoard();
+    board[19] = [1, 1, 1, 1, 0, 0, 1, 1, 1, 1];
+    return board;
+  }
+
+  // Rows 16-19 filled except col 4; a vertical I-piece (rot 3) at x=4,y=17 completes four lines.
+  function tetrisBoard() {
+    const board = emptyBoard();
+    for (let row = 16; row <= 19; row += 1) board[row] = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1];
+    return board;
+  }
+
+  // Lock the resting piece via natural gravity (no hard/soft-drop points) and resolve the clear.
+  async function gravityLockAndResolve(page) {
+    await advanceFrames(page, 1);  // gravity fires and locks the resting piece
+    await advanceFrames(page, 18); // clear animation resolves
+  }
+
+  test('exposes combo and back-to-back tracking with idle defaults', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    expect(state.combo).toBe(-1);
+    expect(state.b2bActive).toBe(false);
+  });
+
+  test('a single clear scores its base value with no combo bonus', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    await setState(page, {
+      ...state,
+      board: singleClearBoard(),
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      score: 0, lines: 0, level: 1,
+      gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+
+    await gravityLockAndResolve(page);
+    const after = await getState(page);
+    expect(after.lines).toBe(1);
+    expect(after.combo).toBe(0);
+    expect(after.score).toBe(100); // base only, combo 0 adds nothing
+  });
+
+  test('consecutive clears build a combo bonus and announce it', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+
+    await setState(page, {
+      ...state,
+      board: singleClearBoard(),
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      score: 0, lines: 0, level: 1,
+      gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+    await gravityLockAndResolve(page);
+    const afterFirst = await getState(page);
+    expect(afterFirst.combo).toBe(0);
+    const scoreAfterFirst = afterFirst.score;
+
+    // Second clear in a row — preserve the combo chain across the state injection.
+    await setState(page, {
+      ...afterFirst,
+      board: singleClearBoard(),
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+    await gravityLockAndResolve(page);
+    const afterSecond = await getState(page);
+
+    expect(afterSecond.combo).toBe(1);
+    // Base 100 + combo bonus (50 × combo × level) = 150 added by the second clear.
+    expect(afterSecond.score - scoreAfterFirst).toBe(150);
+    expect(afterSecond.statusMessage).toMatch(/combo 1/i);
+  });
+
+  test('a non-clearing drop breaks the combo chain', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+
+    // Inject an in-progress combo, then drop a piece that completes no line.
+    await setState(page, {
+      ...state,
+      board: emptyBoard(),
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      combo: 5, b2bActive: false,
+      gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+
+    await advanceFrames(page, 1); // locks with no clear
+    const after = await getState(page);
+    expect(after.combo).toBe(-1);
+  });
+
+  test('back-to-back Tetrises earn a difficulty bonus', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+
+    await setState(page, {
+      ...state,
+      board: tetrisBoard(),
+      current: { type: 'I', index: 1, x: 4, y: 17, rotation: 3 },
+      score: 0, lines: 0, level: 1,
+      combo: -1, b2bActive: false,
+      gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+    await gravityLockAndResolve(page);
+    const afterFirst = await getState(page);
+    expect(afterFirst.lines).toBe(4);
+    expect(afterFirst.b2bActive).toBe(true);
+    expect(afterFirst.score).toBe(800); // first Tetris: base only, no back-to-back yet
+    const scoreAfterFirst = afterFirst.score;
+
+    // Second Tetris while back-to-back is active. Reset combo to isolate the b2b bonus.
+    await setState(page, {
+      ...afterFirst,
+      board: tetrisBoard(),
+      current: { type: 'I', index: 1, x: 4, y: 17, rotation: 3 },
+      combo: -1,
+      gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+    await gravityLockAndResolve(page);
+    const afterSecond = await getState(page);
+
+    expect(afterSecond.b2bActive).toBe(true);
+    // Base 800 + back-to-back bonus (half of 800 × level) = 1200 added by the second Tetris.
+    expect(afterSecond.score - scoreAfterFirst).toBe(1200);
+    expect(afterSecond.statusMessage).toMatch(/back-to-back/i);
+  });
+
+  test('a non-Tetris clear ends the back-to-back chain', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+
+    // Back-to-back is active; a single-line clear is not "difficult" and resets it.
+    await setState(page, {
+      ...state,
+      board: singleClearBoard(),
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      score: 0, lines: 0, level: 1,
+      combo: -1, b2bActive: true,
+      gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+    await gravityLockAndResolve(page);
+    const after = await getState(page);
+    expect(after.b2bActive).toBe(false);
+    expect(after.score).toBe(100); // no back-to-back bonus on a single-line clear
+  });
+});
+
 test('control deck buttons are keyboard-activatable via Enter', async ({ page }) => {
   await openGame(page);
   const initial = await getState(page);
