@@ -91,25 +91,12 @@ async function getPortraitLayout(page) {
       },
       scrollHeight: document.scrollingElement.scrollHeight,
       board: readBox('#game'),
-      controlDeck: readBox('.control-deck'),
       gameArea: readBox('.game-area'),
-      dpadCluster: readBox('.dpad-cluster'),
-      rotateCluster: readBox('.rotate-cluster'),
-      left: readBox('[data-action="left"]'),
-      right: readBox('[data-action="right"]'),
-      softDrop: readBox('[data-action="soft-drop"]'),
-      hardDrop: readBox('.dpad-cluster [data-action="hard-drop"]'),
-      rotateCw: readBox('.rotate-cluster [data-action="rotate-cw"]'),
-      rotateCcw: readBox('[data-action="rotate-ccw"]')
+      // The on-screen pad deck is removed on mobile (full-screen, gesture-only).
+      controlDeck: readBox('.control-deck'),
+      hint: readBox('.hint')
     };
   });
-}
-
-function expectInside(inner, outer) {
-  expect(inner.x).toBeGreaterThanOrEqual(outer.x - 1);
-  expect(inner.y).toBeGreaterThanOrEqual(outer.y - 1);
-  expect(inner.right).toBeLessThanOrEqual(outer.right + 1);
-  expect(inner.bottom).toBeLessThanOrEqual(outer.bottom + 1);
 }
 
 function expectVisibleInViewport(box, viewport) {
@@ -117,56 +104,22 @@ function expectVisibleInViewport(box, viewport) {
   expect(box.bottom).toBeLessThanOrEqual(viewport.height + 1);
 }
 
-function centerX(box) {
-  return box.x + box.width / 2;
-}
-
-function centerY(box) {
-  return box.y + box.height / 2;
-}
-
 function expectPortraitErgonomics(layout) {
-  const {
-    viewport,
-    scrollHeight,
-    board,
-    controlDeck,
-    gameArea,
-    dpadCluster,
-    rotateCluster,
-    left,
-    right,
-    softDrop,
-    hardDrop,
-    rotateCw,
-    rotateCcw
-  } = layout;
+  const { viewport, scrollHeight, board, gameArea, controlDeck } = layout;
 
-  for (const box of [board, controlDeck, gameArea, dpadCluster, rotateCluster,
-    left, right, softDrop, hardDrop, rotateCw, rotateCcw]) {
+  for (const box of [board, gameArea]) {
     expect(box).not.toBeNull();
     expectVisibleInViewport(box, viewport);
   }
 
+  // Full-screen, gesture-only: no on-screen pad deck at all.
+  expect(controlDeck).toBeNull();
+  // No scrolling — the whole game fits the viewport.
   expect(scrollHeight).toBeLessThanOrEqual(viewport.height + 1);
-  expect(controlDeck.y).toBeGreaterThanOrEqual(board.bottom - 2);
-  expect(controlDeck.height).toBeLessThanOrEqual(viewport.height * 0.30);
-  // Move/drop pad on the right, rotate cluster on the left (two-thumb ergonomics).
-  expect(centerX(dpadCluster)).toBeGreaterThan(centerX(rotateCluster));
-  expectInside(left, dpadCluster);
-  expectInside(right, dpadCluster);
-  expectInside(softDrop, dpadCluster);
-  expectInside(hardDrop, dpadCluster);
-  expectInside(rotateCw, rotateCluster);
-  expectInside(rotateCcw, rotateCluster);
-  expect(Math.abs(left.width - right.width)).toBeLessThan(4);
-  expect(Math.abs(left.height - right.height)).toBeLessThan(4);
-  expect(Math.abs(left.y - right.y)).toBeLessThan(4);
-  expect(Math.abs(rotateCw.width - rotateCcw.width)).toBeLessThan(4);
-  expect(Math.abs(rotateCw.height - rotateCcw.height)).toBeLessThan(4);
-  // Diamond pad: hard drop sits at the top, soft drop at the bottom.
-  expect(hardDrop.y).toBeLessThan(softDrop.y);
-  expect(softDrop.bottom).toBeGreaterThan(left.bottom);
+  expect(board.x).toBeGreaterThanOrEqual(-1);
+  expect(board.right).toBeLessThanOrEqual(viewport.width + 1);
+  // The board is the hero: it fills a large share of the screen height.
+  expect(board.height).toBeGreaterThan(viewport.height * 0.5);
 }
 
 async function prepareVisualLayout(page) {
@@ -231,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-hifi-2026-06-17.7');
+  expect(marker.win).toBe('tetris-fullscreen-2026-06-17.8');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -872,23 +825,6 @@ test.describe('combo and back-to-back scoring', () => {
   });
 });
 
-test('control deck buttons are keyboard-activatable via Enter', async ({ page }) => {
-  // Touch deck is shown on the mobile breakpoint (keyboard-only on desktop).
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openGame(page);
-  const initial = await getState(page);
-
-  await page.locator('.rotate-cluster [data-action="rotate-cw"]').focus();
-  await page.keyboard.press('Enter');
-  const afterRotate = await getState(page);
-  expect(afterRotate.current.rotation).toBe((initial.current.rotation + 1) % 4);
-
-  await page.locator('[data-action="rotate-ccw"]').focus();
-  await page.keyboard.press('Enter');
-  const afterCcw = await getState(page);
-  expect(afterCcw.current.rotation).toBe(initial.current.rotation);
-});
-
 test('NEXT and HOLD canvases render non-blank pixels after preview is set', async ({ page }) => {
   await openGame(page);
   const state = await getState(page);
@@ -922,10 +858,9 @@ test('soft-drop lockTimer accumulates and locks piece after LOCK_DELAY_FRAMES fi
   // Each soft-drop fire that fails to move the piece increments lockTimer by 1.
   // With DROP_REPEAT_FRAMES=2 and cadence (tick-1)%2===0, fires at ticks 1,3,5,...,59 (30 fires).
   // After 30 lockTimer increments the piece locks (LOCK_DELAY_FRAMES=30).
-  const softBtn = page.locator('[data-action="soft-drop"]');
-  await softBtn.dispatchEvent('pointerdown');
+  await page.keyboard.down('ArrowDown');
   await advanceFrames(page, 60);
-  await softBtn.dispatchEvent('pointerup');
+  await page.keyboard.up('ArrowDown');
 
   const after = await getState(page);
   expect(after.board[18][4]).toBeGreaterThan(0); // O-piece locked at row 18
@@ -949,25 +884,6 @@ test('natural gravity locks piece immediately with no extra delay', async ({ pag
   expect(after.gameOver).toBe(false);
   expect(after.board[18][4]).toBeGreaterThan(0);
   expect(after.current).not.toBeNull();
-});
-
-test('control deck buttons are keyboard-activatable via Space', async ({ page }) => {
-  // Touch deck is shown on the mobile breakpoint (keyboard-only on desktop).
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openGame(page);
-  const initial = await getState(page);
-
-  // Tab to the rotate-cw button and press Space — should rotate CW
-  await page.locator('.rotate-cluster [data-action="rotate-cw"]').focus();
-  await page.keyboard.press('Space');
-  const afterRotate = await getState(page);
-  expect(afterRotate.current.rotation).toBe((initial.current.rotation + 1) % 4);
-
-  // Tab to the rotate-ccw button and press Space — should rotate back
-  await page.locator('[data-action="rotate-ccw"]').focus();
-  await page.keyboard.press('Space');
-  const afterCcw = await getState(page);
-  expect(afterCcw.current.rotation).toBe(initial.current.rotation);
 });
 
 test('hold-preview div is keyboard-activatable via Space and Enter', async ({ page }) => {
@@ -1050,57 +966,6 @@ test('hold piece mechanic saves and swaps piece', async ({ page }) => {
   expect(afterSwap.nextPieceType).not.toBeNull();
   expect(afterSwap.statusMessage).toMatch(/hold/i);
   await expect(page.locator('#status')).toHaveText(afterSwap.statusMessage);
-});
-
-test('long-press on soft-drop button triggers hard-drop and does not chain', async ({ page }) => {
-  await openGame(page);
-  const initial = await getState(page);
-  await setState(page, {
-    ...initial,
-    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
-    gravityFrames: 48, gravityTick: 0, lockTimer: 0, score: 0
-  });
-  // Shrink the long-press window so the test stays fast.
-  await page.evaluate(() => window.__tetrisTest.setLongPressHardDropMs(40));
-
-  const softBtn = page.locator('[data-action="soft-drop"]');
-  await softBtn.dispatchEvent('pointerdown');
-  // Wait past the long-press threshold so hard-drop fires once.
-  await page.waitForTimeout(120);
-  // Keep the button held — hard-drop should not re-fire for subsequent pieces.
-  await advanceFrames(page, 60);
-  await softBtn.dispatchEvent('pointerup');
-
-  const after = await getState(page);
-  expect(after.gameOver).toBe(false);
-  expect(after.current).not.toBeNull();
-  // One piece worth of hard-drop points should have been awarded.
-  expect(after.score).toBeGreaterThan(0);
-});
-
-test('quick tap on soft-drop button only soft-drops, never hard-drops', async ({ page }) => {
-  await openGame(page);
-  const initial = await getState(page);
-  await setState(page, {
-    ...initial,
-    board: Array.from({ length: 20 }, () => Array(10).fill(0)),
-    gravityFrames: 48, gravityTick: 0, lockTimer: 0, score: 0,
-    current: { ...initial.current, y: 0 }
-  });
-  await page.evaluate(() => window.__tetrisTest.setLongPressHardDropMs(200));
-
-  const softBtn = page.locator('[data-action="soft-drop"]');
-  const beforeY = (await getState(page)).current.y;
-  await softBtn.dispatchEvent('pointerdown');
-  await advanceFrames(page, 4);
-  // Release well before the 200ms long-press threshold.
-  await softBtn.dispatchEvent('pointerup');
-
-  const after = await getState(page);
-  // Piece advanced via soft-drop but did not slam to the floor.
-  expect(after.current).not.toBeNull();
-  expect(after.current.y).toBeGreaterThan(beforeY);
-  expect(after.current.y).toBeLessThan(15);
 });
 
 test('keyboard Space held does not chain hard-drop multiple pieces', async ({ page }) => {
@@ -1245,10 +1110,9 @@ test('soft-drop lock with line clear gives new piece a full gravity cycle', asyn
   });
 
   // Soft-drop the piece to the floor and let lockTimer reach LOCK_DELAY_FRAMES (30)
-  const softBtn = page.locator('[data-action="soft-drop"]');
-  await softBtn.dispatchEvent('pointerdown');
+  await page.keyboard.down('ArrowDown');
   await advanceFrames(page, 70); // enough frames for lockTimer to hit 30 and lines to clear
-  await softBtn.dispatchEvent('pointerup');
+  await page.keyboard.up('ArrowDown');
 
   const afterClear = await getState(page);
   expect(afterClear.lines).toBeGreaterThanOrEqual(1);
@@ -1274,10 +1138,9 @@ test('gravity fires during soft-drop accumulation and new piece gets full gravit
     gravityTick: 47, gravityFrames: 48, lockTimer: 0
   });
 
-  const softBtn = page.locator('[data-action="soft-drop"]');
-  await softBtn.dispatchEvent('pointerdown');
+  await page.keyboard.down('ArrowDown');
   await advanceFrames(page, 1); // lock fires; new piece spawns with gravityTick=0
-  await softBtn.dispatchEvent('pointerup');
+  await page.keyboard.up('ArrowDown');
 
   const afterLock = await getState(page);
   expect(afterLock.board[18][4]).toBeGreaterThan(0); // O-piece locked at row 18
@@ -1488,84 +1351,27 @@ test.describe('mobile touch controls', () => {
     isMobile: true
   });
 
-  test('touch buttons move rotate and soft drop', async ({ page }) => {
+  test('is full-screen and gesture-only in portrait (no pad deck)', async ({ page }) => {
     await openGame(page);
-    const start = await getState(page);
+    expectPortraitErgonomics(await getPortraitLayout(page));
 
-    const right = page.locator('[data-action="right"]');
-    await right.dispatchEvent('pointerdown');
-    await advanceFrames(page, 22);
-    await right.dispatchEvent('pointerup');
-    const moved = await getState(page);
-    expect(moved.current.x).toBeGreaterThan(start.current.x);
+    // No pad-deck control buttons exist on the mobile surface.
+    expect(await page.locator('.control-deck').count()).toBe(0);
+    expect(await page.locator('[data-action="left"]').count()).toBe(0);
 
-    const rotateCw = page.locator('.rotate-cluster [data-action="rotate-cw"]');
-    const beforeRotate = moved.current.rotation;
-    await rotateCw.dispatchEvent('pointerdown');
-    await rotateCw.dispatchEvent('pointerup');
-    const rotated = await getState(page);
-    expect(rotated.current.rotation).not.toBe(beforeRotate);
-
-    const soft = page.locator('[data-action="soft-drop"]');
-    const beforeSoftY = rotated.current.y;
-    await soft.dispatchEvent('pointerdown');
-    await advanceFrames(page, 6);
-    await soft.dispatchEvent('pointerup');
-    const softened = await getState(page);
-    expect(softened.current.y).toBeGreaterThan(beforeSoftY);
-
-    // The explicit hard-drop pad (⤓) slams the piece and awards drop points.
-    const hardBtn = page.locator('[data-action="hard-drop"]');
-    const scoreBeforeHard = softened.score;
-    await hardBtn.dispatchEvent('pointerdown');
-    await hardBtn.dispatchEvent('pointerup');
-    await advanceFrames(page, 2);
-    const hardened = await getState(page);
-    expect(hardened.score).toBeGreaterThan(scoreBeforeHard);
-  });
-
-  test('CCW touch button rotates counterclockwise', async ({ page }) => {
-    await openGame(page);
-    const initial = await getState(page);
-    const initialRotation = initial.current.rotation;
-
-    const cw = page.locator('.rotate-cluster [data-action="rotate-cw"]');
-    await cw.dispatchEvent('pointerdown');
-    await cw.dispatchEvent('pointerup');
-    const afterCw = await getState(page);
-    expect(afterCw.current.rotation).toBe((initialRotation + 1) % 4);
-
-    const ccw = page.locator('[data-action="rotate-ccw"]');
-    await ccw.dispatchEvent('pointerdown');
-    await ccw.dispatchEvent('pointerup');
-    const afterCcw = await getState(page);
-    expect(afterCcw.current.rotation).toBe(initialRotation);
-  });
-
-  test('keeps touch controls below the board in portrait layout', async ({ page }) => {
-    await openGame(page);
-
-    const layout = await getPortraitLayout(page);
-    const restartStyles = await page.locator('#restart').evaluate((element) => {
-      const style = window.getComputedStyle(element);
-      return {
-        backgroundColor: style.backgroundColor,
-        borderWidth: style.borderTopWidth
-      };
+    // Restart stays a styled glass icon button in the top bar.
+    const restartStyles = await page.locator('#restart').evaluate((el) => {
+      const s = window.getComputedStyle(el);
+      return { backgroundColor: s.backgroundColor, borderWidth: s.borderTopWidth };
     });
-
-    expectPortraitErgonomics(layout);
-    // Restart is a styled glass icon button (non-transparent fill + visible border).
     expect(restartStyles.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
     expect(parseFloat(restartStyles.borderWidth)).toBeGreaterThan(0);
   });
 
-  test('keeps the handheld deck in view on shorter portrait screens', async ({ page }) => {
+  test('fits a shorter portrait screen with the board still full-screen', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 740 });
     await openGame(page);
-
-    const layout = await getPortraitLayout(page);
-    expectPortraitErgonomics(layout);
+    expectPortraitErgonomics(await getPortraitLayout(page));
   });
 
   test('touch hold button saves and swaps pieces', async ({ page }) => {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="tetris-build" content="tetris-hifi-2026-06-17.7">
+    <meta name="tetris-build" content="tetris-fullscreen-2026-06-17.8">
     <title>Marathon Tetris</title>
     <link rel="preload" href="src/fonts/chakra-petch-700-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="src/fonts/chakra-petch-600-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -95,31 +95,7 @@
         </div>
       </div>
 
-      <div class="control-deck" role="group" aria-label="Touch controls">
-        <div class="rotate-area">
-          <div class="rotate-cluster" role="group" aria-label="Rotation controls">
-            <button type="button" class="pad round rot-ccw" data-action="rotate-ccw" aria-label="Rotate Left">↺</button>
-            <button type="button" class="pad round rot-cw" data-action="rotate-cw" aria-label="Rotate Right">↻</button>
-          </div>
-          <p class="cluster-label">Rotate</p>
-        </div>
-
-        <div class="dpad-cluster">
-          <div class="dpad" role="group" aria-label="Move and drop">
-            <button type="button" class="pad accent dpad-hard" data-action="hard-drop" aria-label="Hard Drop">
-              <span class="glyph">⤓</span><span class="pad-sub">Hard</span>
-            </button>
-            <button type="button" class="pad dpad-left" data-action="left" aria-label="Left">◀</button>
-            <button type="button" class="pad dpad-right" data-action="right" aria-label="Right">▶</button>
-            <button type="button" class="pad dpad-soft" data-action="soft-drop" aria-label="Soft Drop">
-              <span class="glyph">▼</span><span class="pad-sub">Soft</span>
-            </button>
-          </div>
-          <p class="cluster-label">Move · Drop</p>
-        </div>
-      </div>
-
-      <p class="hint">also: <span class="hint-dim">tap board</span> rotate · <span class="hint-dim">swipe</span> move · <span class="accent-text">swipe ↓ hard drop</span></p>
+      <p class="hint"><span class="hint-dim">tap</span> rotate · <span class="hint-dim">drag</span> move · <span class="hint-dim">drag ↓</span> soft · <span class="accent-text">flick ↓ hard</span> · <span class="hint-dim">swipe ↑</span> hold</p>
     </main>
 
     <div id="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
@@ -130,8 +106,7 @@
           <li>Plan ahead with the <strong>Next</strong> queue, stash a piece in <strong>Hold</strong>, and watch the level meter.</li>
           <li>Chain clears for a Combo bonus, and stack back-to-back Tetrises for an extra reward.</li>
           <li>Keyboard: ← / → move · Z / X rotate (↑ also rotates) · ↓ soft drops · Space hard drops · C holds · Esc pauses · R restarts.</li>
-          <li>Touch the board: drag to move, tap to rotate, flick down to hard drop, swipe up to hold.</li>
-          <li>Or use the pads: ↺ ↻ rotate, ◀ ▶ move, ▼ soft drop, ⤓ hard drop, tap Hold to stash.</li>
+          <li>On a phone the board is full-screen — play by touch: <strong>drag</strong> to move, <strong>tap</strong> to rotate, <strong>drag&nbsp;down</strong> to soft drop, <strong>flick&nbsp;down</strong> to hard drop, <strong>swipe&nbsp;up</strong> (or tap Hold) to stash.</li>
           <li>Two players on one keyboard? Play <strong><a href="versus.html">2-Player Versus →</a></strong>.</li>
         </ul>
         <div class="theme-row">
