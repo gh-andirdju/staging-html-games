@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-startlevel-2026-06-27.12');
+  expect(marker.win).toBe('tetris-ghost-toggle-2026-06-27.13');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -1639,6 +1639,41 @@ test('ghost piece stops at board obstacle, not at floor', async ({ page }) => {
   // After hard drop from y=2, piece locks at y=13 (row 15 blocks the cell below y=14)
   expect(dropped.board[13][4]).toBeGreaterThan(0);
   expect(dropped.board[15][4]).toBeGreaterThan(0); // original obstacle still there
+});
+
+test('ghost piece can be toggled off and the choice persists', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  board[15] = [0, 0, 0, 1, 1, 1, 1, 0, 0, 0]; // blocks an O dropped at x=4 → ghost at row 13
+  await setState(page, {
+    ...state,
+    board,
+    current: { type: 'O', index: 2, x: 4, y: 2, rotation: 0 },
+    gravityTick: 0, lockTimer: 0
+  });
+  await advanceFrames(page, 1);
+
+  const ghostVisible = () => page.evaluate(() => {
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const cellSize = canvas.width / window.__tetrisTest.getBoardSize().cols;
+    const py = Math.floor(13 * cellSize + cellSize / 2);
+    for (let dx = 1; dx <= 3; dx++) {
+      if (ctx.getImageData(4 * cellSize + dx, py, 1, 1).data[0] > 20) return true;
+    }
+    return false;
+  });
+
+  expect(await ghostVisible()).toBe(true); // ghost shown by default
+
+  await page.evaluate(() => window.__tetrisTest.setGhostEnabled(false));
+  expect(await page.evaluate(() => window.__tetrisTest.getGhostEnabled())).toBe(false);
+  expect(await ghostVisible()).toBe(false); // ghost no longer painted
+
+  await page.reload();
+  await page.waitForFunction(() => window.__tetrisTest && window.__tetrisTest.isReady);
+  expect(await page.evaluate(() => window.__tetrisTest.getGhostEnabled())).toBe(false);
 });
 
 test('pressing P pauses the game and freezes gameplay across advanceFrames', async ({ page }) => {
