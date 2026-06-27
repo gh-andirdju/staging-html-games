@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-perfect-clear-2026-06-27.10');
+  expect(marker.win).toBe('tetris-stats-2026-06-27.11');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -1101,6 +1101,85 @@ test.describe('perfect clear', () => {
     expect(after.lines).toBe(2);
     expect(after.score).toBe(300); // plain double only, no Perfect Clear bonus
     expect(after.statusMessage).not.toMatch(/perfect clear/i);
+  });
+});
+
+test.describe('game stats', () => {
+  async function gravityLockAndResolve(page) {
+    await advanceFrames(page, 31);
+    await advanceFrames(page, 18);
+  }
+
+  test('getState exposes per-game stats that start at zero', async ({ page }) => {
+    await openGame(page);
+    const s = await getState(page);
+    expect(s.stats).toEqual({ pieces: 0, tetrises: 0, tSpins: 0, perfectClears: 0, maxCombo: 0 });
+  });
+
+  test('a Tetris increments the piece and tetris tallies', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    for (let row = 16; row <= 19; row += 1) board[row] = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1];
+    board[15][0] = 1; // residual so it's a plain Tetris, not a Perfect Clear
+    await setState(page, {
+      ...state,
+      board,
+      current: { type: 'I', index: 1, x: 4, y: 17, rotation: 3 },
+      score: 0, lines: 0, level: 1, gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+    await gravityLockAndResolve(page);
+    const after = await getState(page);
+    expect(after.stats.tetrises).toBe(1);
+    expect(after.stats.pieces).toBeGreaterThanOrEqual(1);
+  });
+
+  test('a T-spin is tallied', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    board[17][3] = 1;
+    for (const c of [0, 1, 2, 6, 7, 8, 9]) board[18][c] = 1;
+    for (const c of [0, 1, 2, 3, 5, 6, 7, 8, 9]) board[19][c] = 1;
+    await setState(page, {
+      ...state,
+      board,
+      current: { type: 'T', index: 3, x: 4, y: 18, rotation: 1 },
+      score: 0, lines: 0, level: 1, combo: -1, b2bActive: false,
+      gravityFrames: 999, gravityTick: 0, lockTimer: 0
+    });
+    await page.keyboard.press('ArrowUp'); // rotate into the T-spin slot
+    await page.keyboard.press('Space');   // hard drop locks
+    await advanceFrames(page, 20);
+    const after = await getState(page);
+    expect(after.stats.tSpins).toBe(1);
+  });
+
+  test('a Perfect Clear is tallied and best combo is tracked', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    for (const c of [0, 1, 2, 3, 6, 7, 8, 9]) { board[18][c] = 1; board[19][c] = 1; }
+    await setState(page, {
+      ...state,
+      board,
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      score: 0, lines: 0, level: 1, combo: 0, b2bActive: false,
+      gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+    await gravityLockAndResolve(page);
+    const after = await getState(page);
+    expect(after.stats.perfectClears).toBe(1);
+    expect(after.stats.maxCombo).toBeGreaterThanOrEqual(1); // combo advanced from 0 to 1 on this clear
+  });
+
+  test('stats reset on restart', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    await setState(page, { ...state, stats: { pieces: 9, tetrises: 2, tSpins: 1, perfectClears: 1, maxCombo: 5 } });
+    await page.evaluate(() => window.__tetrisTest.restart());
+    const after = await getState(page);
+    expect(after.stats).toEqual({ pieces: 0, tetrises: 0, tSpins: 0, perfectClears: 0, maxCombo: 0 });
   });
 });
 

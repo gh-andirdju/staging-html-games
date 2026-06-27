@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-perfect-clear-2026-06-27.10';
+  const BUILD_ID = 'tetris-stats-2026-06-27.11';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -152,6 +152,15 @@
 
   function createBoard() {
     return Array.from({ length: boardRows }, () => Array(boardCols).fill(0));
+  }
+
+  // Per-game tallies surfaced on the game-over screen and via getState().
+  function createStats() {
+    return { pieces: 0, tetrises: 0, tSpins: 0, perfectClears: 0, maxCombo: 0 };
+  }
+
+  function bumpStat(key, amount = 1) {
+    if (state.stats) state.stats[key] += amount;
   }
 
   const HIGH_SCORE_KEY = 'tetris-high-score';
@@ -633,6 +642,9 @@
       if (perfectClear) gained += (PERFECT_CLEAR_SCORES[cleared] || 0) * state.level;
       state.score += gained;
       state.b2bActive = isDifficult;
+      if (cleared === 4) bumpStat('tetrises');
+      if (perfectClear) bumpStat('perfectClears');
+      if (state.combo > state.stats.maxCombo) state.stats.maxCombo = state.combo;
       recordHighScore();
       onLinesResolved(cleared, { backToBack, combo: state.combo, tSpin });
       // A Perfect Clear is the rarest feat on the board, so it headlines the status line.
@@ -682,6 +694,8 @@
 
   function lockPiece({ silent = false } = {}) {
     const tSpin = detectTSpin();
+    bumpStat('pieces');
+    if (tSpin) bumpStat('tSpins');
     mergePiece();
     const rows = findFullRows();
     state.current = null;
@@ -844,6 +858,7 @@
       lastMoveRotation: false,
       lastRotationKick: 0,
       lockResets: 0,
+      stats: createStats(),
       gravityFrames: BASE_GRAVITY_FRAMES,
       gravityTick: 0,
       lockTimer: 0,
@@ -891,6 +906,8 @@
     if (typeof state.lastMoveRotation !== 'boolean') state.lastMoveRotation = false;
     if (typeof state.lastRotationKick !== 'number') state.lastRotationKick = 0;
     if (!('pendingTSpin' in state)) state.pendingTSpin = null;
+    if (!state.stats || typeof state.stats !== 'object') state.stats = createStats();
+    else state.stats = { ...createStats(), ...state.stats };
     if (!('heldPiece' in state)) state.heldPiece = null;
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
@@ -1089,10 +1106,17 @@
     }
 
     if (state.gameOver) {
-      drawBoardOverlay('GAME OVER', [
-        `Score ${state.score} · Best ${state.highScore}`,
-        'Press R or tap Restart'
-      ], state.newRecord ? '#34d2e8' : '#ef4a5e');
+      const stats = state.stats || createStats();
+      const lines = [`Score ${state.score} · Best ${state.highScore}`];
+      // Surface the run's highlights when there is anything worth bragging about.
+      const tallies = [];
+      if (stats.tetrises) tallies.push(`Tetris ×${stats.tetrises}`);
+      if (stats.tSpins) tallies.push(`T-Spin ×${stats.tSpins}`);
+      if (stats.perfectClears) tallies.push(`Perfect ×${stats.perfectClears}`);
+      if (stats.maxCombo > 0) tallies.push(`Combo ${stats.maxCombo}`);
+      if (tallies.length) lines.push(tallies.join(' · '));
+      lines.push('Press R or tap Restart');
+      drawBoardOverlay('GAME OVER', lines, state.newRecord ? '#34d2e8' : '#ef4a5e');
     }
   }
 
@@ -1101,17 +1125,31 @@
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    const maxWidth = canvas.width - 16;
+
+    // Shrink a font string's px size until the text fits the board width (down to a
+    // readable floor), so long lines — score, stat tallies, the title — never clip
+    // on a narrow board.
+    function fitFont(text, weight, basePx, minPx) {
+      let px = basePx;
+      ctx.font = `${weight} ${px}px "Chakra Petch", system-ui, sans-serif`;
+      while (px > minPx && ctx.measureText(text).width > maxWidth) {
+        px -= 1;
+        ctx.font = `${weight} ${px}px "Chakra Petch", system-ui, sans-serif`;
+      }
+    }
+
     ctx.save();
     ctx.shadowColor = withAlpha(titleColor, 0.6);
     ctx.shadowBlur = 18;
     ctx.fillStyle = titleColor;
-    ctx.font = '700 30px "Chakra Petch", system-ui, sans-serif';
     const lines = Array.isArray(subtitle) ? subtitle : [subtitle];
+    fitFont(title, '700', 30, 16);
     ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 22);
     ctx.restore();
     ctx.fillStyle = 'rgba(238, 241, 246, 0.7)';
-    ctx.font = '500 13px "Chakra Petch", system-ui, sans-serif';
     lines.forEach((line, i) => {
+      fitFont(line, '500', 13, 8);
       ctx.fillText(line, canvas.width / 2, canvas.height / 2 + 10 + i * 22);
     });
   }
