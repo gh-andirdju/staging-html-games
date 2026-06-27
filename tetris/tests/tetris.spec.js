@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-srs-tspin-2026-06-27.9');
+  expect(marker.win).toBe('tetris-perfect-clear-2026-06-27.10');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -306,6 +306,7 @@ test('line clear animates before lines and score update', async ({ page }) => {
   board[19][4] = 0;
   board[19][5] = 0;
   board[19][6] = 0;
+  board[15][0] = 1; // residual block so the single-line clear isn't also a Perfect Clear
 
   state.board = board;
   state.current = { type: 'I', index: 1, x: 4, y: 17, rotation: 0 };
@@ -349,6 +350,7 @@ test('level progression increases speed', async ({ page }) => {
   board[19][4] = 0;
   board[19][5] = 0;
   board[19][6] = 0;
+  board[15][0] = 1; // residual block so the single-line clear isn't also a Perfect Clear
   state.board = board;
   state.current = { type: 'I', index: 1, x: 4, y: 17, rotation: 0 };
   await setState(page, state);
@@ -373,6 +375,7 @@ test('milestone status persists briefly then falls back to next target message',
   board[19][4] = 0;
   board[19][5] = 0;
   board[19][6] = 0;
+  board[15][0] = 1; // residual block so the single-line clear isn't also a Perfect Clear
   state.board = board;
   state.current = { type: 'I', index: 1, x: 4, y: 17, rotation: 0 };
   await setState(page, state);
@@ -401,6 +404,7 @@ test('higher levels taper speed instead of jumping to minimum too early', async 
   board[19][4] = 0;
   board[19][5] = 0;
   board[19][6] = 0;
+  board[15][0] = 1; // residual block so the single-line clear isn't also a Perfect Clear
   state.board = board;
   state.current = { type: 'I', index: 1, x: 4, y: 17, rotation: 0 };
   await setState(page, state);
@@ -425,6 +429,7 @@ test('minimum speed is delayed until level fifteen', async ({ page }) => {
   board[19][4] = 0;
   board[19][5] = 0;
   board[19][6] = 0;
+  board[15][0] = 1; // residual block so the single-line clear isn't also a Perfect Clear
   state.board = board;
   state.current = { type: 'I', index: 1, x: 4, y: 17, rotation: 0 };
   await setState(page, state);
@@ -617,6 +622,7 @@ test('4-line Tetris clear awards correct score and status message', async ({ pag
   for (let row = 16; row <= 19; row++) {
     board[row] = [1, 1, 1, 1, 1, 0, 1, 1, 1, 1];
   }
+  board[15][0] = 1; // residual block so the Tetris isn't also a Perfect Clear
 
   await setState(page, {
     ...state,
@@ -649,6 +655,7 @@ test('Tetris clear message shown even when clear also causes a level-up', async 
   for (let row = 16; row <= 19; row++) {
     board[row] = [1, 1, 1, 1, 1, 0, 1, 1, 1, 1];
   }
+  board[15][0] = 1; // residual block so the Tetris isn't also a Perfect Clear
 
   await setState(page, {
     ...state,
@@ -682,9 +689,12 @@ test.describe('combo and back-to-back scoring', () => {
   }
 
   // Rows 16-19 filled except col 4; a vertical I-piece (rot 3) at x=4,y=17 completes four lines.
+  // A residual block above keeps these Tetrises from also being Perfect Clears (which would
+  // add an All-Clear bonus and change the back-to-back score math under test here).
   function tetrisBoard() {
     const board = emptyBoard();
     for (let row = 16; row <= 19; row += 1) board[row] = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1];
+    board[15][0] = 1;
     return board;
   }
 
@@ -946,6 +956,7 @@ test.describe('T-spin scoring', () => {
     const board = Array.from({ length: 20 }, () => Array(10).fill(0));
     for (const c of [0, 1, 2, 6, 7, 8, 9]) board[18][c] = 1; // row 18 missing cols 3,4,5
     for (const c of [0, 1, 2, 3, 5, 6, 7, 8, 9]) board[19][c] = 1; // row 19 missing col 4
+    board[15][0] = 1; // residual block so the double clear isn't also a Perfect Clear
     await setState(page, {
       ...state,
       board,
@@ -1011,6 +1022,85 @@ test.describe('lock delay', () => {
     }
     const after = await getState(page);
     expect(after.board[18][4]).toBeGreaterThan(0); // locked despite continuous rotation
+  });
+});
+
+test.describe('perfect clear', () => {
+  async function gravityLockAndResolve(page) {
+    await advanceFrames(page, 31); // gravity grounds + lock delay expires → piece locks
+    await advanceFrames(page, 18); // clear animation resolves
+  }
+
+  test('a clear that empties the whole board scores a Perfect Clear bonus', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    // Rows 18-19 full except a 2x2 hole at cols 4-5, and nothing else on the board. An O
+    // dropped into the hole completes both rows and leaves the playfield completely empty.
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    for (const c of [0, 1, 2, 3, 6, 7, 8, 9]) { board[18][c] = 1; board[19][c] = 1; }
+    await setState(page, {
+      ...state,
+      board,
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      score: 0, lines: 0, level: 1, combo: -1, b2bActive: false,
+      gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+
+    await gravityLockAndResolve(page);
+    const after = await getState(page);
+    expect(after.lines).toBe(2);
+    // Plain double base 300 + Perfect Clear bonus 1200 = 1500 (no hard-drop points via gravity).
+    expect(after.score).toBe(1500);
+    expect(after.statusMessage).toMatch(/perfect clear/i);
+    expect(after.statusTone).toBe('milestone');
+    // The board itself is empty again (the spawned piece lives in state.current, not the board).
+    expect(after.board.every((row) => row.every((c) => c === 0))).toBe(true);
+  });
+
+  test('a Perfect Clear headlines over the Tetris message and adds the Tetris all-clear value', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    // Rows 16-19 full except col 4, nothing else — a vertical I fills col 4 for a Tetris that
+    // also empties the board.
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    for (let row = 16; row <= 19; row += 1) board[row] = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1];
+    await setState(page, {
+      ...state,
+      board,
+      current: { type: 'I', index: 1, x: 4, y: 17, rotation: 3 },
+      score: 0, lines: 0, level: 1, combo: -1, b2bActive: false,
+      gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+
+    await gravityLockAndResolve(page);
+    const after = await getState(page);
+    expect(after.lines).toBe(4);
+    // Tetris base 800 + Perfect Clear (Tetris) bonus 2000 = 2800.
+    expect(after.score).toBe(2800);
+    expect(after.statusMessage).toMatch(/perfect clear/i);
+    expect(after.statusMessage).not.toMatch(/tetris clear/i);
+  });
+
+  test('a clear that leaves blocks behind is not a Perfect Clear', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    // Same 2x2 hole, but an extra stray block up top survives the clear → no All-Clear bonus.
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    for (const c of [0, 1, 2, 3, 6, 7, 8, 9]) { board[18][c] = 1; board[19][c] = 1; }
+    board[10][0] = 1;
+    await setState(page, {
+      ...state,
+      board,
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      score: 0, lines: 0, level: 1, combo: -1, b2bActive: false,
+      gravityTick: 47, gravityFrames: 48, lockTimer: 0
+    });
+
+    await gravityLockAndResolve(page);
+    const after = await getState(page);
+    expect(after.lines).toBe(2);
+    expect(after.score).toBe(300); // plain double only, no Perfect Clear bonus
+    expect(after.statusMessage).not.toMatch(/perfect clear/i);
   });
 });
 

@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-srs-tspin-2026-06-27.9';
+  const BUILD_ID = 'tetris-perfect-clear-2026-06-27.10';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -19,6 +19,8 @@
   // T-spin line-clear values (index = lines cleared), scaled by level like CLEAR_SCORES.
   const TSPIN_SCORES = [400, 800, 1200, 1600];
   const TSPIN_MINI_SCORES = [100, 200, 400, 400];
+  // Perfect Clear (All Clear) bonus on top of the line score (index = lines cleared).
+  const PERFECT_CLEAR_SCORES = [0, 800, 1200, 1800, 2000];
   const DROP_REPEAT_FRAMES = 2;
   const HORIZONTAL_DAS_FRAMES = 16;
   const HORIZONTAL_ARR_FRAMES = 6;
@@ -310,6 +312,11 @@
       playTSpin() {
         tone(740, 1180, 0.09, 0, 'triangle', 0.09);
         tone(1180, 1480, 0.08, 0.08, 'triangle', 0.07);
+      },
+      // A sparkling four-note rise for the rare Perfect Clear.
+      playPerfectClear() {
+        const notes = [784, 988, 1319, 1568];
+        notes.forEach((freq, index) => tone(freq, freq, 0.1, index * 0.06, 'triangle', 0.09));
       },
       playGameOver() {
         tone(330, 120, 0.15, 0, 'sawtooth', 0.09);
@@ -611,6 +618,8 @@
       // back-to-back bonus when not interrupted by a non-difficult clear.
       const isDifficult = cleared === 4 || !!tSpin;
       const backToBack = isDifficult && state.b2bActive;
+      // A Perfect Clear (All Clear): the clear emptied the entire playfield.
+      const perfectClear = state.board.every((row) => row.every((value) => value === 0));
       state.combo += 1;
       state.lines += cleared;
       const base = tSpin === 'mini'
@@ -621,12 +630,16 @@
       let gained = base * state.level;
       if (backToBack) gained += Math.floor(base / 2) * state.level;
       if (state.combo > 0) gained += 50 * state.combo * state.level;
+      if (perfectClear) gained += (PERFECT_CLEAR_SCORES[cleared] || 0) * state.level;
       state.score += gained;
       state.b2bActive = isDifficult;
       recordHighScore();
       onLinesResolved(cleared, { backToBack, combo: state.combo, tSpin });
+      // A Perfect Clear is the rarest feat on the board, so it headlines the status line.
+      if (perfectClear) setStatusMessage('Perfect Clear!', 'milestone');
       sfx.playLineClear(cleared);
-      if (tSpin) sfx.playTSpin();
+      if (perfectClear) sfx.playPerfectClear();
+      else if (tSpin) sfx.playTSpin();
       if (state.combo > 0) sfx.playCombo(state.combo);
       if (state.level > previousLevel) sfx.playLevelUp();
     }
