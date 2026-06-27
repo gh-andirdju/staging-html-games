@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-fullscreen-2026-06-17.8';
+  const BUILD_ID = 'tetris-srs-tspin-2026-06-27.9';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -11,7 +11,14 @@
   const MIN_GRAVITY_FRAMES = 6;
   const GRAVITY_FRAMES_BY_LEVEL = [48, 44, 40, 34, 30, 27, 24, 21, 18, 16, 14, 12, 10, 8, 6];
   const LOCK_DELAY_FRAMES = 30;
+  // A grounded piece resets its lock delay each time it is moved or rotated, but
+  // only this many times — past the cap it locks regardless, so it can't be stalled
+  // on the floor forever ("infinity" prevention).
+  const MOVE_RESET_LIMIT = 15;
   const CLEAR_SCORES = [0, 100, 300, 500, 800];
+  // T-spin line-clear values (index = lines cleared), scaled by level like CLEAR_SCORES.
+  const TSPIN_SCORES = [400, 800, 1200, 1600];
+  const TSPIN_MINI_SCORES = [100, 200, 400, 400];
   const DROP_REPEAT_FRAMES = 2;
   const HORIZONTAL_DAS_FRAMES = 16;
   const HORIZONTAL_ARR_FRAMES = 6;
@@ -19,18 +26,58 @@
   const CLEAR_BLINK_INTERVAL_FRAMES = 2;
   const STATUS_MESSAGE_FRAMES = 180;
   const MILESTONE_LEVEL_INTERVAL = 5;
+  // Cap how much wall-clock time a single animation frame may represent. When a tab
+  // is backgrounded the rAF loop is throttled/paused, so the next delta can be many
+  // seconds; without this clamp the fixed-step accumulator would burn through that
+  // time in one burst and drop the active piece across the whole board.
+  const MAX_FRAME_DELTA_MS = 100;
 
   // Hi-Fi tetromino palette (index 1..7 → I O T S Z J L).
   const COLORS = ['#000000', '#34d2e8', '#f4c52e', '#b05de0', '#46cf6d', '#ef4a5e', '#3f7ef6', '#ff9f2e'];
+  // Canonical SRS orientations. Each piece lists its four rotation states in
+  // clockwise order (index 0 = spawn, 1 = R, 2 = 2, 3 = L) about the SRS rotation
+  // centre, so the wall-kick tables below land pieces exactly where a modern Tetris
+  // does and T-spins resolve correctly. Offsets are [dx, dy] with +y pointing down.
   const PIECES = [
     { type: 'I', index: 1, rotations: [[[-1, 0], [0, 0], [1, 0], [2, 0]], [[1, -1], [1, 0], [1, 1], [1, 2]], [[-1, 1], [0, 1], [1, 1], [2, 1]], [[0, -1], [0, 0], [0, 1], [0, 2]]] },
     { type: 'O', index: 2, rotations: [[[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]]] },
-    { type: 'T', index: 3, rotations: [[[-1, 0], [0, 0], [1, 0], [0, 1]], [[0, -1], [0, 0], [1, 0], [0, 1]], [[0, -1], [-1, 0], [0, 0], [1, 0]], [[0, -1], [-1, 0], [0, 0], [0, 1]]] },
-    { type: 'S', index: 4, rotations: [[[0, 0], [1, 0], [-1, 1], [0, 1]], [[0, -1], [0, 0], [1, 0], [1, 1]], [[0, 0], [1, 0], [-1, 1], [0, 1]], [[0, -1], [0, 0], [1, 0], [1, 1]]] },
-    { type: 'Z', index: 5, rotations: [[[-1, 0], [0, 0], [0, 1], [1, 1]], [[1, -1], [0, 0], [1, 0], [0, 1]], [[-1, 0], [0, 0], [0, 1], [1, 1]], [[1, -1], [0, 0], [1, 0], [0, 1]]] },
-    { type: 'J', index: 6, rotations: [[[-1, 0], [0, 0], [1, 0], [-1, 1]], [[0, -1], [0, 0], [0, 1], [1, 1]], [[1, -1], [-1, 0], [0, 0], [1, 0]], [[-1, -1], [0, -1], [0, 0], [0, 1]]] },
-    { type: 'L', index: 7, rotations: [[[-1, 0], [0, 0], [1, 0], [1, 1]], [[0, -1], [0, 0], [0, 1], [1, -1]], [[-1, -1], [-1, 0], [0, 0], [1, 0]], [[-1, 1], [0, -1], [0, 0], [0, 1]]] }
+    { type: 'T', index: 3, rotations: [[[0, -1], [-1, 0], [0, 0], [1, 0]], [[0, -1], [0, 0], [1, 0], [0, 1]], [[-1, 0], [0, 0], [1, 0], [0, 1]], [[0, -1], [-1, 0], [0, 0], [0, 1]]] },
+    { type: 'S', index: 4, rotations: [[[0, -1], [1, -1], [-1, 0], [0, 0]], [[0, -1], [0, 0], [1, 0], [1, 1]], [[0, 0], [1, 0], [-1, 1], [0, 1]], [[-1, -1], [-1, 0], [0, 0], [0, 1]]] },
+    { type: 'Z', index: 5, rotations: [[[-1, -1], [0, -1], [0, 0], [1, 0]], [[1, -1], [0, 0], [1, 0], [0, 1]], [[-1, 0], [0, 0], [0, 1], [1, 1]], [[0, -1], [-1, 0], [0, 0], [-1, 1]]] },
+    { type: 'J', index: 6, rotations: [[[-1, -1], [-1, 0], [0, 0], [1, 0]], [[0, -1], [1, -1], [0, 0], [0, 1]], [[-1, 0], [0, 0], [1, 0], [1, 1]], [[0, -1], [0, 0], [-1, 1], [0, 1]]] },
+    { type: 'L', index: 7, rotations: [[[1, -1], [-1, 0], [0, 0], [1, 0]], [[0, -1], [0, 0], [0, 1], [1, 1]], [[-1, 0], [0, 0], [1, 0], [-1, 1]], [[-1, -1], [0, -1], [0, 0], [0, 1]]] }
   ];
+
+  // SRS wall-kick data in screen coordinates (+y down). For a rotation from state
+  // `a` to state `b`, each candidate [dx, dy] is tried in order; the first that
+  // fits is applied. JLSTZ share one table; I has its own; O never kicks.
+  const KICKS_JLSTZ = {
+    '0>1': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+    '1>0': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
+    '1>2': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
+    '2>1': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+    '2>3': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
+    '3>2': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+    '3>0': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+    '0>3': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]]
+  };
+  const KICKS_I = {
+    '0>1': [[0, 0], [-2, 0], [1, 0], [-2, 1], [1, -2]],
+    '1>0': [[0, 0], [2, 0], [-1, 0], [2, -1], [-1, 2]],
+    '1>2': [[0, 0], [-1, 0], [2, 0], [-1, -2], [2, 1]],
+    '2>1': [[0, 0], [1, 0], [-2, 0], [1, 2], [-2, -1]],
+    '2>3': [[0, 0], [2, 0], [-1, 0], [2, -1], [-1, 2]],
+    '3>2': [[0, 0], [-2, 0], [1, 0], [-2, 1], [1, -2]],
+    '3>0': [[0, 0], [1, 0], [-2, 0], [1, 2], [-2, -1]],
+    '0>3': [[0, 0], [-1, 0], [2, 0], [-1, -2], [2, 1]]
+  };
+
+  function wallKicks(type, fromRotation, toRotation) {
+    if (type === 'O') return [[0, 0]];
+    const key = `${fromRotation}>${toRotation}`;
+    const table = type === 'I' ? KICKS_I : KICKS_JLSTZ;
+    return table[key] || [[0, 0]];
+  }
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
@@ -259,6 +306,11 @@
         tone(440, 440, 0.07, 0, 'triangle');
         tone(660, 660, 0.1, 0.08, 'triangle');
       },
+      // A bright, twisting two-note flourish that marks a T-spin.
+      playTSpin() {
+        tone(740, 1180, 0.09, 0, 'triangle', 0.09);
+        tone(1180, 1480, 0.08, 0.08, 'triangle', 0.07);
+      },
       playGameOver() {
         tone(330, 120, 0.15, 0, 'sawtooth', 0.09);
       },
@@ -337,7 +389,9 @@
       type: pieceDef.type,
       index: pieceDef.index,
       x: Math.floor(boardCols / 2) - 1,
-      y: 0,
+      // Spawn one row down so canonical SRS shapes (which carry a cell in their top
+      // row) are fully visible at spawn instead of being clipped above the board.
+      y: 1,
       rotation: 0
     };
   }
@@ -360,8 +414,11 @@
   function spawnPiece() {
     state.current = nextPiece();
     state.lockTimer = 0;
+    state.lockResets = 0;
     state.gravityTick = 0;
     state.holdUsed = false;
+    state.lastMoveRotation = false;
+    state.lastRotationKick = 0;
     if (!isValidPosition(state.current)) {
       state.gameOver = true;
       syncStatusMessage();
@@ -384,13 +441,16 @@
       const swappedType = state.heldPiece;
       const pieceDef = PIECES.find((p) => p.type === swappedType);
       const spawnX = Math.floor(boardCols / 2) - 1;
-      const swapped = { type: pieceDef.type, index: pieceDef.index, x: spawnX, y: 0, rotation: 0 };
+      const swapped = { type: pieceDef.type, index: pieceDef.index, x: spawnX, y: 1, rotation: 0 };
       if (!isValidPosition(swapped)) return;
       // Mutate only after validation succeeds to avoid corrupt state on failure.
       state.heldPiece = currentType;
       state.current = swapped;
       state.lockTimer = 0;
+      state.lockResets = 0;
       state.gravityTick = 0;
+      state.lastMoveRotation = false;
+      state.lastRotationKick = 0;
     }
     // After first-hold, spawnPiece() cleared holdUsed for the spawned piece; after a swap it was
     // already false. Either way, lock it now to block a second hold until the next piece spawns.
@@ -470,7 +530,7 @@
     }
   }
 
-  function onLinesResolved(cleared, { backToBack = false, combo = 0 } = {}) {
+  function onLinesResolved(cleared, { backToBack = false, combo = 0, tSpin = null } = {}) {
     const previousLevel = state.level;
     updateLevelAndSpeed();
 
@@ -480,6 +540,15 @@
     if (backToBack) tags.push('Back-to-Back');
     if (combo >= 1) tags.push(`Combo ${combo}`);
     const suffix = tags.length ? ` · ${tags.join(' · ')}` : '';
+
+    // A T-spin clear is the headline — announce it with the line count.
+    if (tSpin) {
+      const lineName = ['', 'Single', 'Double', 'Triple'][cleared] || '';
+      const label = tSpin === 'mini' ? 'T-Spin Mini' : 'T-Spin';
+      const levelTag = state.level > previousLevel ? ` · Level ${state.level}!` : '';
+      setStatusMessage(`${label} ${lineName}!${levelTag}${suffix}`, 'milestone');
+      return;
+    }
 
     if (cleared === 4) {
       const linesToNextLevel = (10 - (state.lines % 10)) || 10;
@@ -532,41 +601,106 @@
   function resolveClearAnimation() {
     if (!state.clearAnimation) return;
     const cleared = state.clearAnimation.rows.length;
+    const tSpin = state.pendingTSpin || null;
+    state.pendingTSpin = null;
     collapseRows(state.clearAnimation.rows);
     state.clearAnimation = null;
     if (cleared > 0) {
       const previousLevel = state.level;
-      // A Tetris is the only "difficult" clear here (no T-spin detection); chaining two
-      // difficult clears without a non-difficult clear between them earns a back-to-back bonus.
-      const isDifficult = cleared === 4;
+      // "Difficult" clears (a Tetris or any T-spin that cleared lines) chain into a
+      // back-to-back bonus when not interrupted by a non-difficult clear.
+      const isDifficult = cleared === 4 || !!tSpin;
       const backToBack = isDifficult && state.b2bActive;
       state.combo += 1;
       state.lines += cleared;
-      let gained = CLEAR_SCORES[cleared] * state.level;
-      if (backToBack) gained += Math.floor(CLEAR_SCORES[cleared] / 2) * state.level;
+      const base = tSpin === 'mini'
+        ? (TSPIN_MINI_SCORES[cleared] || 0)
+        : tSpin
+          ? (TSPIN_SCORES[cleared] || 0)
+          : CLEAR_SCORES[cleared];
+      let gained = base * state.level;
+      if (backToBack) gained += Math.floor(base / 2) * state.level;
       if (state.combo > 0) gained += 50 * state.combo * state.level;
       state.score += gained;
       state.b2bActive = isDifficult;
       recordHighScore();
-      onLinesResolved(cleared, { backToBack, combo: state.combo });
+      onLinesResolved(cleared, { backToBack, combo: state.combo, tSpin });
       sfx.playLineClear(cleared);
+      if (tSpin) sfx.playTSpin();
       if (state.combo > 0) sfx.playCombo(state.combo);
       if (state.level > previousLevel) sfx.playLevelUp();
     }
     spawnPiece();
   }
 
+  // A piece is "landed" when it cannot fall one more row.
+  function pieceLanded(piece) {
+    return !isValidPosition({ ...piece, y: piece.y + 1 });
+  }
+
+  // 3-corner T-spin detection. Runs at lock time using the last successful action:
+  // a T whose final action was a rotation and that has ≥3 of its diagonal corners
+  // filled is a T-spin; both front corners filled (or a last-resort kick) make it a
+  // full T-spin, otherwise a mini.
+  function detectTSpin() {
+    if (!state.current || state.current.type !== 'T' || !state.lastMoveRotation) return null;
+    const cx = state.current.x;
+    const cy = state.current.y;
+    const corner = (dx, dy) => {
+      const x = cx + dx;
+      const y = cy + dy;
+      if (x < 0 || x >= boardCols || y >= boardRows) return true; // walls/floor count
+      if (y < 0) return false; // above the ceiling is open
+      return state.board[y][x] !== 0;
+    };
+    const tl = corner(-1, -1);
+    const tr = corner(1, -1);
+    const bl = corner(-1, 1);
+    const br = corner(1, 1);
+    if ([tl, tr, bl, br].filter(Boolean).length < 3) return null;
+    // Front corners face the T's nub direction (rotation 0 up, 1 right, 2 down, 3 left).
+    const front = state.current.rotation === 0 ? [tl, tr]
+      : state.current.rotation === 1 ? [tr, br]
+        : state.current.rotation === 2 ? [bl, br]
+          : [tl, bl];
+    if ((front[0] && front[1]) || state.lastRotationKick >= 4) return 'full';
+    return 'mini';
+  }
+
   function lockPiece({ silent = false } = {}) {
+    const tSpin = detectTSpin();
     mergePiece();
     const rows = findFullRows();
     state.current = null;
     if (!silent) sfx.playLock();
     if (rows.length > 0) {
+      state.pendingTSpin = tSpin;
       startClearAnimation(rows);
     } else {
-      // A drop that clears nothing breaks the combo chain (back-to-back persists).
+      // A T-spin that clears no line still scores and announces, but a clear-free
+      // lock always breaks the combo chain (back-to-back persists across it).
+      if (tSpin) {
+        const base = tSpin === 'mini' ? TSPIN_MINI_SCORES[0] : TSPIN_SCORES[0];
+        state.score += base * state.level;
+        recordHighScore();
+        setStatusMessage(tSpin === 'mini' ? 'T-Spin Mini!' : 'T-Spin!', 'milestone');
+        sfx.playTSpin();
+      }
       state.combo = -1;
       spawnPiece();
+    }
+  }
+
+  // Reset the lock delay after a successful move/rotate, but only while grounded and
+  // only up to MOVE_RESET_LIMIT times so a piece can't be juggled on the floor forever.
+  function noteManipulation() {
+    if (state.current && pieceLanded(state.current)) {
+      if (state.lockResets < MOVE_RESET_LIMIT) {
+        state.lockTimer = 0;
+        state.lockResets += 1;
+      }
+    } else {
+      state.lockTimer = 0;
     }
   }
 
@@ -575,52 +709,41 @@
     const next = { ...state.current, x: state.current.x + dx };
     if (!isValidPosition(next)) return false;
     state.current = next;
-    state.lockTimer = 0;
+    state.lastMoveRotation = false;
+    noteManipulation();
     return true;
+  }
+
+  function applyRotation(toRotation, kickList) {
+    if (state.gameOver || !state.current || state.clearAnimation) return false;
+    const base = { ...state.current, rotation: toRotation };
+    for (let i = 0; i < kickList.length; i += 1) {
+      const [dx, dy] = kickList[i];
+      const candidate = { ...base, x: base.x + dx, y: base.y + dy };
+      if (isValidPosition(candidate)) {
+        state.current = candidate;
+        state.lastMoveRotation = true;
+        state.lastRotationKick = i;
+        noteManipulation();
+        sfx.playRotate();
+        return true;
+      }
+    }
+    return false;
   }
 
   function rotatePiece() {
     if (state.gameOver || !state.current || state.clearAnimation) return false;
-    const next = { ...state.current, rotation: (state.current.rotation + 1) % 4 };
-    if (isValidPosition(next)) {
-      state.current = next;
-      state.lockTimer = 0;
-      sfx.playRotate();
-      return true;
-    }
-    const kicks = [-1, 1, -2, 2];
-    for (const kick of kicks) {
-      const kicked = { ...next, x: next.x + kick };
-      if (isValidPosition(kicked)) {
-        state.current = kicked;
-        state.lockTimer = 0;
-        sfx.playRotate();
-        return true;
-      }
-    }
-    return false;
+    const from = state.current.rotation % 4;
+    const to = (from + 1) % 4;
+    return applyRotation(to, wallKicks(state.current.type, from, to));
   }
 
   function rotatePieceCcw() {
     if (state.gameOver || !state.current || state.clearAnimation) return false;
-    const next = { ...state.current, rotation: (state.current.rotation - 1 + 4) % 4 };
-    if (isValidPosition(next)) {
-      state.current = next;
-      state.lockTimer = 0;
-      sfx.playRotate();
-      return true;
-    }
-    const kicks = [1, -1, 2, -2];
-    for (const kick of kicks) {
-      const kicked = { ...next, x: next.x + kick };
-      if (isValidPosition(kicked)) {
-        state.current = kicked;
-        state.lockTimer = 0;
-        sfx.playRotate();
-        return true;
-      }
-    }
-    return false;
+    const from = state.current.rotation % 4;
+    const to = (from + 3) % 4;
+    return applyRotation(to, wallKicks(state.current.type, from, to));
   }
 
   function applySoftDropPoint(steps) {
@@ -633,21 +756,41 @@
     recordHighScore();
   }
 
-  function stepDown({ rewardSoftDrop }) {
-    if (state.gameOver || !state.current || state.clearAnimation) return false;
+  // Move the current piece down one row if possible. Leaving the ground resets the
+  // lock delay and its reset budget. Returns true when the piece actually descended.
+  function descendPiece() {
+    if (!state.current) return false;
     const next = { ...state.current, y: state.current.y + 1 };
-    if (isValidPosition(next)) {
-      state.current = next;
-      if (rewardSoftDrop) applySoftDropPoint(1);
+    if (!isValidPosition(next)) return false;
+    state.current = next;
+    state.lockTimer = 0;
+    state.lockResets = 0;
+    state.lastMoveRotation = false;
+    return true;
+  }
+
+  // Player-driven soft-drop step: descends one row and scores a point on success.
+  function softDropStep() {
+    if (state.gameOver || !state.current || state.clearAnimation) return false;
+    if (descendPiece()) {
+      applySoftDropPoint(1);
       return true;
     }
-    if (rewardSoftDrop) {
+    return false;
+  }
+
+  // Lock-delay tick: a grounded piece counts down to a lock; an airborne piece has a
+  // clean slate (timer and reset budget zeroed). Applies to gravity drops too, so a
+  // piece landed by gravity can still be slid/spun before it commits.
+  function updateLockDelay() {
+    if (!state.current || state.clearAnimation || state.gameOver) return;
+    if (pieceLanded(state.current)) {
       state.lockTimer += 1;
       if (state.lockTimer >= LOCK_DELAY_FRAMES) lockPiece();
     } else {
-      lockPiece();
+      state.lockTimer = 0;
+      state.lockResets = 0;
     }
-    return false;
   }
 
   function hardDrop() {
@@ -659,6 +802,9 @@
       state.current = next;
       distance += 1;
     }
+    // Dropping through any distance is a downward move, so it can't be a T-spin; a
+    // piece already wedged at the floor (distance 0) keeps its rotation credit.
+    if (distance > 0) state.lastMoveRotation = false;
     applyHardDropPoints(distance);
     sfx.playHardDrop();
     lockPiece({ silent: true });
@@ -681,6 +827,10 @@
       level: 1,
       combo: -1,
       b2bActive: false,
+      pendingTSpin: null,
+      lastMoveRotation: false,
+      lastRotationKick: 0,
+      lockResets: 0,
       gravityFrames: BASE_GRAVITY_FRAMES,
       gravityTick: 0,
       lockTimer: 0,
@@ -724,6 +874,10 @@
     if (typeof state.newRecord !== 'boolean') state.newRecord = false;
     if (typeof state.combo !== 'number') state.combo = -1;
     if (typeof state.b2bActive !== 'boolean') state.b2bActive = false;
+    if (typeof state.lockResets !== 'number') state.lockResets = 0;
+    if (typeof state.lastMoveRotation !== 'boolean') state.lastMoveRotation = false;
+    if (typeof state.lastRotationKick !== 'number') state.lastRotationKick = 0;
+    if (!('pendingTSpin' in state)) state.pendingTSpin = null;
     if (!('heldPiece' in state)) state.heldPiece = null;
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
@@ -1078,15 +1232,18 @@
       if (held.right) stepHorizontalHold('right', 1);
       if (held.softDrop && state.current) {
         held.softTick += 1;
-        if ((held.softTick - 1) % DROP_REPEAT_FRAMES === 0) stepDown({ rewardSoftDrop: true });
+        if ((held.softTick - 1) % DROP_REPEAT_FRAMES === 0) softDropStep();
       } else {
         held.softTick = 0;
       }
       state.gravityTick += 1;
       if (state.gravityTick >= state.gravityFrames) {
         state.gravityTick = 0;
-        stepDown({ rewardSoftDrop: false });
+        descendPiece();
       }
+      // Lock delay runs after movement so a piece grounded by gravity, soft drop, or
+      // a slide gets a window to be repositioned (and reset by moves) before locking.
+      updateLockDelay();
       state.frame += 1;
     } else if (state.gameOver) {
       if (state.statusMessage !== gameOverStatus().text) syncStatusMessage();
@@ -1102,7 +1259,10 @@
   function tick(timestamp) {
     if (!autoStep) return;
     if (!lastTime) lastTime = timestamp;
-    const delta = timestamp - lastTime;
+    // Clamp the per-frame delta so a backgrounded tab (where requestAnimationFrame
+    // is throttled or paused) doesn't return a multi-second delta that fast-forwards
+    // dozens of frames at once and slams the active piece to the floor.
+    const delta = Math.min(timestamp - lastTime, MAX_FRAME_DELTA_MS);
     lastTime = timestamp;
     accumulator += delta;
     while (accumulator >= 1000 / 60) {
@@ -1323,8 +1483,7 @@
       while (boardGesture.lastCol > targetCol && movePiece(-1)) boardGesture.lastCol -= 1;
     } else if (boardGesture.axis === 'v' && dy > 0) {
       const desired = Math.floor(dy / cssCell);
-      while (boardGesture.softSteps < desired && state.current) {
-        stepDown({ rewardSoftDrop: true });
+      while (boardGesture.softSteps < desired && state.current && softDropStep()) {
         boardGesture.softSteps += 1;
       }
     }
@@ -1371,6 +1530,15 @@
   canvas.addEventListener('pointermove', onBoardPointerMove);
   canvas.addEventListener('pointerup', endBoardGesture);
   canvas.addEventListener('pointercancel', cancelBoardGesture);
+
+  // Returning to a backgrounded tab: discard the stale timestamp so the next tick
+  // measures a fresh, small delta instead of catching up the whole idle interval.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      lastTime = 0;
+      accumulator = 0;
+    }
+  });
 
   let _resizeTimer = null;
   window.addEventListener('resize', () => {
