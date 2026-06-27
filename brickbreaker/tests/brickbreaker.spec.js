@@ -809,6 +809,54 @@ test('removes a brick or updates score on brick collision', async ({ page }) => 
   expect(liveBrickCount(after) < liveBrickCount(before) || (after.score ?? 0) > (before.score ?? 0)).toBe(true);
 });
 
+test('combo builds across consecutive brick breaks and scales the score', async ({ page }) => {
+  await openGame(page);
+
+  // Break four bricks in a single volley (no paddle touch between) by repeatedly
+  // parking the ball on the next live brick.
+  const combos = [];
+  const scores = [];
+  for (let i = 0; i < 4; i += 1) {
+    await mutateState(page, 'brickCollision');
+    await advanceFrames(page, 2);
+    const s = await getState(page);
+    combos.push(s.combo);
+    scores.push(s.score);
+  }
+
+  expect(combos).toEqual([1, 2, 3, 4]);
+  // First three bricks score at x1 (10 each); the fourth crosses into the x2 tier (+20).
+  expect(scores).toEqual([10, 20, 30, 50]);
+
+  const final = await getState(page);
+  expect(final.comboMultiplier).toBe(2);
+  expect(final.bestCombo).toBeGreaterThanOrEqual(4);
+});
+
+test('a paddle bounce resets the combo chain', async ({ page }) => {
+  await openGame(page);
+
+  await mutateState(page, 'brickCollision');
+  await advanceFrames(page, 2);
+  expect((await getState(page)).combo).toBe(1);
+
+  await mutateState(page, 'paddleBounce');
+  await advanceFrames(page, 4);
+  expect((await getState(page)).combo).toBe(0);
+});
+
+test('losing a life resets the combo chain', async ({ page }) => {
+  await openGame(page);
+
+  await mutateState(page, 'brickCollision');
+  await advanceFrames(page, 2);
+  expect((await getState(page)).combo).toBe(1);
+
+  await mutateState(page, 'missedBall', { lives: 2 });
+  await advanceFrames(page, 8);
+  expect((await getState(page)).combo).toBe(0);
+});
+
 test('loses a life when the ball falls below the paddle', async ({ page }) => {
   await openGame(page);
   await mutateState(page, 'missedBall', { lives: 2 });

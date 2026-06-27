@@ -1,6 +1,11 @@
 (function () {
   "use strict";
 
+  // Invisible build marker — lets a deployed device be checked against committed
+  // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
+  var BUILD_ID = "brickbreaker-combo-2026-06-27.1";
+  try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
+
   var canvas = document.getElementById("game");
   var ctx = canvas.getContext("2d");
   var scoreEl = document.getElementById("score");
@@ -223,6 +228,13 @@
     return 1 + Math.min(0.42, Math.max(0, level - 1) * 0.035);
   }
 
+  // Combo multiplier: every 3 bricks cleared in a single volley (no paddle touch in
+  // between) steps the per-brick score up by 1x, capped at 5x. Rewards skilful
+  // multi-brick runs without ballooning the score.
+  function comboMultiplier(combo) {
+    return Math.min(5, Math.ceil(Math.max(1, combo) / 3));
+  }
+
   function makeBallStartForLevel(level) {
     var speed = BALL_BASE_SPEED * levelSpeedMultiplier(level);
     var angle = Math.atan2(Math.abs(ballStart.dy), Math.abs(ballStart.dx));
@@ -356,6 +368,9 @@
     snapshot.gameOver = state.status === "Game Over";
     snapshot.won = state.status === "You Win";
     snapshot.level = state.level;
+    snapshot.combo = state.combo || 0;
+    snapshot.bestCombo = state.bestCombo || 0;
+    snapshot.comboMultiplier = comboMultiplier(state.combo || 0);
     snapshot.statusMessage = getStatusText();
     snapshot.effectsDisplay = getEffectsDisplay();
     snapshot.helpOpen = !helpOverlayEl.hidden;
@@ -395,7 +410,9 @@
       level: 1,
       status: "Playing",
       paused: false,
-      levelClears: 0
+      levelClears: 0,
+      combo: 0,
+      bestCombo: 0
     };
     resetBall();
     updateHud();
@@ -444,6 +461,8 @@
     state.levelClears = typeof state.levelClears === "number" ? Math.max(0, Math.floor(state.levelClears)) : 0;
     state.highScore = typeof state.highScore === "number" ? state.highScore : readHighScore();
     state.newRecord = typeof state.newRecord === "boolean" ? state.newRecord : false;
+    state.combo = typeof state.combo === "number" ? Math.max(0, Math.floor(state.combo)) : 0;
+    state.bestCombo = typeof state.bestCombo === "number" ? Math.max(0, Math.floor(state.bestCombo)) : 0;
   }
 
   function recordHighScore() {
@@ -477,10 +496,14 @@
       return "Paused";
     }
     var multiplier = levelSpeedMultiplier(state.level || 1);
-    if ((state.level || 1) % 5 === 0) {
-      return "Milestone x" + multiplier.toFixed(2);
+    var base = (state.level || 1) % 5 === 0
+      ? "Milestone x" + multiplier.toFixed(2)
+      : "Zone " + String(state.level || 1) + " x" + multiplier.toFixed(2);
+    // Surface a live combo run once it is worth bragging about (2+ bricks this volley).
+    if ((state.combo || 0) >= 2) {
+      base += " · Combo " + state.combo + " (x" + comboMultiplier(state.combo) + ")";
     }
-    return "Zone " + String(state.level || 1) + " x" + multiplier.toFixed(2);
+    return base;
   }
 
   function getEffectsDisplay() {
@@ -550,6 +573,7 @@
 
   function loseLife() {
     state.lives -= 1;
+    state.combo = 0;
     resetEffects();
     sfx.playLifeLost();
 
@@ -567,6 +591,7 @@
     state.pickups = [];
     state.lasers = [];
     state.laserCooldown = 0;
+    state.combo = 0;
     resetBall();
     applyEffectState();
     state.paddleX = clamp(WIDTH / 2 - state.paddleWidth / 2, 0, WIDTH - state.paddleWidth);
@@ -579,6 +604,20 @@
     state.bricks = makeBricksForLevel(state.level);
     prepareLevelStart();
     sfx.playLevelClear();
+  }
+
+  // Shared brick-destruction path for both ball and laser hits: advance the combo,
+  // award combo-scaled points, drop any power-up, and play the break blip.
+  function breakBrick(brick) {
+    brick.active = false;
+    state.combo = (state.combo || 0) + 1;
+    if (state.combo > (state.bestCombo || 0)) {
+      state.bestCombo = state.combo;
+    }
+    state.score += 10 * comboMultiplier(state.combo);
+    recordHighScore();
+    spawnPickup(brick);
+    sfx.playBrickBreak(brick.row);
   }
 
   function spawnPickup(brick) {
@@ -729,11 +768,7 @@
           continue;
         }
 
-        brick.active = false;
-        state.score += 10;
-        recordHighScore();
-        spawnPickup(brick);
-        sfx.playBrickBreak(brick.row);
+        breakBrick(brick);
         state.lasers.splice(i, 1);
         break;
       }
@@ -753,6 +788,8 @@
 
     ball.dx = speed * Math.sin(bounceAngle);
     ball.dy = -Math.abs(speed * Math.cos(bounceAngle));
+    // A paddle touch ends the current volley, so the combo chain resets.
+    state.combo = 0;
   }
 
   function togglePause() {
@@ -878,11 +915,7 @@
           continue;
         }
 
-        brick.active = false;
-        state.score += 10;
-        recordHighScore();
-        spawnPickup(brick);
-        sfx.playBrickBreak(brick.row);
+        breakBrick(brick);
         reflectFromRect(ball, brick);
         break;
       }
@@ -1153,6 +1186,7 @@
 
   window.__brickbreakerTest = {
     isReady: false,
+    buildId: BUILD_ID,
     getState: function () {
       return publicState();
     },

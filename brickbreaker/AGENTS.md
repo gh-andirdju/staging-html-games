@@ -14,6 +14,8 @@
 ## Coding Style & Naming Conventions
 Use plain JavaScript with two-space indentation and camelCase naming. Keep gameplay deterministic and expose test-visible state through `window.__brickbreakerTest`. Reuse existing power-up and physics patterns instead of introducing parallel abstractions.
 
+Brick destruction goes through the shared `breakBrick(brick)` path (used by both ball and laser hits), which advances a **combo** counter — consecutive bricks cleared within a single volley (no paddle touch in between). `comboMultiplier(combo)` steps the per-brick score up by 1x every 3 bricks (capped 5x); the combo resets on a paddle bounce, a lost life, or a level start. `combo`, `bestCombo`, and `comboMultiplier` are surfaced via `getState()`, and a live combo (2+) is shown in the status line. An invisible build marker (`window.__brickbreakerBuild`, `window.__brickbreakerTest.buildId`, `<meta name="brickbreaker-build">`) lets a deployed device be checked against committed source; bump it when shipping a visible change.
+
 ## Testing Guidelines
 Tests use `@playwright/test` (Chromium). Prefer deterministic state mutation + `advanceFrames()` over timing sleeps. Validate controls, collisions, power-ups, level progression, HUD, and error-free console/runtime behavior.
 

@@ -184,9 +184,34 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-clear-juice-2026-06-27.14');
+  expect(marker.win).toBe('tetris-autopause-2026-06-27.15');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
+});
+
+test('auto-pauses an in-progress game when the tab is hidden', async ({ page }) => {
+  await openGame(page);
+  let state = await getState(page);
+  expect(state.paused).toBe(false);
+  expect(state.gameOver).toBe(false);
+
+  // Simulate the tab being hidden.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  state = await getState(page);
+  expect(state.paused).toBe(true);
+
+  // Returning to the tab does NOT auto-resume — the player resumes deliberately.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  state = await getState(page);
+  expect(state.paused).toBe(true);
 });
 
 test('getControlsState returns handedness stub', async ({ page }) => {

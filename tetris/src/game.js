@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-clear-juice-2026-06-27.14';
+  const BUILD_ID = 'tetris-autopause-2026-06-27.15';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -1517,6 +1517,14 @@
     render();
   }
 
+  // Pause an in-progress game when the tab is hidden, so the player doesn't return to
+  // a board that kept falling. Only acts on a live, unpaused game with no modal open;
+  // it never auto-resumes (the player resumes deliberately).
+  function autoPauseGame() {
+    if (state.gameOver || state.paused || !helpOverlayEl.hidden) return;
+    togglePause();
+  }
+
   function toggleMute() {
     sfx.setMuted(!sfx.isMuted());
     updateHud();
@@ -1744,7 +1752,9 @@
   // Returning to a backgrounded tab: discard the stale timestamp so the next tick
   // measures a fresh, small delta instead of catching up the whole idle interval.
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
+    if (document.hidden) {
+      autoPauseGame();
+    } else {
       lastTime = 0;
       accumulator = 0;
     }
