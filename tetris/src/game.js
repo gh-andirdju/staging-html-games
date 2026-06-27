@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-ghost-toggle-2026-06-27.13';
+  const BUILD_ID = 'tetris-clear-juice-2026-06-27.14';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -649,12 +649,28 @@
     state.board = kept;
   }
 
-  function startClearAnimation(rows) {
+  // True when clearing `rows` would leave the playfield completely empty (a Perfect
+  // Clear). Evaluated after the piece has merged, so the cleared rows are full.
+  function clearWouldEmptyBoard(rows) {
+    const rowSet = new Set(rows);
+    for (let y = 0; y < boardRows; y += 1) {
+      if (rowSet.has(y)) continue;
+      for (let x = 0; x < boardCols; x += 1) {
+        if (state.board[y][x] !== 0) return false;
+      }
+    }
+    return true;
+  }
+
+  // intensity: 0 = ordinary clear, 1 = Tetris/T-spin, 2 = Perfect Clear — drives the
+  // flash brightness and screen-shake "juice" in drawBoard.
+  function startClearAnimation(rows, intensity = 0) {
     state.clearAnimation = {
       rows: rows.slice(),
       frame: 0,
       totalFrames: CLEAR_BLINK_TOTAL_FRAMES,
-      blinkInterval: CLEAR_BLINK_INTERVAL_FRAMES
+      blinkInterval: CLEAR_BLINK_INTERVAL_FRAMES,
+      intensity
     };
   }
 
@@ -746,7 +762,8 @@
     if (!silent) sfx.playLock();
     if (rows.length > 0) {
       state.pendingTSpin = tSpin;
-      startClearAnimation(rows);
+      const intensity = clearWouldEmptyBoard(rows) ? 2 : (rows.length === 4 || tSpin ? 1 : 0);
+      startClearAnimation(rows, intensity);
     } else {
       // A T-spin that clears no line still scores and announces, but a clear-free
       // lock always breaks the combo chain (back-to-back persists across it).
@@ -1009,6 +1026,19 @@
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
+  function prefersReducedMotion() {
+    try {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      return false;
+    }
+  }
+
+  function currentAccent() {
+    const value = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    return /^#[0-9a-f]{6}$/i.test(value) ? value : ACCENTS[0];
+  }
+
   function roundRectPath(context, x, y, w, h, radius) {
     const r = Math.max(0, Math.min(radius, w / 2, h / 2));
     context.beginPath();
@@ -1114,6 +1144,26 @@
 
   function drawBoard() {
     const clearAnimation = state.clearAnimation;
+
+    // Screen-shake "juice" on impactful clears (Tetris/T-spin = 1, Perfect Clear = 2),
+    // decaying over the clear animation. Skipped for reduced-motion users.
+    const intensity = clearAnimation ? (clearAnimation.intensity || 0) : 0;
+    let shaking = false;
+    if (intensity >= 1 && !prefersReducedMotion()) {
+      const decay = 1 - clearAnimation.frame / clearAnimation.totalFrames;
+      const amp = (intensity >= 2 ? 6 : 3) * decay;
+      const dx = Math.round(Math.sin(clearAnimation.frame * 1.7) * amp);
+      const dy = Math.round(Math.cos(clearAnimation.frame * 2.3) * amp * 0.6);
+      if (dx !== 0 || dy !== 0) {
+        // Cover the strip the translate would expose with the board's base tone.
+        ctx.fillStyle = '#0b0e14';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(dx, dy);
+        shaking = true;
+      }
+    }
+
     drawBoardBackground();
 
     if (ghostEnabled && state.current && !state.clearAnimation) {
@@ -1136,17 +1186,24 @@
       }
     }
 
-    // Bright clearing flash that fades as the rows resolve.
+    // Bright clearing flash that fades as the rows resolve; brighter for bigger clears,
+    // with a full-board accent wash on a Perfect Clear.
     if (clearAnimation) {
       const progress = clearAnimation.frame / clearAnimation.totalFrames;
-      const flash = 0.85 * (1 - progress);
+      const flash = (0.85 + intensity * 0.07) * (1 - progress);
       ctx.save();
       ctx.fillStyle = `rgba(255, 255, 255, ${flash})`;
       for (const row of clearAnimation.rows) {
         ctx.fillRect(0, row * cellSize, canvas.width, cellSize);
       }
+      if (intensity >= 2) {
+        ctx.fillStyle = withAlpha(currentAccent(), 0.18 * (1 - progress));
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
       ctx.restore();
     }
+
+    if (shaking) ctx.restore();
 
     if (state.paused && !state.gameOver) {
       drawBoardOverlay('PAUSED', 'Press P to resume', '#eef1f6');
