@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-fullscreen-2026-06-17.8');
+  expect(marker.win).toBe('tetris-srs-tspin-2026-06-27.9');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -555,8 +555,8 @@ test('CCW rotation kicks away from right wall when base rotation overflows', asy
   await openGame(page);
   const state = await getState(page);
 
-  // I-piece vertical (rot 1) at x=8: CCW to rot 0 puts a cell at col 10 (out of bounds)
-  // kick +1 sets x=9 → cols 8-11 (cols 10-11 OOB, fails); kick -1 sets x=7 → cols 6-9 (valid)
+  // I-piece vertical (rot 1) at x=8: CCW to rot 0 puts a cell at col 10 (out of bounds).
+  // The SRS I kick R→0 tries (0,0),(+2,0),(-1,0)… and (-1,0) → x=7 → cols 6-9 fits first.
   await setState(page, {
     ...state,
     board: Array.from({ length: 20 }, () => Array(10).fill(0)),
@@ -574,8 +574,8 @@ test('CW rotation kicks away from left wall when base rotation overflows', async
   await openGame(page);
   const state = await getState(page);
 
-  // I-piece vertical (rot 3) at x=0: CW to rot 0 would place a cell at column -1 (out of bounds)
-  // The kick sequence [-1,1,-2,2] must pick offset +1 → x=1, which fits in columns 1-4
+  // I-piece vertical (rot 3) at x=0: CW to rot 0 would place a cell at column -1 (out of bounds).
+  // The SRS I kick L→0 tries (0,0),(+1,0)… and (+1,0) → x=1, which fits in columns 0-3.
   await setState(page, {
     ...state,
     board: Array.from({ length: 20 }, () => Array(10).fill(0)),
@@ -593,8 +593,8 @@ test('CCW rotation kicks away from left wall when base rotation overflows', asyn
   await openGame(page);
   const state = await getState(page);
 
-  // I-piece vertical (rot 3) at x=0: CCW to rot 2 would place a cell at column -1 (out of bounds)
-  // The kick sequence [1,-1,2,-2] picks offset +1 → x=1, fitting columns 0-3
+  // I-piece vertical (rot 3) at x=0: CCW to rot 2 would place a cell at column -1 (out of bounds).
+  // The SRS I kick L→2 tries (0,0),(-2,0),(+1,0)… and (+1,0) → x=1, fitting columns 0-3.
   await setState(page, {
     ...state,
     board: Array.from({ length: 20 }, () => Array(10).fill(0)),
@@ -690,7 +690,9 @@ test.describe('combo and back-to-back scoring', () => {
 
   // Lock the resting piece via natural gravity (no hard/soft-drop points) and resolve the clear.
   async function gravityLockAndResolve(page) {
-    await advanceFrames(page, 1);  // gravity fires and locks the resting piece
+    // Gravity grounds the resting piece, then the lock delay (LOCK_DELAY_FRAMES = 30)
+    // elapses before it commits, after which the clear animation (18 frames) resolves.
+    await advanceFrames(page, 31); // gravity grounds + lock delay expires → piece locks
     await advanceFrames(page, 18); // clear animation resolves
   }
 
@@ -764,7 +766,7 @@ test.describe('combo and back-to-back scoring', () => {
       gravityTick: 47, gravityFrames: 48, lockTimer: 0
     });
 
-    await advanceFrames(page, 1); // locks with no clear
+    await advanceFrames(page, 31); // grounds then locks with no clear after the lock delay
     const after = await getState(page);
     expect(after.combo).toBe(-1);
   });
@@ -825,6 +827,193 @@ test.describe('combo and back-to-back scoring', () => {
   });
 });
 
+test.describe('SRS rotation', () => {
+  // Every non-O piece must cycle through four 90° states and return to spawn, with the
+  // same four cells, when rotated in open space (kick [0,0] always fits here).
+  for (const type of ['I', 'T', 'S', 'Z', 'J', 'L']) {
+    test(`${type}-piece returns to its spawn cells after four CW rotations`, async ({ page }) => {
+      await openGame(page);
+      const state = await getState(page);
+      const index = { I: 1, O: 2, T: 3, S: 4, Z: 5, J: 6, L: 7 }[type];
+      await setState(page, {
+        ...state,
+        board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+        current: { type, index, x: 4, y: 8, rotation: 0 },
+        gravityFrames: 999, gravityTick: 0, lockTimer: 0
+      });
+      const pose = async () => {
+        const s = await getState(page);
+        return { rotation: s.current.rotation, x: s.current.x, y: s.current.y };
+      };
+      const before = await pose();
+      for (let i = 0; i < 4; i += 1) await page.keyboard.press('ArrowUp');
+      const after = await pose();
+      expect(after.rotation).toBe(before.rotation);
+      expect(after.x).toBe(before.x);
+      expect(after.y).toBe(before.y);
+    });
+  }
+
+  test('T-piece floor kick: rotating against the floor lifts the piece via an SRS kick', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    // T pointing up (rotation 0), flat edge resting on the floor at row 19. A CW rotation
+    // to "nub right" would push a cell through the floor; SRS kicks it up one row instead.
+    await setState(page, {
+      ...state,
+      board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+      current: { type: 'T', index: 3, x: 4, y: 19, rotation: 0 },
+      gravityFrames: 999, gravityTick: 0, lockTimer: 0
+    });
+    await page.keyboard.press('ArrowUp');
+    const after = await getState(page);
+    expect(after.current.rotation).toBe(1);
+    // The piece moved up so it stays on the board rather than failing the rotation.
+    expect(after.current.y).toBeLessThan(19);
+  });
+});
+
+test.describe('T-spin scoring', () => {
+  // A classic T-spin Double: a flat overhang on the left, a 3-wide notch whose centre
+  // column runs one row deeper. The T sits vertically in the notch then rotates flat,
+  // tucking under the overhang and completing the bottom two rows.
+  function tSpinDoubleBoard() {
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    board[17][3] = 1;                                   // left overhang
+    for (const c of [0, 1, 2, 6, 7, 8, 9]) board[18][c] = 1; // row 18 missing cols 3,4,5
+    for (const c of [0, 1, 2, 3, 5, 6, 7, 8, 9]) board[19][c] = 1; // row 19 missing col 4
+    return board;
+  }
+
+  test('rotating a T into a double notch scores a T-spin and sets back-to-back', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    await setState(page, {
+      ...state,
+      board: tSpinDoubleBoard(),
+      current: { type: 'T', index: 3, x: 4, y: 18, rotation: 1 }, // nub-right, seated in the notch
+      score: 0, lines: 0, level: 1, combo: -1, b2bActive: false,
+      gravityFrames: 999, gravityTick: 0, lockTimer: 0
+    });
+
+    await page.keyboard.press('ArrowUp'); // CW: nub-right → nub-down, tucks under the overhang
+    const rotated = await getState(page);
+    expect(rotated.current.rotation).toBe(2);
+
+    await page.keyboard.press('Space'); // hard drop locks (distance 0 keeps the spin credit)
+    await advanceFrames(page, 20);       // clear animation resolves
+
+    const after = await getState(page);
+    expect(after.lines).toBe(2);
+    expect(after.score).toBe(1200);          // T-spin Double = 1200 × level 1, no combo/b2b yet
+    expect(after.b2bActive).toBe(true);      // a T-spin is a "difficult" clear
+    expect(after.statusMessage).toMatch(/t-spin double/i);
+    expect(after.statusTone).toBe('milestone');
+  });
+
+  test('a T-spin with no line clear still scores and announces', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    // Same notch but the surrounding rows are NOT full, so the spin clears nothing.
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    board[17][3] = 1;        // left overhang → gives the third filled corner
+    board[19][3] = 1;        // bottom-left corner
+    board[19][5] = 1;        // bottom-right corner
+    await setState(page, {
+      ...state,
+      board,
+      current: { type: 'T', index: 3, x: 4, y: 18, rotation: 1 },
+      score: 0, lines: 0, level: 1, combo: 3, b2bActive: false,
+      gravityFrames: 999, gravityTick: 0, lockTimer: 0
+    });
+
+    await page.keyboard.press('ArrowUp'); // rotate into the slot (3 corners filled)
+    await page.keyboard.press('Space');   // lock with no line clear
+    await advanceFrames(page, 1);
+
+    const after = await getState(page);
+    expect(after.lines).toBe(0);
+    expect(after.score).toBe(400);   // T-spin (no lines) = 400 × level 1
+    expect(after.combo).toBe(-1);    // a clear-free lock still breaks the combo chain
+    expect(after.statusMessage).toMatch(/t-spin/i);
+  });
+
+  test('a plain (non-spin) drop that clears two lines is not scored as a T-spin', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    // An open notch (no overhang) so a nub-down T can drop straight in. Landing by hard
+    // drop means the last action was a downward move, not a rotation — so it is not a spin.
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    for (const c of [0, 1, 2, 6, 7, 8, 9]) board[18][c] = 1; // row 18 missing cols 3,4,5
+    for (const c of [0, 1, 2, 3, 5, 6, 7, 8, 9]) board[19][c] = 1; // row 19 missing col 4
+    await setState(page, {
+      ...state,
+      board,
+      current: { type: 'T', index: 3, x: 4, y: 16, rotation: 2 }, // nub-down, above the open notch
+      score: 0, lines: 0, level: 1, combo: -1, b2bActive: false,
+      gravityFrames: 999, gravityTick: 0, lockTimer: 0
+    });
+
+    await page.keyboard.press('Space'); // hard drop (distance > 0 clears any rotation credit)
+    await advanceFrames(page, 20);
+
+    const after = await getState(page);
+    expect(after.lines).toBe(2);
+    // Plain double base 300 + 4 hard-drop points (fell 2 rows × 2) = 304 — nowhere near
+    // the T-spin Double value of 1200.
+    expect(after.score).toBe(304);
+    expect(after.statusMessage).not.toMatch(/t-spin/i);
+  });
+});
+
+test.describe('lock delay', () => {
+  test('rotating a grounded piece resets the lock delay (move reset)', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    await setState(page, {
+      ...state,
+      board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      gravityFrames: 999, gravityTick: 0, lockTimer: 0
+    });
+
+    // Each rotation just before the 30-frame delay would expire resets it, so across
+    // 100 frames the grounded piece never commits to the board.
+    for (let i = 0; i < 5; i += 1) {
+      await advanceFrames(page, 20);
+      await page.keyboard.press('ArrowUp'); // O rotation is a no-op move that still resets the timer
+    }
+    const stalled = await getState(page);
+    expect(stalled.board[18][4]).toBe(0); // still floating
+    expect(stalled.current).not.toBeNull();
+
+    // Stop resetting; the lock delay now runs out and the piece locks.
+    await advanceFrames(page, 31);
+    const after = await getState(page);
+    expect(after.board[18][4]).toBeGreaterThan(0);
+  });
+
+  test('the move-reset budget is capped so a piece cannot be stalled forever', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    await setState(page, {
+      ...state,
+      board: Array.from({ length: 20 }, () => Array(10).fill(0)),
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      gravityFrames: 999, gravityTick: 0, lockTimer: 0
+    });
+
+    // Rotate every single frame. Past the reset cap the lock delay can no longer be
+    // refreshed, so the piece still locks within a bounded number of frames.
+    for (let i = 0; i < 80; i += 1) {
+      await page.keyboard.press('ArrowUp');
+      await advanceFrames(page, 1);
+    }
+    const after = await getState(page);
+    expect(after.board[18][4]).toBeGreaterThan(0); // locked despite continuous rotation
+  });
+});
+
 test('NEXT and HOLD canvases render non-blank pixels after preview is set', async ({ page }) => {
   await openGame(page);
   const state = await getState(page);
@@ -868,7 +1057,7 @@ test('soft-drop lockTimer accumulates and locks piece after LOCK_DELAY_FRAMES fi
   expect(after.gameOver).toBe(false);
 });
 
-test('natural gravity locks piece immediately with no extra delay', async ({ page }) => {
+test('natural gravity grounds the piece then locks after the lock delay', async ({ page }) => {
   await openGame(page);
   const state = await getState(page);
   await setState(page, {
@@ -878,11 +1067,20 @@ test('natural gravity locks piece immediately with no extra delay', async ({ pag
     gravityTick: 47, lockTimer: 0
   });
 
+  // Gravity fires but the grounded piece does NOT lock instantly — it gets a lock
+  // delay so it can still be slid/spun, matching modern Tetris feel.
   await advanceFrames(page, 1);
+  const grounded = await getState(page);
+  expect(grounded.current).not.toBeNull();
+  expect(grounded.current.type).toBe('O');
+  expect(grounded.board[18][4]).toBe(0); // not committed to the board yet
+
+  // After the lock delay elapses the piece commits.
+  await advanceFrames(page, 30);
   const after = await getState(page);
-  // Gravity fires and immediately locks (no LOCK_DELAY_FRAMES buffer on gravity drops)
   expect(after.gameOver).toBe(false);
   expect(after.board[18][4]).toBeGreaterThan(0);
+  expect(after.board[18][5]).toBeGreaterThan(0);
   expect(after.current).not.toBeNull();
 });
 
@@ -994,8 +1192,10 @@ test('keyboard Space held does not chain hard-drop multiple pieces', async ({ pa
 test('hold swap cancelled without state corruption when spawn is blocked', async ({ page }) => {
   await openGame(page);
 
+  // Block the I-piece's spawn footprint (row 1, cols 3-6 at spawn x=4) so the swap
+  // has nowhere to place the held piece and must be cancelled.
   const board = Array.from({ length: 20 }, () => Array(10).fill(0));
-  board[0][3] = 1; board[0][4] = 1; board[0][5] = 1; board[0][6] = 1;
+  board[1][3] = 1; board[1][4] = 1; board[1][5] = 1; board[1][6] = 1;
 
   await setState(page, {
     board,
@@ -1129,8 +1329,8 @@ test('gravity fires during soft-drop accumulation and new piece gets full gravit
   const state = await getState(page);
 
   // O-piece at floor (y=18). gravityTick=47, gravityFrames=48, lockTimer=0.
-  // Frame 1: soft-drop fires (tick 1, lockTimer→1) then gravity fires (gravityTick→48→0→lockPiece).
-  // lockPiece triggers spawnPiece which must reset gravityTick to 0.
+  // The grounded piece runs out its lock delay, then spawnPiece must reset gravityTick
+  // to 0 so the freshly spawned piece gets a full gravity cycle.
   await setState(page, {
     ...state,
     board: Array.from({ length: 20 }, () => Array(10).fill(0)),
@@ -1139,7 +1339,7 @@ test('gravity fires during soft-drop accumulation and new piece gets full gravit
   });
 
   await page.keyboard.down('ArrowDown');
-  await advanceFrames(page, 1); // lock fires; new piece spawns with gravityTick=0
+  await advanceFrames(page, 31); // lock delay expires; new piece spawns with gravityTick=0
   await page.keyboard.up('ArrowDown');
 
   const afterLock = await getState(page);
@@ -1164,9 +1364,9 @@ test('natural gravity fires and locks piece at floor without rendering error', a
     gravityTick: 47, lockTimer: 0
   });
 
-  await advanceFrames(page, 1);
+  await advanceFrames(page, 31);
   const after = await getState(page);
-  // Gravity fired, piece was at floor → locked immediately, new piece spawned
+  // Gravity grounded the piece, the lock delay expired, it locked, new piece spawned
   expect(after.current).not.toBeNull();
   // O-piece covers cols 4-5, rows 18-19; check both columns of the top row
   expect(after.board[18][4]).toBeGreaterThan(0);

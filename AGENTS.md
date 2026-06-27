@@ -53,7 +53,6 @@ Recent history uses short, direct subjects, with no Conventional Commits pattern
 
 ## Agent-Specific Notes
 Use Bun commands, not npm or Python-based fallback servers. Prefer the root `bun run dev` server when you need the landing page and multiple games available together. If opening the game for review, first ensure a persistent Bun-based dev server is running and verify the URL responds.
-Use subagents eagerly and proactively when they can reduce main-thread context load or isolate a small task cleanly.
-Use at most one subagent at a time. Only create a new subagent after the previous one has completed, and keep each delegated task narrowly scoped so both the main agent and the subagent use minimal context.
+Use subagents eagerly and proactively when they can reduce main-thread context load or isolate a small task cleanly. Keep each delegated task narrowly scoped so both the main agent and the subagent use minimal context.
 If a local test or dev server port is already in use during verification, identify and kill the process using that port before rerunning the command.
 If the user asks to open the local app, start the appropriate Bun-based dev server first, verify the local URL responds, run the relevant Playwright test command for the target app when practical, then open that URL in Google Chrome.
