@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-startlevel-2026-06-27.12';
+  const BUILD_ID = 'tetris-ghost-toggle-2026-06-27.13';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -194,6 +194,25 @@
       window.localStorage.setItem(HELP_SEEN_KEY, '1');
     } catch {}
   }
+
+  // Ghost piece (the landing-shadow preview) — on by default; some players prefer it off.
+  const GHOST_KEY = 'tetris-ghost';
+
+  function readGhostEnabled() {
+    try {
+      return window.localStorage.getItem(GHOST_KEY) !== '0';
+    } catch {
+      return true;
+    }
+  }
+
+  function writeGhostEnabled(value) {
+    try {
+      window.localStorage.setItem(GHOST_KEY, value ? '1' : '0');
+    } catch {}
+  }
+
+  let ghostEnabled = readGhostEnabled();
 
   // Themeable accent — drives the score, hard-drop pad, level meter and board glow.
   const ACCENT_KEY = 'tetris-accent';
@@ -1097,7 +1116,7 @@
     const clearAnimation = state.clearAnimation;
     drawBoardBackground();
 
-    if (state.current && !state.clearAnimation) {
+    if (ghostEnabled && state.current && !state.clearAnimation) {
       const g = cellGap();
       const ghostCells = getGhostCells(state.current);
       for (const cell of ghostCells) {
@@ -1506,6 +1525,18 @@
     startLevelEl.value = String(readStartLevel());
     startLevelEl.addEventListener('change', () => applyStartLevel(startLevelEl.value));
   }
+  // Ghost-piece toggle (help/settings panel): persist and redraw immediately.
+  const ghostToggleEl = document.getElementById('ghost-toggle');
+  function applyGhostEnabled(value) {
+    ghostEnabled = Boolean(value);
+    writeGhostEnabled(ghostEnabled);
+    if (ghostToggleEl) ghostToggleEl.checked = ghostEnabled;
+    if (state) render();
+  }
+  if (ghostToggleEl) {
+    ghostToggleEl.checked = ghostEnabled;
+    ghostToggleEl.addEventListener('change', () => applyGhostEnabled(ghostToggleEl.checked));
+  }
   helpOverlayEl.addEventListener('click', (event) => {
     if (event.target === helpOverlayEl) closeHelp();
   });
@@ -1718,6 +1749,8 @@
     setAccent: (hex) => applyAccent(hex),
     getAccent: () => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
     getStartLevel: () => readStartLevel(),
-    setStartLevel: (value) => applyStartLevel(value)
+    setStartLevel: (value) => applyStartLevel(value),
+    getGhostEnabled: () => ghostEnabled,
+    setGhostEnabled: (value) => applyGhostEnabled(value)
   };
 })();
