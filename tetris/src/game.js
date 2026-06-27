@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-stats-2026-06-27.11';
+  const BUILD_ID = 'tetris-startlevel-2026-06-27.12';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -216,6 +216,29 @@
     document.documentElement.style.setProperty('--accent-rgb', `${r}, ${g}, ${b}`);
     swatchEls.forEach((s) => s.setAttribute('aria-pressed', s.dataset.accent === value ? 'true' : 'false'));
     try { window.localStorage.setItem(ACCENT_KEY, value); } catch {}
+  }
+
+  // Chosen starting level (1–15) — higher starts begin faster for a tougher run.
+  const START_LEVEL_KEY = 'tetris-start-level';
+  const MAX_START_LEVEL = 15;
+
+  function clampStartLevel(value) {
+    const n = Math.round(Number(value) || 1);
+    return Math.max(1, Math.min(MAX_START_LEVEL, n));
+  }
+
+  function readStartLevel() {
+    try {
+      return clampStartLevel(window.localStorage.getItem(START_LEVEL_KEY));
+    } catch {
+      return 1;
+    }
+  }
+
+  function writeStartLevel(value) {
+    try {
+      window.localStorage.setItem(START_LEVEL_KEY, String(clampStartLevel(value)));
+    } catch {}
   }
 
   const MUTED_KEY = 'tetris-muted';
@@ -491,7 +514,9 @@
   }
 
   function updateLevelAndSpeed() {
-    state.level = 1 + Math.floor(state.lines / 10);
+    // Level climbs every 10 lines from the chosen starting level (default 1, so the
+    // classic 1 + lines/10 progression is unchanged for a normal game).
+    state.level = (state.startLevel || 1) + Math.floor(state.lines / 10);
     state.gravityFrames = gravityFramesForLevel(state.level);
   }
 
@@ -840,6 +865,7 @@
   function restartGame() {
     seededValue = (Math.random() * 4294967296) >>> 0;
     bag = [];
+    const startLevel = readStartLevel();
     state = {
       board: createBoard(),
       current: null,
@@ -851,7 +877,8 @@
       highScore: readHighScore(),
       newRecord: false,
       lines: 0,
-      level: 1,
+      startLevel: startLevel,
+      level: startLevel,
       combo: -1,
       b2bActive: false,
       pendingTSpin: null,
@@ -859,7 +886,7 @@
       lastRotationKick: 0,
       lockResets: 0,
       stats: createStats(),
-      gravityFrames: BASE_GRAVITY_FRAMES,
+      gravityFrames: gravityFramesForLevel(startLevel),
       gravityTick: 0,
       lockTimer: 0,
       gameOver: false,
@@ -908,6 +935,7 @@
     if (!('pendingTSpin' in state)) state.pendingTSpin = null;
     if (!state.stats || typeof state.stats !== 'object') state.stats = createStats();
     else state.stats = { ...createStats(), ...state.stats };
+    if (typeof state.startLevel !== 'number') state.startLevel = 1;
     if (!('heldPiece' in state)) state.heldPiece = null;
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
@@ -1456,6 +1484,28 @@
   helpEl.addEventListener('click', openHelp);
   helpCloseEl.addEventListener('click', closeHelp);
   swatchEls.forEach((s) => s.addEventListener('click', () => applyAccent(s.dataset.accent)));
+  // Starting-level selector (in the help/settings panel): persist the choice and start
+  // a fresh game at that level. If the help panel is open it stays paused behind it so
+  // the player resumes deliberately.
+  const startLevelEl = document.getElementById('start-level');
+  function applyStartLevel(value, { restart = true } = {}) {
+    const level = clampStartLevel(value);
+    writeStartLevel(level);
+    if (startLevelEl) startLevelEl.value = String(level);
+    if (restart) {
+      const helpOpen = !helpOverlayEl.hidden;
+      restartGame();
+      if (helpOpen) {
+        state.paused = true;
+        helpDidPause = true;
+        render();
+      }
+    }
+  }
+  if (startLevelEl) {
+    startLevelEl.value = String(readStartLevel());
+    startLevelEl.addEventListener('change', () => applyStartLevel(startLevelEl.value));
+  }
   helpOverlayEl.addEventListener('click', (event) => {
     if (event.target === helpOverlayEl) closeHelp();
   });
@@ -1666,6 +1716,8 @@
       updateHud();
     },
     setAccent: (hex) => applyAccent(hex),
-    getAccent: () => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
+    getAccent: () => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
+    getStartLevel: () => readStartLevel(),
+    setStartLevel: (value) => applyStartLevel(value)
   };
 })();

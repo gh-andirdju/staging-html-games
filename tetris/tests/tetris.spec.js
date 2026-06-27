@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-stats-2026-06-27.11');
+  expect(marker.win).toBe('tetris-startlevel-2026-06-27.12');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -1180,6 +1180,58 @@ test.describe('game stats', () => {
     await page.evaluate(() => window.__tetrisTest.restart());
     const after = await getState(page);
     expect(after.stats).toEqual({ pieces: 0, tetrises: 0, tSpins: 0, perfectClears: 0, maxCombo: 0 });
+  });
+});
+
+test.describe('starting level', () => {
+  test('defaults to level 1', async ({ page }) => {
+    await openGame(page);
+    expect(await page.evaluate(() => window.__tetrisTest.getStartLevel())).toBe(1);
+    const s = await getState(page);
+    expect(s.startLevel).toBe(1);
+    expect(s.level).toBe(1);
+  });
+
+  test('a higher start level begins a fresh game at that speed', async ({ page }) => {
+    await openGame(page);
+    await page.evaluate(() => window.__tetrisTest.setStartLevel(5));
+    const s = await getState(page);
+    expect(s.startLevel).toBe(5);
+    expect(s.level).toBe(5);
+    expect(s.lines).toBe(0);
+    expect(s.score).toBe(0);
+    expect(s.gravityFrames).toBe(30); // gravityFramesForLevel(5)
+  });
+
+  test('level still climbs every 10 lines from the chosen start', async ({ page }) => {
+    await openGame(page);
+    await page.evaluate(() => window.__tetrisTest.setStartLevel(5));
+    const state = await getState(page);
+    const board = state.board.map((row) => row.slice());
+    for (let x = 0; x < 10; x += 1) board[19][x] = 1;
+    board[19][3] = 0; board[19][4] = 0; board[19][5] = 0; board[19][6] = 0;
+    board[15][0] = 1; // residual so the single clear isn't a Perfect Clear
+    await setState(page, {
+      ...state, board,
+      current: { type: 'I', index: 1, x: 4, y: 17, rotation: 0 },
+      lines: 9, startLevel: 5, gravityTick: 0, gravityFrames: 30
+    });
+    await page.keyboard.press('Space');
+    await advanceFrames(page, 18);
+    const after = await getState(page);
+    expect(after.lines).toBe(10);
+    expect(after.level).toBe(6); // 5 + floor(10 / 10)
+  });
+
+  test('persists across reload and clamps out-of-range values', async ({ page }) => {
+    await openGame(page);
+    await page.evaluate(() => window.__tetrisTest.setStartLevel(99)); // clamps to 15
+    expect(await page.evaluate(() => window.__tetrisTest.getStartLevel())).toBe(15);
+    await page.reload();
+    await page.waitForFunction(() => window.__tetrisTest && window.__tetrisTest.isReady);
+    expect(await page.evaluate(() => window.__tetrisTest.getStartLevel())).toBe(15);
+    const s = await page.evaluate(() => window.__tetrisTest.getState());
+    expect(s.level).toBe(15);
   });
 });
 
