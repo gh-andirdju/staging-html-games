@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-ghost-toggle-2026-06-27.13');
+  expect(marker.win).toBe('tetris-clear-juice-2026-06-27.14');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -1232,6 +1232,57 @@ test.describe('starting level', () => {
     expect(await page.evaluate(() => window.__tetrisTest.getStartLevel())).toBe(15);
     const s = await page.evaluate(() => window.__tetrisTest.getState());
     expect(s.level).toBe(15);
+  });
+});
+
+test.describe('clear juice', () => {
+  test('an ordinary single clear has intensity 0', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    board[19] = [1, 1, 1, 1, 0, 0, 1, 1, 1, 1];
+    board[15][0] = 1; // leaves a block behind → not a Perfect Clear
+    await setState(page, {
+      ...state, board,
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      gravityTick: 0, lockTimer: 0
+    });
+    await page.keyboard.press('Space');
+    const s = await getState(page);
+    expect(s.clearAnimation.rows).toEqual([19]);
+    expect(s.clearAnimation.intensity).toBe(0);
+  });
+
+  test('a Tetris clear has intensity 1', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    for (let row = 16; row <= 19; row += 1) board[row] = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1];
+    board[15][0] = 1; // not a Perfect Clear
+    await setState(page, {
+      ...state, board,
+      current: { type: 'I', index: 1, x: 4, y: 17, rotation: 3 },
+      gravityTick: 0, lockTimer: 0
+    });
+    await page.keyboard.press('Space');
+    const s = await getState(page);
+    expect(s.clearAnimation.rows.length).toBe(4);
+    expect(s.clearAnimation.intensity).toBe(1);
+  });
+
+  test('a Perfect Clear has intensity 2', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+    for (const c of [0, 1, 2, 3, 6, 7, 8, 9]) { board[18][c] = 1; board[19][c] = 1; }
+    await setState(page, {
+      ...state, board,
+      current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+      gravityTick: 0, lockTimer: 0
+    });
+    await page.keyboard.press('Space');
+    const s = await getState(page);
+    expect(s.clearAnimation.intensity).toBe(2);
   });
 });
 
