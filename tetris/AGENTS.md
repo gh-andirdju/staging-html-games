@@ -28,6 +28,8 @@ Layout is one responsive `.game-shell` grid (top bar / `.game-area` / gesture-hi
 
 A second mode, **2-player local versus** (`versus.html` + `src/versus.js`, styled by `src/versus.css`), runs two independent `TetrisGame` instances on one keyboard split at the T/Y seam — P1: `A`/`D` move, `S` soft, `W`/`Q` rotate, `E` hold, `LShift` hard drop; P2: arrows, `↑`/`.` rotate, `/` hold, `RShift` hard drop; `Esc` pauses both, `R` restarts, `Space` starts the next round. Clearing ≥2 lines sends garbage (`GARBAGE_OUT` `[0,0,1,2,4]`) to the opponent, cancelled by clearing back; a shared meter shows pending garbage. First to 3 rounds wins (best of 5). It reuses `paintGem()`/tokens and exposes `window.__versusTest` (`getState`, `advanceFrames`, `setAutoStep`, and authoring helpers `setBoard`/`setPending`/`setRounds`/`sendGarbage`/`killPlayer`/`clearActive`) for deterministic tests in `tests/versus.spec.js`.
 
+The game **auto-pauses when the tab is hidden** (`visibilitychange` → `autoPauseGame()`, which pauses only a live, unpaused game with no modal open and never auto-resumes), so a backgrounded board doesn't keep falling; returning to the tab still resets the fixed-step accumulator.
+
 An invisible build marker (`window.__tetrisBuild`, `window.__tetrisTest.buildId`, and `<meta name="tetris-build">`) lets a deployed device be checked against the committed source; bump it when shipping a visible change.
 
 ## Testing Guidelines
