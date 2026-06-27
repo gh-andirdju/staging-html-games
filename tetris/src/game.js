@@ -991,27 +991,48 @@
     paintGem(ctx, x * cellSize + g / 2, y * cellSize + g / 2, cellSize - g, COLORS[index]);
   }
 
-  function drawBoardBackground() {
-    const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  // The playfield backdrop (gradient + a faint well per cell) is static for a given
+  // board size, so it is painted once into an offscreen canvas and blitted each frame
+  // instead of re-stroking ~200 rounded rects every tick — a real saving on mobile.
+  let boardBgCache = null;
+
+  function buildBoardBackground() {
+    const off = document.createElement('canvas');
+    off.width = canvas.width;
+    off.height = canvas.height;
+    const octx = off.getContext('2d');
+    const bg = octx.createLinearGradient(0, 0, 0, off.height);
     bg.addColorStop(0, '#090b10');
     bg.addColorStop(1, '#0b0e14');
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    octx.fillStyle = bg;
+    octx.fillRect(0, 0, off.width, off.height);
 
     // Faint per-cell wells so the empty playfield reads as a segmented grid.
     const g = cellGap();
     const s = cellSize - g;
     const radius = Math.max(2, Math.round(s * 0.18));
-    ctx.lineWidth = 1;
+    octx.lineWidth = 1;
     for (let y = 0; y < boardRows; y += 1) {
       for (let x = 0; x < boardCols; x += 1) {
-        roundRectPath(ctx, x * cellSize + g / 2, y * cellSize + g / 2, s, s, radius);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.022)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
-        ctx.stroke();
+        roundRectPath(octx, x * cellSize + g / 2, y * cellSize + g / 2, s, s, radius);
+        octx.fillStyle = 'rgba(255, 255, 255, 0.022)';
+        octx.fill();
+        octx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+        octx.stroke();
       }
     }
+    boardBgCache = { canvas: off, w: canvas.width, h: canvas.height, cell: cellSize };
+    return off;
+  }
+
+  function drawBoardBackground() {
+    const cache = (boardBgCache
+      && boardBgCache.w === canvas.width
+      && boardBgCache.h === canvas.height
+      && boardBgCache.cell === cellSize)
+      ? boardBgCache.canvas
+      : buildBoardBackground();
+    ctx.drawImage(cache, 0, 0);
   }
 
   function drawBoard() {
