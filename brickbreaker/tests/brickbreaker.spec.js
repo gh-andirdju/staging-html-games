@@ -1867,3 +1867,15 @@ test('serves the favicon asset', async ({ page }) => {
   expect(response.ok()).toBe(true);
   expect(response.headers()['content-type']).toContain('svg');
 });
+
+test('is an installable PWA (linked, valid manifest)', async ({ page }) => {
+  await openGame(page);
+  const href = await page.evaluate(() => document.querySelector('link[rel="manifest"]')?.getAttribute('href'));
+  expect(href).toBe('manifest.webmanifest');
+  const response = await page.request.get('./manifest.webmanifest');
+  expect(response.ok()).toBe(true);
+  const manifest = await response.json();
+  expect(manifest.name).toBe('Brick Breaker');
+  expect(manifest.display).toBe('standalone');
+  expect(manifest.icons.length).toBeGreaterThan(0);
+});

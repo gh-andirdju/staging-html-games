@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-favicon-2026-06-28.24');
+  expect(marker.win).toBe('tetris-pwa-2026-06-28.25');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -2552,6 +2552,18 @@ test('serves the favicon asset', async ({ page }) => {
   const response = await page.request.get('./favicon.svg');
   expect(response.ok()).toBe(true);
   expect(response.headers()['content-type']).toContain('svg');
+});
+
+test('is an installable PWA (linked, valid manifest)', async ({ page }) => {
+  await openGame(page);
+  const href = await page.evaluate(() => document.querySelector('link[rel="manifest"]')?.getAttribute('href'));
+  expect(href).toBe('manifest.webmanifest');
+  const response = await page.request.get('./manifest.webmanifest');
+  expect(response.ok()).toBe(true);
+  const manifest = await response.json();
+  expect(manifest.name).toBe('Marathon Tetris');
+  expect(manifest.display).toBe('standalone');
+  expect(manifest.icons.length).toBeGreaterThan(0);
 });
 
 test('informational micro-labels meet WCAG AA contrast', async ({ page }) => {

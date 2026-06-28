@@ -8,7 +8,8 @@ const mimeTypes = {
   ".css": "text/css",
   ".html": "text/html",
   ".js": "text/javascript",
-  ".svg": "image/svg+xml"
+  ".svg": "image/svg+xml",
+  ".webmanifest": "application/manifest+json"
 };
 
 Bun.serve({

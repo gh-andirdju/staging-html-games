@@ -1,0 +1,13 @@
+{
+  "name": "Brick Breaker",
+  "short_name": "Bricks",
+  "description": "A modern browser Breakout with power-ups, armored bricks, combos, lasers, and a one-time safety net.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#080400",
+  "theme_color": "#080400",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
