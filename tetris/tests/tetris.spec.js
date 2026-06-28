@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-sprint-2026-06-28.20');
+  expect(marker.win).toBe('tetris-sprint-pb-2026-06-28.21');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -2510,5 +2510,26 @@ test.describe('Sprint mode', () => {
     await advanceFrames(page, 60);
     await expect(page.locator('#status')).toContainText('Sprint');
     await expect(page.locator('#status')).toContainText('lines left');
+  });
+});
+
+test.describe('Sprint personal best readout', () => {
+  test('the live sprint readout shows the personal best when one is set', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    await setState(page, {
+      ...state,
+      mode: 'sprint',
+      sprintFrames: 120,
+      sprintBest: 2460, // 41.0s
+      lines: 0,
+      sprintComplete: false,
+      statusMessage: '',
+      statusMessageTimer: 0,
+      gameOver: false,
+      paused: false
+    });
+    await advanceFrames(page, 1);
+    await expect(page.locator('#status')).toContainText('PB 0:41.0');
   });
 });
