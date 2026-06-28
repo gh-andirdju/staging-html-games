@@ -859,6 +859,26 @@ test('breaking a brick emits haptic feedback, and the toggle suppresses it', asy
   expect(await page.evaluate(() => window.__vibes.filter((v) => v !== 0).length)).toBe(0);
 });
 
+test('the help-panel vibration toggle controls and persists haptics', async ({ page }) => {
+  await openGame(page);
+  expect(await page.evaluate(() => document.getElementById('haptics-toggle')?.checked)).toBe(true);
+  expect(await page.evaluate(() => window.__brickbreakerTest.getHaptics())).toBe(true);
+
+  // Unchecking the toggle disables haptics and persists the choice.
+  await page.evaluate(() => {
+    const toggle = document.getElementById('haptics-toggle');
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change'));
+  });
+  expect(await page.evaluate(() => window.__brickbreakerTest.getHaptics())).toBe(false);
+  expect(await page.evaluate(() => window.localStorage.getItem('brickbreaker-haptics'))).toBe('0');
+
+  // The hook keeps the checkbox in sync.
+  await page.evaluate(() => window.__brickbreakerTest.setHaptics(true));
+  expect(await page.evaluate(() => document.getElementById('haptics-toggle')?.checked)).toBe(true);
+  expect(await page.evaluate(() => window.localStorage.getItem('brickbreaker-haptics'))).toBe('1');
+});
+
 test('combo builds across consecutive brick breaks and scales the score', async ({ page }) => {
   await openGame(page);
 

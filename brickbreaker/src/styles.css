@@ -280,6 +280,21 @@ body {
   line-height: 1.4;
 }
 
+.help-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.help-setting input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
 #help-close {
   justify-self: end;
 }
