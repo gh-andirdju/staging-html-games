@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-blurpause-2026-06-28.11";
+  var BUILD_ID = "brickbreaker-start-zone-2026-06-28.12";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -279,6 +279,32 @@
     try { window.localStorage.setItem(ACCENT_KEY, value); } catch (e) {}
   }
 
+  // Chosen starting zone (1–10) — higher zones begin faster and with more armored
+  // bricks for a tougher run. Mirrors the Tetris start-level selector.
+  var START_ZONE_KEY = "brickbreaker-start-zone";
+  var MAX_START_ZONE = 10;
+
+  function clampStartZone(value) {
+    var n = Math.round(Number(value) || 1);
+    return Math.max(1, Math.min(MAX_START_ZONE, n));
+  }
+
+  function readStartZone() {
+    try {
+      return clampStartZone(window.localStorage.getItem(START_ZONE_KEY));
+    } catch (e) {
+      return 1;
+    }
+  }
+
+  function writeStartZone(value) {
+    try {
+      window.localStorage.setItem(START_ZONE_KEY, String(value));
+    } catch (e) {}
+  }
+
+  var startZone = readStartZone();
+
   var state;
   var lastTime = 0;
   var autoStep = true;
@@ -493,7 +519,7 @@
       paddleX: paddle.x,
       ball: clone(ballStart),
       balls: [],
-      bricks: makeBricksForLevel(1),
+      bricks: makeBricksForLevel(startZone),
       pickups: [],
       lasers: [],
       activeEffects: {},
@@ -503,7 +529,7 @@
       highScore: readHighScore(),
       newRecord: false,
       lives: 3,
-      level: 1,
+      level: startZone,
       status: "Playing",
       paused: false,
       levelClears: 0,
@@ -1475,6 +1501,25 @@
   }
   applyAccent(readAccent());
 
+  function applyStartZone(value, restartGame) {
+    startZone = clampStartZone(value);
+    writeStartZone(startZone);
+    var select = document.getElementById("start-zone");
+    if (select) {
+      select.value = String(startZone);
+    }
+    if (restartGame) {
+      restart();
+    }
+  }
+  var startZoneEl = document.getElementById("start-zone");
+  if (startZoneEl) {
+    startZoneEl.value = String(startZone);
+    startZoneEl.addEventListener("change", function () {
+      applyStartZone(startZoneEl.value, true);
+    });
+  }
+
   window.__brickbreakerTest = {
     isReady: false,
     buildId: BUILD_ID,
@@ -1540,6 +1585,13 @@
     },
     setHaptics: function (value) {
       applyHapticsEnabled(value);
+    },
+    getStartZone: function () {
+      return startZone;
+    },
+    setStartZone: function (value) {
+      applyStartZone(value, true);
+      return publicState();
     },
     getAccent: function () {
       return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
