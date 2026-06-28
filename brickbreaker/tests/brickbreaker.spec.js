@@ -859,6 +859,24 @@ test('breaking a brick emits haptic feedback, and the toggle suppresses it', asy
   expect(await page.evaluate(() => window.__vibes.filter((v) => v !== 0).length)).toBe(0);
 });
 
+test('tracks bricks broken and best combo for the game-over stats line', async ({ page }) => {
+  await openGame(page);
+  expect(await page.evaluate(() => window.__brickbreakerTest.getState().bricksBroken ?? 0)).toBe(0);
+
+  // Break three bricks in a row.
+  for (let i = 0; i < 3; i += 1) {
+    await mutateState(page, 'brickCollision');
+    await advanceFrames(page, 2);
+  }
+  const s = await getState(page);
+  expect(s.bricksBroken).toBe(3);
+  expect(s.bestCombo).toBeGreaterThanOrEqual(3);
+
+  // A restart resets the run stats.
+  await restart(page);
+  expect(await page.evaluate(() => window.__brickbreakerTest.getState().bricksBroken ?? 0)).toBe(0);
+});
+
 test('the accent swatches re-theme the UI and persist across reloads', async ({ page }) => {
   await openGame(page);
   // Default accent is amber.
