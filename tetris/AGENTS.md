@@ -30,7 +30,7 @@ A second mode, **2-player local versus** (`versus.html` + `src/versus.js`, style
 
 The game **auto-pauses when the tab is hidden** (`visibilitychange` → `autoPauseGame()`, which pauses only a live, unpaused game with no modal open and never auto-resumes), so a backgrounded board doesn't keep falling; returning to the tab still resets the fixed-step accumulator.
 
-**Haptics**: `vibrate(pattern)` fires short Vibration-API pulses on key events for touch devices — a tick on lock/hard-drop, and pulses that scale with the feat on clears (ordinary `18 + 8·lines` < Tetris/T-spin `[40,30,40]` < Perfect Clear `[30,30,30,60]`) and game over. On by default, persisted as `tetris-haptics`, a no-op where `navigator.vibrate` is absent (most desktops); the hook exposes `getHaptics`/`setHaptics`.
+**Haptics**: `vibrate(pattern)` fires short Vibration-API pulses on key events for touch devices — a tick on lock/hard-drop, and pulses that scale with the feat on clears (ordinary `18 + 8·lines` < Tetris/T-spin `[40,30,40]` < Perfect Clear `[30,30,30,60]`) and game over. On by default, persisted as `tetris-haptics`, a no-op where `navigator.vibrate` is absent (most desktops); a **Vibration toggle** in the help/settings panel (`#haptics-toggle`, mirroring the ghost toggle) flips it via `applyHapticsEnabled`, and the hook exposes `getHaptics`/`setHaptics`.
 
 An invisible build marker (`window.__tetrisBuild`, `window.__tetrisTest.buildId`, and `<meta name="tetris-build">`) lets a deployed device be checked against the committed source; bump it when shipping a visible change.
 

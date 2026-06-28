@@ -184,9 +184,29 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-haptics-2026-06-28.16');
+  expect(marker.win).toBe('tetris-haptics-toggle-2026-06-28.17');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
+});
+
+test('the help-panel vibration toggle controls and persists haptics', async ({ page }) => {
+  await openGame(page);
+  expect(await page.evaluate(() => document.getElementById('haptics-toggle')?.checked)).toBe(true);
+  expect(await page.evaluate(() => window.__tetrisTest.getHaptics())).toBe(true);
+
+  // Unchecking the toggle disables haptics and persists the choice.
+  await page.evaluate(() => {
+    const toggle = document.getElementById('haptics-toggle');
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change'));
+  });
+  expect(await page.evaluate(() => window.__tetrisTest.getHaptics())).toBe(false);
+  expect(await page.evaluate(() => window.localStorage.getItem('tetris-haptics'))).toBe('0');
+
+  // The hook keeps the checkbox in sync.
+  await page.evaluate(() => window.__tetrisTest.setHaptics(true));
+  expect(await page.evaluate(() => document.getElementById('haptics-toggle')?.checked)).toBe(true);
+  expect(await page.evaluate(() => window.localStorage.getItem('tetris-haptics'))).toBe('1');
 });
 
 test('hard drop emits a haptic pulse and haptics default on', async ({ page }) => {
