@@ -836,6 +836,29 @@ test('removes a brick or updates score on brick collision', async ({ page }) => 
   expect(liveBrickCount(after) < liveBrickCount(before) || (after.score ?? 0) > (before.score ?? 0)).toBe(true);
 });
 
+test('breaking a brick emits haptic feedback, and the toggle suppresses it', async ({ page }) => {
+  await openGame(page);
+  expect(await page.evaluate(() => window.__brickbreakerTest.getHaptics())).toBe(true);
+  await page.evaluate(() => {
+    window.__vibes = [];
+    navigator.vibrate = (pattern) => { window.__vibes.push(pattern); return true; };
+  });
+
+  await mutateState(page, 'brickCollision');
+  await advanceFrames(page, 3);
+  expect(await page.evaluate(() => window.__vibes.filter((v) => v !== 0).length)).toBeGreaterThan(0);
+
+  // Disabling haptics suppresses further vibration and persists.
+  await page.evaluate(() => {
+    window.__vibes = [];
+    window.__brickbreakerTest.setHaptics(false);
+  });
+  expect(await page.evaluate(() => window.localStorage.getItem('brickbreaker-haptics'))).toBe('0');
+  await mutateState(page, 'brickCollision');
+  await advanceFrames(page, 3);
+  expect(await page.evaluate(() => window.__vibes.filter((v) => v !== 0).length)).toBe(0);
+});
+
 test('combo builds across consecutive brick breaks and scales the score', async ({ page }) => {
   await openGame(page);
 
