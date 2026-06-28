@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-serve-2026-06-28.14";
+  var BUILD_ID = "brickbreaker-trail-2026-06-28.15";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -656,6 +656,24 @@
     }
   }
 
+  // Motion trail: each ball remembers a few recent positions so it draws a fading comet
+  // tail while in flight. Skipped under reduced motion, and empty on a freshly-set state
+  // (no frames stepped), so the static visual baseline is unaffected.
+  var BALL_TRAIL_MAX = 7;
+  function pushBallTrail(ball) {
+    if (prefersReducedMotion()) {
+      ball.trail = null;
+      return;
+    }
+    if (!Array.isArray(ball.trail)) {
+      ball.trail = [];
+    }
+    ball.trail.push({ x: ball.x, y: ball.y });
+    if (ball.trail.length > BALL_TRAIL_MAX) {
+      ball.trail.splice(0, ball.trail.length - BALL_TRAIL_MAX);
+    }
+  }
+
   // Deterministic RNG for particle spread so debris is reproducible for tests.
   var particleSeed = 0x9e3779b9;
   function particleRandom() {
@@ -1198,6 +1216,8 @@
 
     for (var ballIndex = state.balls.length - 1; ballIndex >= 0; ballIndex -= 1) {
       var ball = state.balls[ballIndex];
+      // Record where the ball was before this step so the comet tail trails behind it.
+      pushBallTrail(ball);
       var speedScale = ballSpeedScale();
       ball.x += ball.dx * dt * speedScale;
       ball.y += ball.dy * dt * speedScale;
@@ -1382,9 +1402,24 @@
 
     for (var k = 0; k < state.balls.length; k += 1) {
       var ball = state.balls[k];
+      var ballColor = k === 0 ? "#38bdf8" : "#fde047";
+      // Fading comet tail: older points (lower index) are smaller and more transparent.
+      if (Array.isArray(ball.trail) && ball.trail.length > 1) {
+        for (var t = 0; t < ball.trail.length; t += 1) {
+          var pt = ball.trail[t];
+          var frac = (t + 1) / ball.trail.length;
+          ctx.save();
+          ctx.globalAlpha = 0.22 * frac;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, ball.radius * (0.35 + 0.5 * frac), 0, Math.PI * 2);
+          ctx.fillStyle = ballColor;
+          ctx.fill();
+          ctx.restore();
+        }
+      }
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-      ctx.fillStyle = k === 0 ? "#38bdf8" : "#fde047";
+      ctx.fillStyle = ballColor;
       ctx.fill();
     }
 

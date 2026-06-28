@@ -1774,3 +1774,28 @@ test.describe('ball serve', () => {
     expect(lives(await getState(page))).toBe(2);
   });
 });
+
+test.describe('ball trail', () => {
+  function firstBall(state) {
+    return state.ball ?? state.balls?.[0] ?? {};
+  }
+
+  test('a moving ball accumulates a fading trail', async ({ page }) => {
+    await openGame(page);
+    await mutateState(page, 'movingBall', { dx: 3, dy: -3 });
+    expect(firstBall(await getState(page)).trail ?? []).toHaveLength(0); // none before stepping
+    await advanceFrames(page, 6);
+    const trail = firstBall(await getState(page)).trail ?? [];
+    expect(trail.length).toBeGreaterThan(1);
+    expect(trail.length).toBeLessThanOrEqual(7); // capped
+  });
+
+  test('reduced motion suppresses the ball trail', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await openGame(page);
+    await mutateState(page, 'movingBall', { dx: 3, dy: -3 });
+    await advanceFrames(page, 6);
+    const trail = firstBall(await getState(page)).trail;
+    expect(trail == null || trail.length === 0).toBe(true);
+  });
+});
