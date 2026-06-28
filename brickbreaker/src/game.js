@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-serve-cue-2026-06-28.16";
+  var BUILD_ID = "brickbreaker-levelflash-2026-06-28.17";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -631,6 +631,7 @@
     state.laserCooldown = typeof state.laserCooldown === "number" ? state.laserCooldown : 0;
     state.paused = typeof state.paused === "boolean" ? state.paused : false;
     state.awaitingServe = typeof state.awaitingServe === "boolean" ? state.awaitingServe : false;
+    state.levelFlash = typeof state.levelFlash === "number" ? state.levelFlash : 0;
     state.level = typeof state.level === "number" ? Math.max(1, Math.floor(state.level)) : 1;
     state.levelClears = typeof state.levelClears === "number" ? Math.max(0, Math.floor(state.levelClears)) : 0;
     state.highScore = typeof state.highScore === "number" ? state.highScore : readHighScore();
@@ -878,12 +879,16 @@
     state.status = "Playing";
   }
 
+  var LEVEL_FLASH_FRAMES = 18;
   function advanceLevel() {
     state.level += 1;
     state.levelClears += 1;
     state.bricks = makeBricksForLevel(state.level);
     prepareLevelStart();
     sfx.playLevelClear();
+    // Brief positive-feedback flash on clearing a zone (skipped under reduced motion);
+    // it only paints while counting down, so the static visual baseline is unaffected.
+    state.levelFlash = prefersReducedMotion() ? 0 : LEVEL_FLASH_FRAMES;
   }
 
   // Shared brick-hit path for both ball and laser hits. An armored brick that
@@ -1195,6 +1200,10 @@
     if (activeBrickCount() === 0) {
       advanceLevel();
     }
+
+    if (state.levelFlash > 0) {
+      state.levelFlash -= 1;
+    }
   }
 
   function updateBalls(dt) {
@@ -1445,6 +1454,15 @@
       ctx.shadowColor = powerUpColor("shield");
       ctx.shadowBlur = 12;
       ctx.fillRect(0, HEIGHT - 5, WIDTH, 4);
+      ctx.restore();
+    }
+
+    // Level-clear flash: a quick fading wash on advancing a zone (counts down to 0).
+    if (state.levelFlash > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.32 * (state.levelFlash / LEVEL_FLASH_FRAMES);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
       ctx.restore();
     }
 
