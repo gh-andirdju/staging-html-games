@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-pwa-2026-06-28.25');
+  expect(marker.win).toBe('tetris-noscript-2026-06-28.26');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -2583,4 +2583,12 @@ test('informational micro-labels meet WCAG AA contrast', async ({ page }) => {
     return (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
   });
   expect(ratio).toBeGreaterThanOrEqual(4.5);
+});
+
+test.describe('no-JavaScript fallback', () => {
+  test.use({ javaScriptEnabled: false });
+  test('shows a message when JavaScript is disabled', async ({ page }) => {
+    await page.goto('./');
+    await expect(page.getByText(/needs JavaScript enabled/i)).toBeVisible();
+  });
 });
