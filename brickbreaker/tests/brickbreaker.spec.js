@@ -645,6 +645,17 @@ test('pressing P pauses and freezes ball movement and power-up timers', async ({
   expect(state.activeEffects.slow).toBe(300);
 });
 
+test('the status region is an aria-live polite region that announces state changes', async ({ page }) => {
+  await openGame(page);
+  const wrap = page.locator('.status-wrap');
+  await expect(wrap).toHaveAttribute('role', 'status');
+  await expect(wrap).toHaveAttribute('aria-live', 'polite');
+
+  // Pausing updates the announced text inside the live region.
+  await page.keyboard.press('p');
+  await expect(page.locator('#status')).toHaveText('Paused');
+});
+
 test('auto-pauses an in-progress game when the tab is hidden', async ({ page }) => {
   await openGame(page);
   let state = await getState(page);
