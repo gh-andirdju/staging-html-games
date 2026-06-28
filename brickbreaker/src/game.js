@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-particles-2026-06-28.3";
+  var BUILD_ID = "brickbreaker-autopause-2026-06-28.4";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -917,6 +917,18 @@
     draw();
   }
 
+  // Pause an in-progress game when the tab is hidden so the ball doesn't keep moving
+  // while the player is away. Only acts on a live, unpaused game with no modal open,
+  // and never auto-resumes (the player resumes deliberately).
+  function autoPauseOnHide() {
+    if (state.status !== "Playing" || state.paused || !helpOverlayEl.hidden) {
+      return;
+    }
+    keys.left = false;
+    keys.right = false;
+    togglePause();
+  }
+
   function toggleMute() {
     sfx.setMuted(!sfx.isMuted());
     updateHud();
@@ -1276,6 +1288,12 @@
     normalizeState();
     state.paddleX = clamp(ratio * WIDTH - state.paddleWidth / 2, 0, WIDTH - state.paddleWidth);
   }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      autoPauseOnHide();
+    }
+  });
 
   window.addEventListener("keydown", function (event) {
     handleKey(event, true);
