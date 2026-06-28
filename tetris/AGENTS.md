@@ -32,6 +32,8 @@ The game **auto-pauses when the tab is hidden or the window loses focus** (`visi
 
 **Haptics**: `vibrate(pattern)` fires short Vibration-API pulses on key events for touch devices — a tick on lock/hard-drop, and pulses that scale with the feat on clears (ordinary `18 + 8·lines` < Tetris/T-spin `[40,30,40]` < Perfect Clear `[30,30,30,60]`) and game over. On by default, persisted as `tetris-haptics`, a no-op where `navigator.vibrate` is absent (most desktops); a **Vibration toggle** in the help/settings panel (`#haptics-toggle`, mirroring the ghost toggle) flips it via `applyHapticsEnabled`, and the hook exposes `getHaptics`/`setHaptics`.
 
+For accessibility, the board `<canvas>` `aria-label` is updated in `updateHud()` to a live state summary (level, lines, score, and Paused/Game over), so screen-reader users can query the current state.
+
 An invisible build marker (`window.__tetrisBuild`, `window.__tetrisTest.buildId`, and `<meta name="tetris-build">`) lets a deployed device be checked against the committed source; bump it when shipping a visible change.
 
 ## Testing Guidelines

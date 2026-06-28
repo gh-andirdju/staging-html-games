@@ -184,9 +184,23 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-blurpause-2026-06-28.18');
+  expect(marker.win).toBe('tetris-canvas-a11y-2026-06-28.19');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
+});
+
+test('the board canvas exposes a live accessible description of game state', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await setState(page, { ...state, score: 1234, lines: 7, level: 3, gameOver: false });
+  const label = await page.evaluate(() => document.getElementById('game').getAttribute('aria-label'));
+  expect(label).toContain('Level 3');
+  expect(label).toContain('7 lines');
+  expect(label).toContain('score 1234');
+
+  await setState(page, { ...state, gameOver: true, score: 1234, lines: 7, level: 3 });
+  const overLabel = await page.evaluate(() => document.getElementById('game').getAttribute('aria-label'));
+  expect(overLabel.toLowerCase()).toContain('game over');
 });
 
 test('auto-pauses an in-progress game when the window loses focus', async ({ page }) => {
