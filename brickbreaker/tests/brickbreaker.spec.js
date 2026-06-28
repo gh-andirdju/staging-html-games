@@ -669,6 +669,18 @@ test('the status region is an aria-live polite region that announces state chang
   await expect(page.locator('#status')).toHaveText('Paused');
 });
 
+test('auto-pauses an in-progress game when the window loses focus', async ({ page }) => {
+  await openGame(page);
+  expect((await getState(page)).paused).toBe(false);
+
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+  expect((await getState(page)).paused).toBe(true);
+
+  // Refocus does not auto-resume.
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  expect((await getState(page)).paused).toBe(true);
+});
+
 test('auto-pauses an in-progress game when the tab is hidden', async ({ page }) => {
   await openGame(page);
   let state = await getState(page);
