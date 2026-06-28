@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-haptics-2026-06-28.16';
+  const BUILD_ID = 'tetris-haptics-toggle-2026-06-28.17';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -1634,6 +1634,20 @@
     ghostToggleEl.checked = ghostEnabled;
     ghostToggleEl.addEventListener('change', () => applyGhostEnabled(ghostToggleEl.checked));
   }
+  // Vibration/haptics toggle (help/settings panel): persist and keep the checkbox in sync.
+  const hapticsToggleEl = document.getElementById('haptics-toggle');
+  function applyHapticsEnabled(value) {
+    hapticsEnabled = Boolean(value);
+    writeHapticsEnabled(hapticsEnabled);
+    if (hapticsToggleEl) hapticsToggleEl.checked = hapticsEnabled;
+    if (!hapticsEnabled && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      try { navigator.vibrate(0); } catch (_) {}
+    }
+  }
+  if (hapticsToggleEl) {
+    hapticsToggleEl.checked = hapticsEnabled;
+    hapticsToggleEl.addEventListener('change', () => applyHapticsEnabled(hapticsToggleEl.checked));
+  }
   helpOverlayEl.addEventListener('click', (event) => {
     if (event.target === helpOverlayEl) closeHelp();
   });
@@ -1852,12 +1866,6 @@
     getGhostEnabled: () => ghostEnabled,
     setGhostEnabled: (value) => applyGhostEnabled(value),
     getHaptics: () => hapticsEnabled,
-    setHaptics: (value) => {
-      hapticsEnabled = Boolean(value);
-      writeHapticsEnabled(hapticsEnabled);
-      if (!hapticsEnabled && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-        try { navigator.vibrate(0); } catch (_) {}
-      }
-    }
+    setHaptics: (value) => applyHapticsEnabled(value)
   };
 })();
