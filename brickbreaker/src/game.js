@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-combo-2026-06-27.1";
+  var BUILD_ID = "brickbreaker-armor-2026-06-28.2";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -235,6 +235,20 @@
     return Math.min(5, Math.ceil(Math.max(1, combo) / 3));
   }
 
+  // Armored bricks: tougher bricks (more hits to clear) appear in the upper rows as
+  // levels climb. Level 1 stays all single-hit so the early game (and the visual
+  // baseline) is unchanged; power-up bricks are always single-hit so drops stay
+  // reliable and their badge legible.
+  function brickHpForLevel(row, level) {
+    if (level >= 5 && row === 0) {
+      return 3;
+    }
+    if (level >= 2 && row <= 1) {
+      return 2;
+    }
+    return 1;
+  }
+
   function makeBallStartForLevel(level) {
     var speed = BALL_BASE_SPEED * levelSpeedMultiplier(level);
     var angle = Math.atan2(Math.abs(ballStart.dy), Math.abs(ballStart.dx));
@@ -313,6 +327,7 @@
           continue;
         }
         var powerType = powerUpTypeForBrick(row, col, level, layout);
+        var hp = powerType ? 1 : brickHpForLevel(row, level);
         var brick = {
           x: layout.left + col * (layout.width + layout.gap),
           y: layout.top + row * (layout.height + layout.gap),
@@ -321,6 +336,8 @@
           active: true,
           row: row,
           col: col,
+          hp: hp,
+          maxHp: hp,
           powerUp: powerType,
           powerUpType: powerType,
           layoutSeed: layout.seed
@@ -552,11 +569,13 @@
     var cameFromSide = previousX <= rect.x || previousX >= rect.x + rect.width;
     var cameFromTopOrBottom = previousY <= rect.y || previousY >= rect.y + rect.height;
 
-    if (cameFromSide && !cameFromTopOrBottom) {
+    var sideHit = cameFromSide && !cameFromTopOrBottom;
+    if (sideHit) {
       ball.dx *= -1;
     } else {
       ball.dy *= -1;
     }
+    return sideHit;
   }
 
   function activeBrickCount() {
@@ -606,9 +625,21 @@
     sfx.playLevelClear();
   }
 
-  // Shared brick-destruction path for both ball and laser hits: advance the combo,
-  // award combo-scaled points, drop any power-up, and play the break blip.
-  function breakBrick(brick) {
+  // Shared brick-hit path for both ball and laser hits. An armored brick that
+  // survives the hit takes a chip of damage (small score, softer blip) and stays on
+  // the board; the hit that drops it to zero destroys it — advancing the combo,
+  // awarding combo-scaled points, dropping any power-up, and playing the break blip.
+  // Returns true when the brick was destroyed.
+  function damageBrick(brick) {
+    brick.hp = (typeof brick.hp === "number" ? brick.hp : 1) - 1;
+
+    if (brick.hp > 0) {
+      state.score += 5;
+      recordHighScore();
+      sfx.playPaddleHit();
+      return false;
+    }
+
     brick.active = false;
     state.combo = (state.combo || 0) + 1;
     if (state.combo > (state.bestCombo || 0)) {
@@ -618,6 +649,17 @@
     recordHighScore();
     spawnPickup(brick);
     sfx.playBrickBreak(brick.row);
+    return true;
+  }
+
+  // Push the ball just clear of a brick it bounced off but did not destroy, so it
+  // can't immediately re-collide on the next frame (which would skip the armor).
+  function ejectBallFromBrick(ball, brick, sideHit) {
+    if (sideHit) {
+      ball.x = ball.dx > 0 ? brick.x + brick.width + ball.radius : brick.x - ball.radius;
+    } else {
+      ball.y = ball.dy > 0 ? brick.y + brick.height + ball.radius : brick.y - ball.radius;
+    }
   }
 
   function spawnPickup(brick) {
@@ -768,7 +810,7 @@
           continue;
         }
 
-        breakBrick(brick);
+        damageBrick(brick);
         state.lasers.splice(i, 1);
         break;
       }
@@ -915,8 +957,11 @@
           continue;
         }
 
-        breakBrick(brick);
-        reflectFromRect(ball, brick);
+        var destroyed = damageBrick(brick);
+        var sideHit = reflectFromRect(ball, brick);
+        if (!destroyed) {
+          ejectBallFromBrick(ball, brick, sideHit);
+        }
         break;
       }
 
@@ -938,6 +983,24 @@
 
       ctx.fillStyle = powerUpColor(brick.powerUp || brick.powerUpType) || colors[brick.row % colors.length] || "#3b82f6";
       ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+
+      // Armored bricks (maxHp > 1) get a bright inset border, plus a darkening wash
+      // that deepens as the brick takes damage. Single-hit bricks render unchanged.
+      var maxHp = brick.maxHp || 1;
+      if (maxHp > 1) {
+        var hp = typeof brick.hp === "number" ? brick.hp : maxHp;
+        var damage = Math.max(0, Math.min(1, 1 - hp / maxHp));
+        if (damage > 0) {
+          ctx.fillStyle = "rgba(2,6,23," + (0.5 * damage).toFixed(3) + ")";
+          ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+        }
+        ctx.save();
+        ctx.strokeStyle = "rgba(248,250,252,0.7)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(brick.x + 1.5, brick.y + 1.5, brick.width - 3, brick.height - 3);
+        ctx.restore();
+      }
+
       if (brick.powerUp || brick.powerUpType) {
         drawPowerBrickBadge(brick, brick.powerUp || brick.powerUpType);
       }

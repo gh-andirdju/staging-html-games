@@ -217,6 +217,10 @@ async function mutateState(page, mutatorName, options = {}) {
           }
 
           const lastBrick = liveBricks[0];
+          // Ensure the single survivor clears in one hit regardless of level (armored
+          // bricks otherwise need multiple hits), so a single contact advances the level.
+          if ('hp' in lastBrick) lastBrick.hp = 1;
+          if ('maxHp' in lastBrick) lastBrick.maxHp = 1;
           const width = lastBrick.width ?? lastBrick.w ?? 50;
           const height = lastBrick.height ?? lastBrick.h ?? 20;
           Object.assign(ball, {
@@ -855,6 +859,49 @@ test('losing a life resets the combo chain', async ({ page }) => {
   await mutateState(page, 'missedBall', { lives: 2 });
   await advanceFrames(page, 8);
   expect((await getState(page)).combo).toBe(0);
+});
+
+test('armored bricks take multiple hits and only score the combo on destruction', async ({ page }) => {
+  await openGame(page);
+  // One armored brick (target) plus a far-away filler so destroying the target does
+  // not clear the level (which would advance and regenerate bricks).
+  await setState(page, {
+    score: 0,
+    combo: 0,
+    bestCombo: 0,
+    bricks: [
+      { x: 380, y: 120, width: 60, height: 20, active: true, row: 0, col: 0, hp: 2, maxHp: 2, powerUp: null, powerUpType: null },
+      { x: 40, y: 320, width: 60, height: 20, active: true, row: 4, col: 0, hp: 1, maxHp: 1, powerUp: null, powerUpType: null }
+    ]
+  });
+
+  // First hit chips the armor but leaves the brick standing.
+  await mutateState(page, 'brickCollision');
+  await advanceFrames(page, 3);
+  let s = await getState(page);
+  expect(s.bricks[0].active).not.toBe(false);
+  expect(s.bricks[0].hp).toBe(1);
+  expect(s.combo).toBe(0);   // combo only counts destroyed bricks
+  expect(s.score).toBe(5);   // chip-damage points only
+
+  // Second hit destroys it: combo advances and full points land.
+  await mutateState(page, 'brickCollision');
+  await advanceFrames(page, 3);
+  s = await getState(page);
+  expect(s.bricks[0].active).toBe(false);
+  expect(s.combo).toBe(1);
+  expect(s.score).toBe(15);  // 5 chip + 10 destroy
+  expect(liveBrickCount(s)).toBe(1); // the filler brick remains
+});
+
+test('higher levels introduce armored (multi-hit) bricks', async ({ page }) => {
+  await openGame(page);
+  // Passing bricks:null makes the engine regenerate the layout for the given level.
+  await setState(page, { level: 2, bricks: null });
+  const s = await getState(page);
+  const armored = s.bricks.filter((brick) => (brick.maxHp || 1) > 1);
+  expect(armored.length).toBeGreaterThan(0);
+  expect(s.bricks.every((brick) => (brick.hp || 1) >= 1)).toBe(true);
 });
 
 test('loses a life when the ball falls below the paddle', async ({ page }) => {
