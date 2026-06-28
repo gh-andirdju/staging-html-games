@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-sprint-2026-06-28.20';
+  const BUILD_ID = 'tetris-sprint-pb-2026-06-28.21';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -1464,7 +1464,8 @@
       // Live sprint readout: elapsed time + lines left. Transient feats (Tetris!, etc.)
       // still take over for their duration via the statusMessageTimer guard above.
       const remaining = Math.max(0, state.sprintTarget - state.lines);
-      statusText = `Sprint · ${formatSprintTime(state.sprintFrames)} · ${remaining} line${remaining === 1 ? '' : 's'} left`;
+      const pb = state.sprintBest || 0;
+      statusText = `Sprint · ${formatSprintTime(state.sprintFrames)} · ${remaining} line${remaining === 1 ? '' : 's'} left${pb ? ` · PB ${formatSprintTime(pb)}` : ''}`;
       statusTone = remaining <= 5 ? 'warning' : 'normal';
     } else {
       statusText = state.statusMessage;
