@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-maxarea2-2026-06-28.24";
+  var BUILD_ID = "brickbreaker-bricklayout-2026-06-28.25";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -55,6 +55,9 @@
   var PADDLE_MAX_BOUNCE_ANGLE = Math.PI / 3;
   var BALL_BASE_SPEED = Math.sqrt(ballStart.dx * ballStart.dx + ballStart.dy * ballStart.dy);
 
+  // Vertical brick metrics (top/height/row gap) are authored for this reference height and
+  // scaled to the live board height in buildLevelConfig, so the field keeps its proportions.
+  var DESIGN_HEIGHT = 520;
   var brickConfig = {
     top: 58,
     sidePadding: 26,
@@ -369,14 +372,22 @@
 
   function buildLevelConfig(level) {
     var difficulty = Math.max(0, level - 1);
-    var rows = Math.min(8, 5 + Math.floor(difficulty / 2));
+    // The taller portrait board fits more rows; a fuller wall keeps the bricks close to the
+    // paddle instead of stranded in the top sliver with a huge empty gap below.
+    var rows = Math.min(10, 8 + Math.floor(difficulty / 2));
     var cols = Math.min(11, 8 + (difficulty % 4));
     var gap = cols >= 10 ? 6 : 7;
-    var height = rows >= 7 ? 18 : 20;
     var availableWidth = WIDTH - brickConfig.sidePadding * 2;
     var width = Math.floor((availableWidth - gap * (cols - 1)) / cols);
     var left = Math.floor((WIDTH - (cols * width + gap * (cols - 1))) / 2);
-    var top = brickConfig.top;
+    // The brick constants were tuned for the original 520-tall board. Scale the vertical
+    // metrics (top offset, brick height, row gap) with the board height so the field keeps
+    // classic breakout proportions on the taller portrait board — otherwise the bricks sit
+    // jammed in the top sliver, far above the paddle.
+    var vScale = HEIGHT / DESIGN_HEIGHT;
+    var height = Math.round((rows >= 7 ? 18 : 20) * vScale);
+    var rowGap = Math.round(gap * vScale);
+    var top = Math.round(brickConfig.top * vScale);
     var pattern = difficulty % 5;
     return {
       rows: rows,
@@ -384,6 +395,7 @@
       width: width,
       height: height,
       gap: gap,
+      rowGap: rowGap,
       top: top,
       left: left,
       pattern: pattern,
@@ -436,7 +448,7 @@
         var hp = powerType ? 1 : brickHpForLevel(row, level);
         var brick = {
           x: layout.left + col * (layout.width + layout.gap),
-          y: layout.top + row * (layout.height + layout.gap),
+          y: layout.top + row * (layout.height + layout.rowGap),
           width: layout.width,
           height: layout.height,
           active: true,
