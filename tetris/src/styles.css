@@ -17,7 +17,11 @@
   --stroke-hi: rgba(255, 255, 255, 0.18);
   --text: #eef1f6;
   --text-dim: rgba(238, 241, 246, 0.52);
-  --text-faint: rgba(238, 241, 246, 0.34);
+  /* Informational micro-labels (score/chip/meter/status/hint/settings) — raised to
+     ~4.9:1 against the dark board so they clear WCAG AA. */
+  --text-faint: rgba(238, 241, 246, 0.5);
+  /* Purely decorative text (brand tagline, muted-icon state) stays recessive. */
+  --text-faint-deco: rgba(238, 241, 246, 0.34);
   --accent: #34d2e8;
   --accent-rgb: 52, 210, 232;
   --tone-warn: #ef4a5e;
@@ -81,7 +85,7 @@ body {
 
 .brand-text { display: grid; gap: 1px; min-width: 0; }
 .title { font-size: 26px; font-weight: 700; letter-spacing: 0.06em; line-height: 1; text-transform: uppercase; }
-.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.34em; text-transform: uppercase; color: var(--text-faint); }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.34em; text-transform: uppercase; color: var(--text-faint-deco); }
 
 .hud-score {
   grid-column: 2;
@@ -163,7 +167,7 @@ body {
 #mute .snd-mute { display: none; }
 #mute[data-muted="true"] .snd-wave { display: none; }
 #mute[data-muted="true"] .snd-mute { display: inline; }
-#mute[data-muted="true"] { color: var(--text-faint); }
+#mute[data-muted="true"] { color: var(--text-faint-deco); }
 
 /* ── Game area (grid-area reflow: mobile strip ↔ desktop rails) ──── */
 

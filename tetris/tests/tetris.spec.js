@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-meta-2026-06-28.22');
+  expect(marker.win).toBe('tetris-contrast-2026-06-28.23');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -2542,4 +2542,23 @@ test('exposes theme-color and description meta tags', async ({ page }) => {
   }));
   expect(meta.theme).toBe('#0d0f14');
   expect(meta.desc).toMatch(/Tetris/);
+});
+
+test('informational micro-labels meet WCAG AA contrast', async ({ page }) => {
+  await openGame(page);
+  const ratio = await page.evaluate(() => {
+    const lum = (c) => {
+      const f = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+      return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2];
+    };
+    const parts = getComputedStyle(document.querySelector('.hud-label')).color.match(/[\d.]+/g).map(Number);
+    const fg = [parts[0], parts[1], parts[2]];
+    const a = parts[3] ?? 1;
+    const bg = [13, 15, 20]; // --bg0 #0d0f14, the darkest board background (worst case)
+    const comp = [0, 1, 2].map((i) => fg[i] * a + bg[i] * (1 - a));
+    const L1 = lum(comp);
+    const L2 = lum(bg);
+    return (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+  });
+  expect(ratio).toBeGreaterThanOrEqual(4.5);
 });
