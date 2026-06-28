@@ -8,6 +8,7 @@ const mimeTypes = {
   ".css": "text/css",
   ".html": "text/html",
   ".js": "text/javascript",
+  ".svg": "image/svg+xml",
   ".woff2": "font/woff2"
 };
 

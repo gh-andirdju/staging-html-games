@@ -7,7 +7,8 @@ const normalizedBasePath = rawBasePath === "/"
 const mimeTypes = {
   ".css": "text/css",
   ".html": "text/html",
-  ".js": "text/javascript"
+  ".js": "text/javascript",
+  ".svg": "image/svg+xml"
 };
 
 function hasHiddenSegment(urlPathname) {

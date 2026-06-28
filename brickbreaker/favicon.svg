@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Brick Breaker">
+  <rect width="32" height="32" rx="7" fill="#0b0600"/>
+  <rect x="5" y="6" width="7" height="4" rx="1" fill="#f59e0b"/>
+  <rect x="13" y="6" width="7" height="4" rx="1" fill="#ff4d8d"/>
+  <rect x="21" y="6" width="6" height="4" rx="1" fill="#34d2e8"/>
+  <rect x="9" y="11" width="7" height="4" rx="1" fill="#46cf6d"/>
+  <rect x="17" y="11" width="7" height="4" rx="1" fill="#f59e0b"/>
+  <circle cx="16" cy="20" r="2.6" fill="#38bdf8"/>
+  <rect x="10" y="25" width="12" height="3" rx="1.5" fill="#f9fafb"/>
+</svg>

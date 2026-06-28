@@ -1848,12 +1848,22 @@ test.describe('help-panel keyboard focus', () => {
   });
 });
 
-test('exposes theme-color and description meta tags', async ({ page }) => {
+test('exposes theme-color, description, favicon, and Open Graph meta', async ({ page }) => {
   await openGame(page);
   const meta = await page.evaluate(() => ({
     theme: document.querySelector('meta[name="theme-color"]')?.getAttribute('content'),
-    desc: document.querySelector('meta[name="description"]')?.getAttribute('content')
+    desc: document.querySelector('meta[name="description"]')?.getAttribute('content'),
+    icon: document.querySelector('link[rel="icon"]')?.getAttribute('href'),
+    ogTitle: document.querySelector('meta[property="og:title"]')?.getAttribute('content')
   }));
   expect(meta.theme).toBe('#080400');
   expect(meta.desc).toMatch(/Brick Breaker/);
+  expect(meta.icon).toBe('favicon.svg');
+  expect(meta.ogTitle).toBe('Brick Breaker');
+});
+
+test('serves the favicon asset', async ({ page }) => {
+  const response = await page.request.get('./favicon.svg');
+  expect(response.ok()).toBe(true);
+  expect(response.headers()['content-type']).toContain('svg');
 });
