@@ -904,6 +904,35 @@ test('higher levels introduce armored (multi-hit) bricks', async ({ page }) => {
   expect(s.bricks.every((brick) => (brick.hp || 1) >= 1)).toBe(true);
 });
 
+test('destroying a brick spawns debris particles that decay away', async ({ page }) => {
+  await openGame(page);
+
+  await mutateState(page, 'brickCollision');
+  await advanceFrames(page, 2);
+  let s = await getState(page);
+  expect((s.particles || []).length).toBeGreaterThan(0);
+
+  // Inject a clean decay scenario: a stationary ball (no further collisions) and a
+  // short-lived particle, then advance past its lifetime.
+  await setState(page, {
+    particles: [{ x: 200, y: 200, dx: 0, dy: 0, life: 8, maxLife: 8, size: 3, color: '#ffffff' }],
+    ball: { x: 400, y: 300, dx: 0, dy: 0, radius: 8 }
+  });
+  await advanceFrames(page, 12);
+  s = await getState(page);
+  expect((s.particles || []).length).toBe(0);
+});
+
+test('respects reduced motion — no debris particles', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await openGame(page);
+
+  await mutateState(page, 'brickCollision');
+  await advanceFrames(page, 2);
+  const s = await getState(page);
+  expect((s.particles || []).length).toBe(0);
+});
+
 test('loses a life when the ball falls below the paddle', async ({ page }) => {
   await openGame(page);
   await mutateState(page, 'missedBall', { lives: 2 });

@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-armor-2026-06-28.2";
+  var BUILD_ID = "brickbreaker-particles-2026-06-28.3";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -429,7 +429,8 @@
       paused: false,
       levelClears: 0,
       combo: 0,
-      bestCombo: 0
+      bestCombo: 0,
+      particles: []
     };
     resetBall();
     updateHud();
@@ -480,6 +481,78 @@
     state.newRecord = typeof state.newRecord === "boolean" ? state.newRecord : false;
     state.combo = typeof state.combo === "number" ? Math.max(0, Math.floor(state.combo)) : 0;
     state.bestCombo = typeof state.bestCombo === "number" ? Math.max(0, Math.floor(state.bestCombo)) : 0;
+    state.particles = Array.isArray(state.particles) ? state.particles : [];
+  }
+
+  var BRICK_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
+
+  function brickBaseColor(brick) {
+    return powerUpColor(brick.powerUp || brick.powerUpType) || BRICK_COLORS[brick.row % BRICK_COLORS.length] || "#3b82f6";
+  }
+
+  function prefersReducedMotion() {
+    try {
+      return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Deterministic RNG for particle spread so debris is reproducible for tests.
+  var particleSeed = 0x9e3779b9;
+  function particleRandom() {
+    particleSeed = (particleSeed * 1664525 + 1013904223) >>> 0;
+    return particleSeed / 4294967296;
+  }
+
+  // Burst of short-lived debris when a brick is destroyed — skipped under reduced motion.
+  // Particles only paint while present, so the static visual baseline is unaffected.
+  function spawnBrickParticles(brick) {
+    if (prefersReducedMotion()) {
+      return;
+    }
+    if (!Array.isArray(state.particles)) {
+      state.particles = [];
+    }
+    var color = brickBaseColor(brick);
+    var cx = brick.x + brick.width / 2;
+    var cy = brick.y + brick.height / 2;
+    var count = 8;
+    for (var i = 0; i < count; i += 1) {
+      var angle = (i / count) * Math.PI * 2 + particleRandom() * 0.6;
+      var speed = 60 + particleRandom() * 120;
+      var life = 24 + Math.floor(particleRandom() * 12);
+      state.particles.push({
+        x: cx,
+        y: cy,
+        dx: Math.cos(angle) * speed,
+        dy: Math.sin(angle) * speed - 40,
+        life: life,
+        maxLife: life,
+        size: 2 + particleRandom() * 2,
+        color: color
+      });
+    }
+    // Cap total particles so a long combo can't unbound the array.
+    if (state.particles.length > 120) {
+      state.particles.splice(0, state.particles.length - 120);
+    }
+  }
+
+  function updateParticles(dt) {
+    if (!Array.isArray(state.particles) || state.particles.length === 0) {
+      return;
+    }
+    for (var i = state.particles.length - 1; i >= 0; i -= 1) {
+      var p = state.particles[i];
+      p.x += p.dx * dt;
+      p.y += p.dy * dt;
+      p.dy += 320 * dt; // gravity pulls the debris down
+      p.life -= 1;
+      if (p.life <= 0) {
+        state.particles.splice(i, 1);
+      }
+    }
   }
 
   function recordHighScore() {
@@ -648,6 +721,7 @@
     state.score += 10 * comboMultiplier(state.combo);
     recordHighScore();
     spawnPickup(brick);
+    spawnBrickParticles(brick);
     sfx.playBrickBreak(brick.row);
     return true;
   }
@@ -901,6 +975,7 @@
 
     updateLasers(dt);
     updatePickups(dt);
+    updateParticles(dt);
     updateBalls(dt);
 
     if (state.balls.length === 0) {
@@ -1100,6 +1175,17 @@
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.fillStyle = k === 0 ? "#38bdf8" : "#fde047";
       ctx.fill();
+    }
+
+    if (Array.isArray(state.particles)) {
+      for (var pi = 0; pi < state.particles.length; pi += 1) {
+        var particle = state.particles[pi];
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, particle.life / particle.maxLife));
+        ctx.fillStyle = particle.color;
+        ctx.fillRect(particle.x - particle.size / 2, particle.y - particle.size / 2, particle.size, particle.size);
+        ctx.restore();
+      }
     }
 
     if (state.status !== "Playing") {
