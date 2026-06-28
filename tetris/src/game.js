@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-canvas-a11y-2026-06-28.19';
+  const BUILD_ID = 'tetris-sprint-2026-06-28.20';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -284,6 +284,56 @@
     try {
       window.localStorage.setItem(START_LEVEL_KEY, String(clampStartLevel(value)));
     } catch {}
+  }
+
+  // Game mode: 'marathon' (the classic endless climb — default, so the baseline is
+  // unchanged) or 'sprint' (a 40-line time attack: clear the target as fast as you can).
+  const MODE_KEY = 'tetris-mode';
+  const MODES = ['marathon', 'sprint'];
+  const SPRINT_LINES = 40;
+  const SPRINT_BEST_KEY = 'tetris-sprint-best';
+
+  function clampMode(value) {
+    return MODES.includes(value) ? value : 'marathon';
+  }
+
+  function readMode() {
+    try {
+      return clampMode(window.localStorage.getItem(MODE_KEY));
+    } catch {
+      return 'marathon';
+    }
+  }
+
+  function writeMode(value) {
+    try {
+      window.localStorage.setItem(MODE_KEY, clampMode(value));
+    } catch {}
+  }
+
+  function readSprintBest() {
+    try {
+      const n = Number(window.localStorage.getItem(SPRINT_BEST_KEY));
+      return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function writeSprintBest(frames) {
+    try {
+      window.localStorage.setItem(SPRINT_BEST_KEY, String(Math.round(frames)));
+    } catch {}
+  }
+
+  // Frame counts run at the fixed 60fps step, so frames/60 is seconds. Render as
+  // m:ss.t (tenths) the way every sprint leaderboard does.
+  function formatSprintTime(frames) {
+    const totalMs = (Math.max(0, frames) / 60) * 1000;
+    const minutes = Math.floor(totalMs / 60000);
+    const seconds = Math.floor((totalMs % 60000) / 1000);
+    const tenths = Math.floor((totalMs % 1000) / 100);
+    return `${minutes}:${String(seconds).padStart(2, '0')}.${tenths}`;
   }
 
   const MUTED_KEY = 'tetris-muted';
@@ -581,6 +631,9 @@
   }
 
   function gameOverStatus() {
+    if (state.sprintComplete) {
+      return { text: `Sprint clear · ${formatSprintTime(state.sprintFrames)}`, tone: 'milestone' };
+    }
     return state.newRecord
       ? { text: 'New record!', tone: 'milestone' }
       : { text: 'Game Over', tone: 'warning' };
@@ -745,8 +798,33 @@
       if (perfectClear) vibrate([30, 30, 30, 60]);
       else if (cleared === 4 || tSpin) vibrate([40, 30, 40]);
       else vibrate(18 + cleared * 8);
+      // Sprint mode ends the instant the line target is reached — fastest clear wins.
+      if (state.mode === 'sprint' && !state.sprintComplete && state.lines >= state.sprintTarget) {
+        completeSprint();
+      }
     }
-    spawnPiece();
+    // Don't spawn a fresh piece once the run is over (sprint clear or top-out).
+    if (!state.gameOver) spawnPiece();
+  }
+
+  // Sprint clear: stop the clock, lock the run, and record a new best time. Reuses the
+  // game-over flow (so play halts and the overlay shows) but flags sprintComplete so the
+  // status line and overlay read as a win, not a loss.
+  function completeSprint() {
+    state.sprintComplete = true;
+    state.gameOver = true;
+    const best = readSprintBest();
+    if (best === 0 || state.sprintFrames < best) {
+      state.newRecord = true;
+      writeSprintBest(state.sprintFrames);
+      state.sprintBest = state.sprintFrames;
+    } else {
+      state.sprintBest = best;
+    }
+    setStatusMessage(`Sprint clear · ${formatSprintTime(state.sprintFrames)}`, 'milestone');
+    if (state.newRecord) sfx.playNewRecord();
+    else sfx.playLevelUp();
+    vibrate([30, 30, 30, 60]);
   }
 
   // A piece is "landed" when it cannot fall one more row.
@@ -945,6 +1023,11 @@
       highScore: readHighScore(),
       newRecord: false,
       lines: 0,
+      mode: readMode(),
+      sprintTarget: SPRINT_LINES,
+      sprintFrames: 0,
+      sprintComplete: false,
+      sprintBest: readSprintBest(),
       startLevel: startLevel,
       level: startLevel,
       combo: -1,
@@ -1004,6 +1087,11 @@
     if (!state.stats || typeof state.stats !== 'object') state.stats = createStats();
     else state.stats = { ...createStats(), ...state.stats };
     if (typeof state.startLevel !== 'number') state.startLevel = 1;
+    state.mode = clampMode(state.mode);
+    if (typeof state.sprintTarget !== 'number') state.sprintTarget = SPRINT_LINES;
+    if (typeof state.sprintFrames !== 'number') state.sprintFrames = 0;
+    if (typeof state.sprintComplete !== 'boolean') state.sprintComplete = false;
+    if (typeof state.sprintBest !== 'number') state.sprintBest = readSprintBest();
     if (!('heldPiece' in state)) state.heldPiece = null;
     if (!('holdUsed' in state)) state.holdUsed = false;
     if (!('nextPieceType' in state)) state.nextPieceType = null;
@@ -1243,16 +1331,28 @@
 
     if (state.gameOver) {
       const stats = state.stats || createStats();
-      const lines = [`Score ${state.score} · Best ${state.highScore}`];
       // Surface the run's highlights when there is anything worth bragging about.
       const tallies = [];
       if (stats.tetrises) tallies.push(`Tetris ×${stats.tetrises}`);
       if (stats.tSpins) tallies.push(`T-Spin ×${stats.tSpins}`);
       if (stats.perfectClears) tallies.push(`Perfect ×${stats.perfectClears}`);
       if (stats.maxCombo > 0) tallies.push(`Combo ${stats.maxCombo}`);
-      if (tallies.length) lines.push(tallies.join(' · '));
-      lines.push('Press R or tap Restart');
-      drawBoardOverlay('GAME OVER', lines, state.newRecord ? '#34d2e8' : '#ef4a5e');
+      if (state.sprintComplete) {
+        // Sprint win: lead with the finishing time and the best to beat.
+        const best = state.sprintBest || readSprintBest();
+        const lines = [`Time ${formatSprintTime(state.sprintFrames)}${state.newRecord ? ' · New record!' : ''}`];
+        if (best) lines.push(`Best ${formatSprintTime(best)} · Score ${state.score}`);
+        if (tallies.length) lines.push(tallies.join(' · '));
+        lines.push('Press R or tap Restart');
+        drawBoardOverlay(`SPRINT ${state.sprintTarget} CLEAR`, lines, '#34d2e8');
+      } else {
+        const lines = [`Score ${state.score} · Best ${state.highScore}`];
+        // In a sprint top-out, show how far the run got toward the line target.
+        if (state.mode === 'sprint') lines.push(`Sprint: ${state.lines}/${state.sprintTarget} lines`);
+        if (tallies.length) lines.push(tallies.join(' · '));
+        lines.push('Press R or tap Restart');
+        drawBoardOverlay('GAME OVER', lines, state.newRecord ? '#34d2e8' : '#ef4a5e');
+      }
     }
   }
 
@@ -1355,8 +1455,21 @@
       : `Tetris board. Level ${state.level}, ${state.lines} lines, score ${state.score}${state.paused ? '. Paused' : ''}.`;
     if (canvas.getAttribute('aria-label') !== boardSummary) canvas.setAttribute('aria-label', boardSummary);
     updateLevelMeter();
-    const statusText = state.paused && !state.gameOver ? 'Paused' : state.statusMessage;
-    const statusTone = state.paused && !state.gameOver ? 'normal' : state.statusTone;
+    let statusText;
+    let statusTone;
+    if (state.paused && !state.gameOver) {
+      statusText = 'Paused';
+      statusTone = 'normal';
+    } else if (state.mode === 'sprint' && !state.gameOver && state.statusMessageTimer <= 0) {
+      // Live sprint readout: elapsed time + lines left. Transient feats (Tetris!, etc.)
+      // still take over for their duration via the statusMessageTimer guard above.
+      const remaining = Math.max(0, state.sprintTarget - state.lines);
+      statusText = `Sprint · ${formatSprintTime(state.sprintFrames)} · ${remaining} line${remaining === 1 ? '' : 's'} left`;
+      statusTone = remaining <= 5 ? 'warning' : 'normal';
+    } else {
+      statusText = state.statusMessage;
+      statusTone = state.statusTone;
+    }
     if (statusEl.textContent !== statusText) statusEl.textContent = statusText;
     if (statusWrapEl && statusWrapEl.dataset.tone !== statusTone) statusWrapEl.dataset.tone = statusTone;
     if (pauseLabelEl) pauseLabelEl.textContent = state.paused ? 'Resume' : 'Pause';
@@ -1431,6 +1544,8 @@
 
   function oneFrame() {
     if (!state.gameOver && !state.paused) {
+      // Sprint clock ticks through active play, including line-clear animations.
+      if (state.mode === 'sprint' && !state.sprintComplete) state.sprintFrames += 1;
       if (state.statusMessageTimer > 0 && !state.clearAnimation) {
         state.statusMessageTimer -= 1;
         if (state.statusMessageTimer === 0) syncStatusMessage({ forceFallback: true });
@@ -1626,6 +1741,28 @@
   if (startLevelEl) {
     startLevelEl.value = String(readStartLevel());
     startLevelEl.addEventListener('change', () => applyStartLevel(startLevelEl.value));
+  }
+  // Mode selector (help/settings panel): Marathon (default) or 40-line Sprint. Switching
+  // starts a fresh run in the chosen mode; like the start-level picker it stays paused
+  // behind an open help panel so the player resumes deliberately.
+  const modeSelectEl = document.getElementById('mode-select');
+  function applyMode(value, { restart = true } = {}) {
+    const mode = clampMode(value);
+    writeMode(mode);
+    if (modeSelectEl) modeSelectEl.value = mode;
+    if (restart) {
+      const helpOpen = !helpOverlayEl.hidden;
+      restartGame();
+      if (helpOpen) {
+        state.paused = true;
+        helpDidPause = true;
+        render();
+      }
+    }
+  }
+  if (modeSelectEl) {
+    modeSelectEl.value = readMode();
+    modeSelectEl.addEventListener('change', () => applyMode(modeSelectEl.value));
   }
   // Ghost-piece toggle (help/settings panel): persist and redraw immediately.
   const ghostToggleEl = document.getElementById('ghost-toggle');
@@ -1876,6 +2013,9 @@
     getAccent: () => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
     getStartLevel: () => readStartLevel(),
     setStartLevel: (value) => applyStartLevel(value),
+    getMode: () => readMode(),
+    setMode: (value) => applyMode(value),
+    getSprintBest: () => readSprintBest(),
     getGhostEnabled: () => ghostEnabled,
     setGhostEnabled: (value) => applyGhostEnabled(value),
     getHaptics: () => hapticsEnabled,

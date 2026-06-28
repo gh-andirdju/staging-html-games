@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="tetris-build" content="tetris-canvas-a11y-2026-06-28.19">
+    <meta name="tetris-build" content="tetris-sprint-2026-06-28.20">
     <title>Marathon Tetris</title>
     <link rel="preload" href="src/fonts/chakra-petch-700-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="src/fonts/chakra-petch-600-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -120,6 +120,13 @@
             <button type="button" class="swatch" data-accent="#46cf6d" style="--sw:#46cf6d" aria-label="Green accent"></button>
             <button type="button" class="swatch" data-accent="#b05de0" style="--sw:#b05de0" aria-label="Purple accent"></button>
           </div>
+        </div>
+        <div class="theme-row">
+          <label class="theme-label" for="mode-select">Mode</label>
+          <select id="mode-select" aria-label="Game mode">
+            <option value="marathon">Marathon</option>
+            <option value="sprint">Sprint 40</option>
+          </select>
         </div>
         <div class="theme-row">
           <label class="theme-label" for="start-level">Start level</label>
