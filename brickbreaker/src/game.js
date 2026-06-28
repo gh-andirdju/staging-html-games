@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-haptics-toggle-2026-06-28.6";
+  var BUILD_ID = "brickbreaker-accent-2026-06-28.7";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -242,6 +242,41 @@
     try {
       navigator.vibrate(pattern);
     } catch (e) {}
+  }
+
+  // Themeable accent — drives buttons, borders, and the background glow via CSS
+  // custom properties. Amber is the default, so the out-of-the-box look is unchanged.
+  var ACCENT_KEY = "brickbreaker-accent";
+  var ACCENTS = ["#f59e0b", "#34d2e8", "#ff4d8d", "#46cf6d", "#b05de0"];
+
+  function hexToRgb(hex) {
+    var n = String(hex).replace("#", "");
+    return {
+      r: parseInt(n.slice(0, 2), 16),
+      g: parseInt(n.slice(2, 4), 16),
+      b: parseInt(n.slice(4, 6), 16)
+    };
+  }
+
+  function readAccent() {
+    try {
+      var v = window.localStorage.getItem(ACCENT_KEY);
+      return ACCENTS.indexOf(v) >= 0 ? v : ACCENTS[0];
+    } catch (e) {
+      return ACCENTS[0];
+    }
+  }
+
+  function applyAccent(hex) {
+    var value = ACCENTS.indexOf(hex) >= 0 ? hex : ACCENTS[0];
+    var rgb = hexToRgb(value);
+    document.documentElement.style.setProperty("--accent", value);
+    document.documentElement.style.setProperty("--accent-rgb", rgb.r + ", " + rgb.g + ", " + rgb.b);
+    var swatches = document.querySelectorAll(".swatch");
+    for (var i = 0; i < swatches.length; i += 1) {
+      swatches[i].setAttribute("aria-pressed", swatches[i].dataset.accent === value ? "true" : "false");
+    }
+    try { window.localStorage.setItem(ACCENT_KEY, value); } catch (e) {}
   }
 
   var state;
@@ -1406,6 +1441,16 @@
     });
   }
 
+  var swatchEls = document.querySelectorAll(".swatch");
+  for (var s = 0; s < swatchEls.length; s += 1) {
+    (function (el) {
+      el.addEventListener("click", function () {
+        applyAccent(el.dataset.accent);
+      });
+    })(swatchEls[s]);
+  }
+  applyAccent(readAccent());
+
   window.__brickbreakerTest = {
     isReady: false,
     buildId: BUILD_ID,
@@ -1471,6 +1516,12 @@
     },
     setHaptics: function (value) {
       applyHapticsEnabled(value);
+    },
+    getAccent: function () {
+      return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    },
+    setAccent: function (hex) {
+      applyAccent(hex);
     }
   };
 

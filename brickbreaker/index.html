@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="brickbreaker-build" content="brickbreaker-haptics-toggle-2026-06-28.6">
+    <meta name="brickbreaker-build" content="brickbreaker-accent-2026-06-28.7">
     <title>Brickbreaker</title>
     <link rel="stylesheet" href="src/styles.css">
   </head>
@@ -77,6 +77,16 @@
         <div class="help-setting">
           <label for="haptics-toggle">Vibration</label>
           <input id="haptics-toggle" type="checkbox" checked aria-label="Vibration feedback">
+        </div>
+        <div class="help-setting">
+          <span>Accent</span>
+          <div class="swatches" id="swatches" role="group" aria-label="Accent color">
+            <button type="button" class="swatch" data-accent="#f59e0b" style="--sw:#f59e0b" aria-label="Amber accent"></button>
+            <button type="button" class="swatch" data-accent="#34d2e8" style="--sw:#34d2e8" aria-label="Cyan accent"></button>
+            <button type="button" class="swatch" data-accent="#ff4d8d" style="--sw:#ff4d8d" aria-label="Magenta accent"></button>
+            <button type="button" class="swatch" data-accent="#46cf6d" style="--sw:#46cf6d" aria-label="Green accent"></button>
+            <button type="button" class="swatch" data-accent="#b05de0" style="--sw:#b05de0" aria-label="Purple accent"></button>
+          </div>
         </div>
         <button id="help-close" type="button" class="action-button">Got it</button>
       </div>

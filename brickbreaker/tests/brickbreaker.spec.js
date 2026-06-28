@@ -859,6 +859,29 @@ test('breaking a brick emits haptic feedback, and the toggle suppresses it', asy
   expect(await page.evaluate(() => window.__vibes.filter((v) => v !== 0).length)).toBe(0);
 });
 
+test('the accent swatches re-theme the UI and persist across reloads', async ({ page }) => {
+  await openGame(page);
+  // Default accent is amber.
+  const initial = await page.evaluate(() => window.__brickbreakerTest.getAccent());
+  expect(initial.toLowerCase()).toBe('#f59e0b');
+
+  // Click the cyan swatch (it lives in the hidden help panel, so click it in-page).
+  await page.evaluate(() => document.querySelector('.swatch[data-accent="#34d2e8"]').click());
+  expect((await page.evaluate(() => window.__brickbreakerTest.getAccent())).toLowerCase()).toBe('#34d2e8');
+  expect(await page.evaluate(() => window.localStorage.getItem('brickbreaker-accent'))).toBe('#34d2e8');
+  // The pressed swatch is reflected for a11y.
+  expect(await page.evaluate(() => document.querySelector('.swatch[data-accent="#34d2e8"]').getAttribute('aria-pressed'))).toBe('true');
+
+  // Persists across reload.
+  await page.reload();
+  await page.waitForFunction(() => window.__brickbreakerTest && window.__brickbreakerTest.isReady === true);
+  expect((await page.evaluate(() => window.__brickbreakerTest.getAccent())).toLowerCase()).toBe('#34d2e8');
+
+  // An unknown accent falls back to the default.
+  await page.evaluate(() => window.__brickbreakerTest.setAccent('#123456'));
+  expect((await page.evaluate(() => window.__brickbreakerTest.getAccent())).toLowerCase()).toBe('#f59e0b');
+});
+
 test('the help-panel vibration toggle controls and persists haptics', async ({ page }) => {
   await openGame(page);
   expect(await page.evaluate(() => document.getElementById('haptics-toggle')?.checked)).toBe(true);
