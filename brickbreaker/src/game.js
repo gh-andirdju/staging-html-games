@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-autopause-2026-06-28.4";
+  var BUILD_ID = "brickbreaker-haptics-2026-06-28.5";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -199,6 +199,38 @@
   }
 
   var sfx = createSfx();
+
+  // Haptic feedback — short vibrations on key events for touch devices; on by default,
+  // persisted, and a no-op where the Vibration API is unavailable (most desktops).
+  var HAPTICS_KEY = "brickbreaker-haptics";
+
+  function readHapticsEnabled() {
+    try {
+      return window.localStorage.getItem(HAPTICS_KEY) !== "0";
+    } catch (e) {
+      return true;
+    }
+  }
+
+  function writeHapticsEnabled(value) {
+    try {
+      window.localStorage.setItem(HAPTICS_KEY, value ? "1" : "0");
+    } catch (e) {}
+  }
+
+  var hapticsEnabled = readHapticsEnabled();
+
+  function vibrate(pattern) {
+    if (!hapticsEnabled) {
+      return;
+    }
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") {
+      return;
+    }
+    try {
+      navigator.vibrate(pattern);
+    } catch (e) {}
+  }
 
   var state;
   var lastTime = 0;
@@ -668,6 +700,7 @@
     state.combo = 0;
     resetEffects();
     sfx.playLifeLost();
+    vibrate([60, 40, 80]);
 
     if (state.lives <= 0) {
       state.lives = 0;
@@ -723,6 +756,7 @@
     spawnPickup(brick);
     spawnBrickParticles(brick);
     sfx.playBrickBreak(brick.row);
+    vibrate(10);
     return true;
   }
 
@@ -842,6 +876,7 @@
       if (rectsOverlap(pickup, paddleRect)) {
         activatePowerUp(pickup.type);
         sfx.playPickup();
+        vibrate(14);
         state.pickups.splice(i, 1);
       } else if (pickup.y > HEIGHT) {
         state.pickups.splice(i, 1);
@@ -1410,6 +1445,16 @@
     setMuted: function (value) {
       sfx.setMuted(Boolean(value));
       updateHud();
+    },
+    getHaptics: function () {
+      return hapticsEnabled;
+    },
+    setHaptics: function (value) {
+      hapticsEnabled = Boolean(value);
+      writeHapticsEnabled(hapticsEnabled);
+      if (!hapticsEnabled && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        try { navigator.vibrate(0); } catch (e) {}
+      }
     }
   };
 
