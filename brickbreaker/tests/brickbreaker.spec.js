@@ -165,9 +165,11 @@ async function mutateState(page, mutatorName, options = {}) {
           Object.assign(ball, {
             x: width - radius - 1,
             y: height / 2,
-            dx: Math.abs(ball.dx ?? ball.velocityX ?? 4),
-            vx: Math.abs(ball.vx ?? ball.dx ?? ball.velocityX ?? 4),
-            velocityX: Math.abs(ball.velocityX ?? ball.dx ?? 4),
+            // Use || (not ??) with a realistic fallback so a parked ball (velocity 0)
+            // still gets a true rightward speed that reaches the wall within a few frames.
+            dx: Math.abs(ball.dx || ball.velocityX || 240),
+            vx: Math.abs(ball.vx || ball.dx || ball.velocityX || 240),
+            velocityX: Math.abs(ball.velocityX || ball.dx || 240),
             dy: 0,
             vy: 0,
             velocityY: 0
@@ -773,6 +775,8 @@ test('pressing R while paused restarts the game unpaused', async ({ page }) => {
   expect(lives(state)).toBe(3);
   expect(levelNumber(state)).toBe(1);
 
+  // A fresh life starts with the ball parked for serve; launch it, then it moves.
+  await page.evaluate(() => window.__brickbreakerTest.launchBall());
   const before = await getState(page);
   await advanceFrames(page, 10);
   state = await getState(page);
@@ -1712,5 +1716,61 @@ test.describe('sound and mute', () => {
     await advanceFrames(page, 8);
     state = await getState(page);
     expect(isGameOver(state)).toBe(true);
+  });
+});
+
+test.describe('ball serve', () => {
+  async function isAwaitingServe(page) {
+    return page.evaluate(() => window.__brickbreakerTest.isAwaitingServe());
+  }
+  function ballVerticalVelocity(state) {
+    const ball = state.ball ?? state.balls?.[0] ?? {};
+    return ball.dy ?? ball.velocityY ?? ball.vy;
+  }
+
+  test('a fresh game parks the ball for serve and it stays put until launched', async ({ page }) => {
+    await openGame(page);
+    expect(await isAwaitingServe(page)).toBe(true);
+    const before = ballPosition(await getState(page));
+    await advanceFrames(page, 20);
+    const after = ballPosition(await getState(page));
+    expect(after).toEqual(before); // glued to the paddle, no motion
+  });
+
+  test('launching releases the ball upward and clears the serve state', async ({ page }) => {
+    await openGame(page);
+    await page.evaluate(() => window.__brickbreakerTest.launchBall());
+    expect(await isAwaitingServe(page)).toBe(false);
+    const launched = await getState(page);
+    expect(ballVerticalVelocity(launched)).toBeLessThan(0); // moving up
+    const before = ballPosition(launched);
+    await advanceFrames(page, 10);
+    const after = ballPosition(await getState(page));
+    expect(after).not.toEqual(before);
+  });
+
+  test('the parked ball tracks the paddle, then Space launches it', async ({ page }) => {
+    await openGame(page);
+    // Steer the paddle via paddleX only (no authored ball, so the serve state survives);
+    // the parked ball should follow the paddle center.
+    await setState(page, { paddleX: 120 });
+    await advanceFrames(page, 1);
+    expect(await isAwaitingServe(page)).toBe(true);
+    let state = await getState(page);
+    expect(ballPosition(state).x).toBeCloseTo(paddleX(state) + paddleWidth(state) / 2, 0);
+
+    await page.keyboard.press('Space');
+    expect(await isAwaitingServe(page)).toBe(false);
+    expect(ballVerticalVelocity(await getState(page))).toBeLessThan(0);
+  });
+
+  test('losing a life re-parks the ball for a fresh serve', async ({ page }) => {
+    await openGame(page);
+    await page.evaluate(() => window.__brickbreakerTest.launchBall());
+    expect(await isAwaitingServe(page)).toBe(false);
+    await mutateState(page, 'missedBall', { lives: 3 });
+    await advanceFrames(page, 4);
+    expect(await isAwaitingServe(page)).toBe(true);
+    expect(lives(await getState(page))).toBe(2);
   });
 });

@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-shield-2026-06-28.13";
+  var BUILD_ID = "brickbreaker-serve-2026-06-28.14";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -498,12 +498,58 @@
     snapshot.effectsDisplay = getEffectsDisplay();
     snapshot.helpOpen = !helpOverlayEl.hidden;
     snapshot.muted = sfx.isMuted();
+    // Serve state is internal: keep it out of the round-tripped snapshot so a test that
+    // re-applies getState() (e.g. via a mutator) gets a live in-play ball by default.
+    // Tests observe the parked state through the isAwaitingServe() hook instead.
+    delete snapshot.awaitingServe;
     return snapshot;
   }
 
   function resetBall() {
-    state.balls = [makeBallStartForLevel(state.level || 1)];
-    state.ball = state.balls[0];
+    // Park the ball on the paddle awaiting the player's serve, instead of launching it
+    // immediately in a fixed direction. The player aims and releases it (see launchBall).
+    var launch = makeBallStartForLevel(state.level || 1);
+    var paddleX = typeof state.paddleX === "number" ? state.paddleX : paddle.x;
+    var paddleWidth = state.paddleWidth || paddle.width;
+    var parked = {
+      radius: launch.radius,
+      x: clamp(paddleX + paddleWidth / 2, launch.radius, WIDTH - launch.radius),
+      y: paddle.y - launch.radius - 2,
+      dx: 0,
+      dy: 0
+    };
+    state.balls = [parked];
+    state.ball = parked;
+    state.awaitingServe = true;
+    syncBallAliases(parked);
+  }
+
+  // Release a parked ball into play. Aim follows the paddle's current travel (a left/right
+  // hold angles the serve that way), else it leans toward the canonical start direction.
+  function launchBall() {
+    if (!state.awaitingServe || state.status !== "Playing" || state.paused) {
+      return;
+    }
+    var ball = state.balls && state.balls[0];
+    if (!ball) {
+      return;
+    }
+    var launch = makeBallStartForLevel(state.level || 1);
+    var speed = Math.sqrt(launch.dx * launch.dx + launch.dy * launch.dy);
+    var aim;
+    if (keys.left && !keys.right) {
+      aim = -PADDLE_MAX_BOUNCE_ANGLE * 0.5;
+    } else if (keys.right && !keys.left) {
+      aim = PADDLE_MAX_BOUNCE_ANGLE * 0.5;
+    } else {
+      aim = (launch.dx >= 0 ? 1 : -1) * PADDLE_MAX_BOUNCE_ANGLE * 0.45;
+    }
+    ball.dx = speed * Math.sin(aim);
+    ball.dy = -Math.abs(speed * Math.cos(aim));
+    syncBallAliases(ball);
+    state.awaitingServe = false;
+    sfx.playPaddleHit();
+    vibrate(14);
   }
 
   function resetEffects() {
@@ -584,6 +630,7 @@
     state.paddleWidth = typeof state.paddleWidth === "number" ? state.paddleWidth : paddle.width;
     state.laserCooldown = typeof state.laserCooldown === "number" ? state.laserCooldown : 0;
     state.paused = typeof state.paused === "boolean" ? state.paused : false;
+    state.awaitingServe = typeof state.awaitingServe === "boolean" ? state.awaitingServe : false;
     state.level = typeof state.level === "number" ? Math.max(1, Math.floor(state.level)) : 1;
     state.levelClears = typeof state.levelClears === "number" ? Math.max(0, Math.floor(state.levelClears)) : 0;
     state.highScore = typeof state.highScore === "number" ? state.highScore : readHighScore();
@@ -1129,6 +1176,19 @@
   }
 
   function updateBalls(dt) {
+    // While awaiting the serve the ball rides on the paddle and skips all motion/collision.
+    if (state.awaitingServe) {
+      var parked = state.balls && state.balls[0];
+      if (parked) {
+        parked.x = clamp(state.paddleX + state.paddleWidth / 2, parked.radius, WIDTH - parked.radius);
+        parked.y = paddle.y - parked.radius - 2;
+        parked.dx = 0;
+        parked.dy = 0;
+        syncBallAliases(parked);
+      }
+      return;
+    }
+
     var paddleRect = {
       x: state.paddleX,
       y: paddle.y,
@@ -1349,6 +1409,18 @@
       ctx.restore();
     }
 
+    // Serve prompt: only while a parked ball is waiting in active play (so the static
+    // "Playing" visual baseline, which has a live ball, is unaffected).
+    if (state.awaitingServe && state.status === "Playing" && !state.paused) {
+      ctx.save();
+      ctx.fillStyle = "rgba(249, 250, 251, 0.85)";
+      ctx.font = "16px Arial, Helvetica, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Press Space / tap to launch", WIDTH / 2, HEIGHT / 2 + 40);
+      ctx.textAlign = "start";
+      ctx.restore();
+    }
+
     if (state.status !== "Playing") {
       ctx.fillStyle = "rgba(2, 6, 23, 0.72)";
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -1415,6 +1487,10 @@
       keys.right = pressed && !state.paused;
       event.preventDefault();
     }
+    if ((event.key === " " || event.key === "Spacebar" || event.key === "ArrowUp" || event.key === "w" || event.key === "W") && pressed) {
+      launchBall();
+      event.preventDefault();
+    }
     if ((event.key === "r" || event.key === "R") && pressed) {
       restart();
     }
@@ -1470,12 +1546,19 @@
     updatePaddlePositionFromCanvasClientX(event.clientX);
   });
 
+  // A press on the board launches a parked ball (desktop click / mobile tap on the board).
+  canvas.addEventListener("pointerdown", function () {
+    launchBall();
+  });
+
   paddleDragLane.addEventListener("pointerdown", function (event) {
     activeControlPointerId = event.pointerId;
     if (paddleDragLane.setPointerCapture) {
       paddleDragLane.setPointerCapture(event.pointerId);
     }
     updatePaddlePositionFromLaneClientX(event.clientX);
+    // Tapping the steering lane also serves a parked ball.
+    launchBall();
     event.preventDefault();
   }, { passive: false });
 
@@ -1575,6 +1658,13 @@
         incoming.ball = incoming.balls[0];
       }
       state = Object.assign(state, incoming);
+      // A test that authors a ball means a live, in-play ball unless it explicitly asks
+      // for the parked serve state — so gameplay tests keep their moving ball.
+      if (typeof incoming.awaitingServe === "boolean") {
+        state.awaitingServe = incoming.awaitingServe;
+      } else if (incoming.ball || incoming.balls) {
+        state.awaitingServe = false;
+      }
       if (!state.ball && (!state.balls || state.balls.length === 0)) {
         resetBall();
       }
@@ -1629,6 +1719,13 @@
     },
     setAccent: function (hex) {
       applyAccent(hex);
+    },
+    isAwaitingServe: function () {
+      return Boolean(state && state.awaitingServe);
+    },
+    launchBall: function () {
+      launchBall();
+      return publicState();
     }
   };
 
