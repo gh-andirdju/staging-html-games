@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-autopause-2026-06-27.15';
+  const BUILD_ID = 'tetris-haptics-2026-06-28.16';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -213,6 +213,32 @@
   }
 
   let ghostEnabled = readGhostEnabled();
+
+  // Haptic feedback — short vibrations on key events for touch devices; on by default,
+  // and a no-op where the Vibration API is unavailable (most desktops).
+  const HAPTICS_KEY = 'tetris-haptics';
+
+  function readHapticsEnabled() {
+    try {
+      return window.localStorage.getItem(HAPTICS_KEY) !== '0';
+    } catch {
+      return true;
+    }
+  }
+
+  function writeHapticsEnabled(value) {
+    try {
+      window.localStorage.setItem(HAPTICS_KEY, value ? '1' : '0');
+    } catch {}
+  }
+
+  let hapticsEnabled = readHapticsEnabled();
+
+  function vibrate(pattern) {
+    if (!hapticsEnabled) return;
+    if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+    try { navigator.vibrate(pattern); } catch (_) {}
+  }
 
   // Themeable accent — drives the score, hard-drop pad, level meter and board glow.
   const ACCENT_KEY = 'tetris-accent';
@@ -482,6 +508,7 @@
       syncStatusMessage();
       if (state.newRecord) sfx.playNewRecord();
       else sfx.playGameOver();
+      vibrate([80, 40, 120]);
     }
   }
 
@@ -714,6 +741,10 @@
       else if (tSpin) sfx.playTSpin();
       if (state.combo > 0) sfx.playCombo(state.combo);
       if (state.level > previousLevel) sfx.playLevelUp();
+      // Haptics scale with the feat: Perfect Clear > Tetris/T-spin > ordinary clear.
+      if (perfectClear) vibrate([30, 30, 30, 60]);
+      else if (cleared === 4 || tSpin) vibrate([40, 30, 40]);
+      else vibrate(18 + cleared * 8);
     }
     spawnPiece();
   }
@@ -759,7 +790,7 @@
     mergePiece();
     const rows = findFullRows();
     state.current = null;
-    if (!silent) sfx.playLock();
+    if (!silent) { sfx.playLock(); vibrate(8); }
     if (rows.length > 0) {
       state.pendingTSpin = tSpin;
       const intensity = clearWouldEmptyBoard(rows) ? 2 : (rows.length === 4 || tSpin ? 1 : 0);
@@ -895,6 +926,7 @@
     if (distance > 0) state.lastMoveRotation = false;
     applyHardDropPoints(distance);
     sfx.playHardDrop();
+    vibrate(16);
     lockPiece({ silent: true });
   }
 
@@ -1818,6 +1850,14 @@
     getStartLevel: () => readStartLevel(),
     setStartLevel: (value) => applyStartLevel(value),
     getGhostEnabled: () => ghostEnabled,
-    setGhostEnabled: (value) => applyGhostEnabled(value)
+    setGhostEnabled: (value) => applyGhostEnabled(value),
+    getHaptics: () => hapticsEnabled,
+    setHaptics: (value) => {
+      hapticsEnabled = Boolean(value);
+      writeHapticsEnabled(hapticsEnabled);
+      if (!hapticsEnabled && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        try { navigator.vibrate(0); } catch (_) {}
+      }
+    }
   };
 })();

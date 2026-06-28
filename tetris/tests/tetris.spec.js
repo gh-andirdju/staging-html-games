@@ -184,9 +184,67 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-autopause-2026-06-27.15');
+  expect(marker.win).toBe('tetris-haptics-2026-06-28.16');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
+});
+
+test('hard drop emits a haptic pulse and haptics default on', async ({ page }) => {
+  await openGame(page);
+  expect(await page.evaluate(() => window.__tetrisTest.getHaptics())).toBe(true);
+  await page.evaluate(() => {
+    window.__vibes = [];
+    navigator.vibrate = (pattern) => { window.__vibes.push(pattern); return true; };
+  });
+
+  await page.keyboard.press('Space'); // hard drop
+  const vibes = await page.evaluate(() => window.__vibes);
+  expect(vibes).toContain(16); // hard-drop buzz
+});
+
+test('a line clear emits a scaled haptic pulse', async ({ page }) => {
+  await openGame(page);
+  const state = await getState(page);
+  await page.evaluate(() => {
+    window.__vibes = [];
+    navigator.vibrate = (pattern) => { window.__vibes.push(pattern); return true; };
+  });
+
+  const board = Array.from({ length: 20 }, () => Array(10).fill(0));
+  board[19] = [1, 1, 1, 1, 0, 0, 1, 1, 1, 1]; // missing cols 4,5 — an O fills it for a single clear
+  await setState(page, {
+    ...state,
+    board,
+    current: { type: 'O', index: 2, x: 4, y: 18, rotation: 0 },
+    gravityTick: 0, lockTimer: 0
+  });
+
+  await page.keyboard.press('Space'); // hard drop locks and starts the clear
+  await advanceFrames(page, 20);       // clear animation resolves
+  const after = await getState(page);
+  expect(after.lines).toBe(1);
+  const vibes = await page.evaluate(() => window.__vibes);
+  expect(vibes).toContain(26); // single-clear pulse = 18 + 1 * 8
+});
+
+test('disabling haptics suppresses vibration and re-enabling restores it', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    window.__vibes = [];
+    navigator.vibrate = (pattern) => { window.__vibes.push(pattern); return true; };
+    window.__tetrisTest.setHaptics(false);
+  });
+  expect(await page.evaluate(() => window.__tetrisTest.getHaptics())).toBe(false);
+
+  await page.keyboard.press('Space'); // hard drop — should not vibrate
+  // Filter out the cancel pulse (0) that setHaptics(false) issues.
+  let vibes = await page.evaluate(() => window.__vibes.filter((value) => value !== 0));
+  expect(vibes.length).toBe(0);
+
+  await page.evaluate(() => window.__tetrisTest.setHaptics(true));
+  await page.keyboard.press('Space'); // hard drop — should vibrate again
+  vibes = await page.evaluate(() => window.__vibes.filter((value) => value !== 0));
+  expect(vibes.length).toBeGreaterThan(0);
 });
 
 test('auto-pauses an in-progress game when the tab is hidden', async ({ page }) => {
