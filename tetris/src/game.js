@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-haptics-toggle-2026-06-28.17';
+  const BUILD_ID = 'tetris-blurpause-2026-06-28.18';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -1804,6 +1804,14 @@
       lastTime = 0;
       accumulator = 0;
     }
+  });
+
+  // Switching to another window/app while the tab stays visible doesn't fire
+  // visibilitychange, so also pause on window blur (and reset timing on refocus).
+  window.addEventListener('blur', () => autoPauseGame());
+  window.addEventListener('focus', () => {
+    lastTime = 0;
+    accumulator = 0;
   });
 
   let _resizeTimer = null;

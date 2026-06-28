@@ -184,9 +184,21 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-haptics-toggle-2026-06-28.17');
+  expect(marker.win).toBe('tetris-blurpause-2026-06-28.18');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
+});
+
+test('auto-pauses an in-progress game when the window loses focus', async ({ page }) => {
+  await openGame(page);
+  expect((await getState(page)).paused).toBe(false);
+
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+  expect((await getState(page)).paused).toBe(true);
+
+  // Refocus does not auto-resume.
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  expect((await getState(page)).paused).toBe(true);
 });
 
 test('the help-panel vibration toggle controls and persists haptics', async ({ page }) => {
