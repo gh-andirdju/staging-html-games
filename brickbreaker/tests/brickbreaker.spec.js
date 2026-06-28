@@ -1847,3 +1847,13 @@ test.describe('help-panel keyboard focus', () => {
     expect(outlineStyle).not.toBe('none');
   });
 });
+
+test('exposes theme-color and description meta tags', async ({ page }) => {
+  await openGame(page);
+  const meta = await page.evaluate(() => ({
+    theme: document.querySelector('meta[name="theme-color"]')?.getAttribute('content'),
+    desc: document.querySelector('meta[name="description"]')?.getAttribute('content')
+  }));
+  expect(meta.theme).toBe('#080400');
+  expect(meta.desc).toMatch(/Brick Breaker/);
+});
