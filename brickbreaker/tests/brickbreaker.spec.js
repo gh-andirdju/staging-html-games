@@ -1879,3 +1879,11 @@ test('is an installable PWA (linked, valid manifest)', async ({ page }) => {
   expect(manifest.display).toBe('standalone');
   expect(manifest.icons.length).toBeGreaterThan(0);
 });
+
+test.describe('no-JavaScript fallback', () => {
+  test.use({ javaScriptEnabled: false });
+  test('shows a message when JavaScript is disabled', async ({ page }) => {
+    await page.goto('./');
+    await expect(page.getByText(/needs JavaScript enabled/i)).toBeVisible();
+  });
+});

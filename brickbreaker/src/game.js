@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-pwa-2026-06-28.21";
+  var BUILD_ID = "brickbreaker-noscript-2026-06-28.22";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
