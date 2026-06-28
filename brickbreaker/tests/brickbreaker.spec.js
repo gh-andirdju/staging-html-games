@@ -1833,3 +1833,17 @@ test.describe('level-clear flash', () => {
     expect(state.levelFlash || 0).toBe(0);
   });
 });
+
+test.describe('help-panel keyboard focus', () => {
+  test('the start-zone select shows a keyboard focus ring', async ({ page }) => {
+    await openGame(page);
+    await page.locator('#help').click();
+    await expect(page.locator('#help-overlay')).toBeVisible();
+    // Keyboard navigation (not a programmatic focus) triggers :focus-visible.
+    await page.locator('#help-close').focus();
+    await page.keyboard.press('Shift+Tab');
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe('start-zone');
+    const outlineStyle = await page.locator('#start-zone').evaluate((el) => getComputedStyle(el).outlineStyle);
+    expect(outlineStyle).not.toBe('none');
+  });
+});
