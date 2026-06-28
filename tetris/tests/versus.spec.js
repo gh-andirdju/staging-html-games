@@ -117,10 +117,14 @@ test('exposes a build marker', async ({ page }) => {
   await openVersus(page);
   const marker = await page.evaluate(() => ({
     hook: window.__versusTest.buildId,
-    meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
+    meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content'),
+    theme: document.querySelector('meta[name="theme-color"]')?.getAttribute('content'),
+    icon: document.querySelector('link[rel="icon"]')?.getAttribute('href')
   }));
-  expect(marker.hook).toBe('tetris-versus-2026-06-17.7');
+  expect(marker.hook).toBe('tetris-versus-2026-06-28.8');
   expect(marker.meta).toBe(marker.hook);
+  expect(marker.theme).toBe('#0d0f14');
+  expect(marker.icon).toBe('favicon.svg');
 });
 
 test.describe('versus visual', () => {

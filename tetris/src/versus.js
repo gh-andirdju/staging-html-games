@@ -468,7 +468,7 @@
   // ── Test hook ────────────────────────────────────────────────────
   window.__versusTest = {
     isReady: true,
-    buildId: 'tetris-versus-2026-06-17.7',
+    buildId: 'tetris-versus-2026-06-28.8',
     setAutoStep,
     advanceFrames: async (n) => { for (let i = 0; i < (Number(n) || 0); i += 1) oneFrame(); },
     getState: () => ({
