@@ -1812,3 +1812,24 @@ test.describe('serve accessibility cue', () => {
     await expect(page.locator('canvas#game')).not.toHaveAttribute('aria-label', /Ready to launch/);
   });
 });
+
+test.describe('level-clear flash', () => {
+  test('clearing a zone triggers a decaying flash', async ({ page }) => {
+    await openGame(page);
+    await mutateState(page, 'oneBrickRemaining');
+    await advanceFrames(page, 6);
+    const state = await getState(page);
+    expect(levelNumber(state)).toBe(2);
+    expect(state.levelFlash).toBeGreaterThan(0);
+  });
+
+  test('reduced motion suppresses the level-clear flash', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await openGame(page);
+    await mutateState(page, 'oneBrickRemaining');
+    await advanceFrames(page, 6);
+    const state = await getState(page);
+    expect(levelNumber(state)).toBe(2);
+    expect(state.levelFlash || 0).toBe(0);
+  });
+});
