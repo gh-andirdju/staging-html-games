@@ -1799,3 +1799,16 @@ test.describe('ball trail', () => {
     expect(trail == null || trail.length === 0).toBe(true);
   });
 });
+
+test.describe('serve accessibility cue', () => {
+  test('the status region and canvas announce the launch prompt while awaiting serve', async ({ page }) => {
+    await openGame(page);
+    expect(await page.evaluate(() => window.__brickbreakerTest.isAwaitingServe())).toBe(true);
+    await expect(page.locator('#status')).toContainText('launch');
+    await expect(page.locator('canvas#game')).toHaveAttribute('aria-label', /Ready to launch/);
+
+    await page.evaluate(() => window.__brickbreakerTest.launchBall());
+    await expect(page.locator('#status')).not.toContainText('launch');
+    await expect(page.locator('canvas#game')).not.toHaveAttribute('aria-label', /Ready to launch/);
+  });
+});
