@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-noscript-2026-06-28.22";
+  var BUILD_ID = "brickbreaker-maxarea-2026-06-28.23";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -50,7 +50,7 @@
     x: WIDTH / 2,
     y: HEIGHT - 58,
     dx: 210,
-    dy: -260
+    dy: -390
   };
   var PADDLE_MAX_BOUNCE_ANGLE = Math.PI / 3;
   var BALL_BASE_SPEED = Math.sqrt(ballStart.dx * ballStart.dx + ballStart.dy * ballStart.dy);

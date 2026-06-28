@@ -1566,6 +1566,25 @@ test.describe('mobile touch controls', () => {
     expect(restartBox.height).toBeLessThan(laneBox.height * 0.75);
   });
 
+  test('maximizes the board: fills most of the portrait viewport with no scroll', async ({ page }) => {
+    await openGame(page);
+    const m = await page.evaluate(() => {
+      const c = document.querySelector('#game').getBoundingClientRect();
+      return {
+        vh: window.innerHeight,
+        cw: c.width,
+        ch: c.height,
+        scroll: document.scrollingElement.scrollHeight
+      };
+    });
+    // No page scroll — the whole game fits the viewport.
+    expect(m.scroll).toBeLessThanOrEqual(m.vh + 1);
+    // The board is the hero: it fills well over half the viewport height (was ~28% as a
+    // landscape board) and stays an undistorted 2:3 portrait.
+    expect(m.ch).toBeGreaterThan(m.vh * 0.55);
+    expect(m.cw / m.ch).toBeCloseTo(800 / 1200, 2);
+  });
+
   test('matches the mobile layout baseline', async ({ page }) => {
     await openGame(page);
     await prepareVisualLayout(page);
