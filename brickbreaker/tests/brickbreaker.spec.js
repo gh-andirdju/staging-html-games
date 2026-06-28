@@ -913,6 +913,32 @@ test('tracks bricks broken and best combo for the game-over stats line', async (
   expect(await page.evaluate(() => window.__brickbreakerTest.getState().bricksBroken ?? 0)).toBe(0);
 });
 
+test('the start-zone selector begins a new run at the chosen zone and persists', async ({ page }) => {
+  await openGame(page);
+  expect(await page.evaluate(() => window.__brickbreakerTest.getStartZone())).toBe(1);
+
+  // Choose zone 4 via the hook — the game restarts at level 4.
+  await page.evaluate(() => window.__brickbreakerTest.setStartZone(4));
+  let s = await getState(page);
+  expect(s.level).toBe(4);
+  expect(await page.evaluate(() => window.__brickbreakerTest.getStartZone())).toBe(4);
+  expect(await page.evaluate(() => window.localStorage.getItem('brickbreaker-start-zone'))).toBe('4');
+
+  // A plain restart keeps the chosen start zone.
+  await restart(page);
+  expect((await getState(page)).level).toBe(4);
+
+  // Persists across reload, and the select reflects it.
+  await page.reload();
+  await page.waitForFunction(() => window.__brickbreakerTest && window.__brickbreakerTest.isReady === true);
+  expect(await page.evaluate(() => window.__brickbreakerTest.getStartZone())).toBe(4);
+  expect(await page.evaluate(() => document.getElementById('start-zone').value)).toBe('4');
+
+  // Out-of-range values clamp to 1..10.
+  await page.evaluate(() => window.__brickbreakerTest.setStartZone(99));
+  expect(await page.evaluate(() => window.__brickbreakerTest.getStartZone())).toBe(10);
+});
+
 test('the accent swatches re-theme the UI and persist across reloads', async ({ page }) => {
   await openGame(page);
   // Default accent is amber.

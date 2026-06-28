@@ -295,6 +295,15 @@ body {
   accent-color: var(--accent);
 }
 
+.help-setting select {
+  background: rgba(15, 23, 42, 0.8);
+  color: #f8fafc;
+  border: 1px solid rgba(var(--accent-rgb), 0.45);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font: inherit;
+}
+
 .swatches {
   display: flex;
   gap: 8px;
