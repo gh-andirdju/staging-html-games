@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-canvas-a11y-2026-06-28.10";
+  var BUILD_ID = "brickbreaker-blurpause-2026-06-28.11";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -1390,6 +1390,15 @@
     if (document.hidden) {
       autoPauseOnHide();
     }
+  });
+
+  // Switching to another window/app while the tab stays visible doesn't fire
+  // visibilitychange, so also pause on window blur (and reset timing on refocus).
+  window.addEventListener("blur", function () {
+    autoPauseOnHide();
+  });
+  window.addEventListener("focus", function () {
+    lastTime = 0;
   });
 
   window.addEventListener("keydown", function (event) {
