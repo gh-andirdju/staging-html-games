@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-accent-2026-06-28.7";
+  var BUILD_ID = "brickbreaker-gameover-stats-2026-06-28.8";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -509,6 +509,7 @@
       levelClears: 0,
       combo: 0,
       bestCombo: 0,
+      bricksBroken: 0,
       particles: []
     };
     resetBall();
@@ -560,6 +561,7 @@
     state.newRecord = typeof state.newRecord === "boolean" ? state.newRecord : false;
     state.combo = typeof state.combo === "number" ? Math.max(0, Math.floor(state.combo)) : 0;
     state.bestCombo = typeof state.bestCombo === "number" ? Math.max(0, Math.floor(state.bestCombo)) : 0;
+    state.bricksBroken = typeof state.bricksBroken === "number" ? Math.max(0, Math.floor(state.bricksBroken)) : 0;
     state.particles = Array.isArray(state.particles) ? state.particles : [];
   }
 
@@ -798,6 +800,7 @@
     if (state.combo > (state.bestCombo || 0)) {
       state.bestCombo = state.combo;
     }
+    state.bricksBroken = (state.bricksBroken || 0) + 1;
     state.score += 10 * comboMultiplier(state.combo);
     recordHighScore();
     spawnPickup(brick);
@@ -1291,7 +1294,12 @@
       ctx.fillText(state.status, WIDTH / 2, HEIGHT / 2);
       ctx.font = "20px Arial, Helvetica, sans-serif";
       ctx.fillText("Score " + state.score + " · Best " + state.highScore, WIDTH / 2, HEIGHT / 2 + 38);
-      ctx.fillText("Press R or tap Restart", WIDTH / 2, HEIGHT / 2 + 68);
+      ctx.font = "16px Arial, Helvetica, sans-serif";
+      ctx.fillStyle = "rgba(249, 250, 251, 0.75)";
+      ctx.fillText("Best combo x" + (state.bestCombo || 0) + " · " + (state.bricksBroken || 0) + " bricks", WIDTH / 2, HEIGHT / 2 + 64);
+      ctx.fillStyle = "#f9fafb";
+      ctx.font = "20px Arial, Helvetica, sans-serif";
+      ctx.fillText("Press R or tap Restart", WIDTH / 2, HEIGHT / 2 + 92);
       ctx.textAlign = "start";
     } else if (state.paused) {
       ctx.fillStyle = "rgba(2, 6, 23, 0.62)";
