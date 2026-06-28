@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-start-zone-2026-06-28.12";
+  var BUILD_ID = "brickbreaker-shield-2026-06-28.13";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -26,7 +26,7 @@
   var WIDTH = canvas.width;
   var HEIGHT = canvas.height;
   var FIXED_DT = 1 / 60;
-  var POWER_UP_TYPES = ["wide", "slow", "life", "multi", "laser"];
+  var POWER_UP_TYPES = ["wide", "slow", "life", "multi", "laser", "shield"];
   var POWER_UP_DURATION = {
     wide: 60 * 12,
     slow: 60 * 10,
@@ -318,6 +318,7 @@
     if (type === "laser") return "L";
     if (type === "multi") return "D";
     if (type === "life") return "P";
+    if (type === "shield") return "G";
     return "";
   }
 
@@ -511,6 +512,7 @@
     state.activeEffects = {};
     state.paddleWidth = paddle.width;
     state.laserCooldown = 0;
+    state.shield = false;
   }
 
   function restart() {
@@ -536,7 +538,8 @@
       combo: 0,
       bestCombo: 0,
       bricksBroken: 0,
-      particles: []
+      particles: [],
+      shield: false
     };
     resetBall();
     updateHud();
@@ -589,6 +592,7 @@
     state.bestCombo = typeof state.bestCombo === "number" ? Math.max(0, Math.floor(state.bestCombo)) : 0;
     state.bricksBroken = typeof state.bricksBroken === "number" ? Math.max(0, Math.floor(state.bricksBroken)) : 0;
     state.particles = Array.isArray(state.particles) ? state.particles : [];
+    state.shield = typeof state.shield === "boolean" ? state.shield : false;
   }
 
   var BRICK_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"];
@@ -886,6 +890,12 @@
       return;
     }
 
+    if (type === "shield") {
+      // Arms a one-time safety net along the floor that bounces the next ball back.
+      state.shield = true;
+      return;
+    }
+
     if (POWER_UP_DURATION[type]) {
       state.activeEffects[type] = POWER_UP_DURATION[type];
     }
@@ -1145,8 +1155,18 @@
         ball.dy = Math.abs(ball.dy);
       }
       if (ball.y - ball.radius > HEIGHT) {
-        state.balls.splice(ballIndex, 1);
-        continue;
+        if (state.shield) {
+          // The safety net saves this ball once, then is consumed.
+          state.shield = false;
+          ball.y = HEIGHT - ball.radius;
+          ball.dy = -Math.abs(ball.dy);
+          sfx.playPaddleHit();
+          vibrate(20);
+          syncBallAliases(ball);
+        } else {
+          state.balls.splice(ballIndex, 1);
+          continue;
+        }
       }
 
       if (ball.dy > 0 && circleHitsRect(ball, paddleRect)) {
@@ -1218,6 +1238,7 @@
     if (type === "life") return "#22c55e";
     if (type === "multi") return "#f59e0b";
     if (type === "laser") return "#ef4444";
+    if (type === "shield") return "#60a5fa";
     return null;
   }
 
@@ -1316,6 +1337,16 @@
         ctx.fillRect(particle.x - particle.size / 2, particle.y - particle.size / 2, particle.size, particle.size);
         ctx.restore();
       }
+    }
+
+    // Armed safety net: a glowing bar along the floor that saves the next ball once.
+    if (state.shield) {
+      ctx.save();
+      ctx.fillStyle = powerUpColor("shield");
+      ctx.shadowColor = powerUpColor("shield");
+      ctx.shadowBlur = 12;
+      ctx.fillRect(0, HEIGHT - 5, WIDTH, 4);
+      ctx.restore();
     }
 
     if (state.status !== "Playing") {

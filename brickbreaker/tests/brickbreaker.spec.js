@@ -1319,6 +1319,31 @@ test('extra life pickup increases lives', async ({ page }) => {
   expect(lives(await getState(page))).toBeGreaterThan(beforeLives);
 });
 
+test('the shield power-up arms a one-time safety net that saves a falling ball', async ({ page }) => {
+  await openGame(page);
+  const height = await page.evaluate(() => document.getElementById('game').height);
+
+  // Catching the shield pickup arms the safety net.
+  await mutateState(page, 'catchPowerUp', { type: 'shield' });
+  await advanceFrames(page, 4);
+  expect((await getState(page)).shield).toBe(true);
+
+  // A ball that drops past the floor is bounced back (not lost) and the shield is spent.
+  await setState(page, { shield: true, lives: 3, balls: [{ x: 400, y: height + 12, dx: 0, dy: 240, radius: 8 }] });
+  await advanceFrames(page, 1);
+  let s = await getState(page);
+  expect(s.balls.length).toBe(1);     // saved, not lost
+  expect(s.shield).toBe(false);       // consumed
+  expect(s.balls[0].dy).toBeLessThan(0); // now travelling upward
+  expect(s.lives).toBe(3);            // no life lost
+
+  // With the shield spent, the next fall costs a life.
+  await setState(page, { shield: false, lives: 3, balls: [{ x: 400, y: height + 12, dx: 0, dy: 240, radius: 8 }] });
+  await advanceFrames(page, 2);
+  s = await getState(page);
+  expect(s.lives).toBeLessThan(3);
+});
+
 test('multiball pickup adds active balls', async ({ page }) => {
   await openGame(page);
   const beforeCount = balls(await getState(page)).length;
