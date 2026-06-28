@@ -74,8 +74,7 @@ body {
   align-content: center;
 }
 
-.label,
-.control-label {
+.label {
   color: var(--text-dim);
   font-size: 11px;
   font-weight: 700;
@@ -238,13 +237,6 @@ body {
   font-size: 16px;
 }
 
-.control-note {
-  margin: 0;
-  color: var(--text-dim);
-  font-size: 12px;
-  line-height: 1.35;
-  text-align: right;
-}
 
 .help-overlay {
   position: fixed;
