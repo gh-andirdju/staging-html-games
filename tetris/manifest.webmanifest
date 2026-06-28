@@ -1,0 +1,14 @@
+{
+  "name": "Marathon Tetris",
+  "short_name": "Tetris",
+  "description": "A fast, modern browser Tetris with SRS wall kicks, T-spins, hold, and a 40-line Sprint mode.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0f14",
+  "theme_color": "#0d0f14",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
