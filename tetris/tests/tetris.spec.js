@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-sprint-pb-2026-06-28.21');
+  expect(marker.win).toBe('tetris-meta-2026-06-28.22');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -2532,4 +2532,14 @@ test.describe('Sprint personal best readout', () => {
     await advanceFrames(page, 1);
     await expect(page.locator('#status')).toContainText('PB 0:41.0');
   });
+});
+
+test('exposes theme-color and description meta tags', async ({ page }) => {
+  await openGame(page);
+  const meta = await page.evaluate(() => ({
+    theme: document.querySelector('meta[name="theme-color"]')?.getAttribute('content'),
+    desc: document.querySelector('meta[name="description"]')?.getAttribute('content')
+  }));
+  expect(meta.theme).toBe('#0d0f14');
+  expect(meta.desc).toMatch(/Tetris/);
 });
