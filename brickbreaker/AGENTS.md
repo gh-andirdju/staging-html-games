@@ -3,6 +3,8 @@
 ## Project Structure & Module Organization
 `brickbreaker/` is a standalone static game package. Main runtime logic is in `src/game.js`, styles in `src/styles.css`, and page markup in `index.html`. Local static serving is handled by `server.js`. Playwright tests live in `tests/` with config in `playwright.config.js`.
 
+The board is a **portrait 800×1200 (2:3)** canvas (`WIDTH`/`HEIGHT` read from the canvas attributes; all physics derive from them). The layout maximizes the play area: `.game-shell` is a fixed `height: 100svh` grid (HUD / `1fr` playfield / controls), and the canvas auto-sizes to the largest 2:3 box that fits within both the container width and the leftover playfield height (`width/height: auto; max-width/max-height: 100%; aspect-ratio: 800/1200`) — so the board fills most of the portrait viewport with no page scroll, with the HUD and touch controls kept outside the gameplay area. A mobile test asserts the board exceeds 55% of viewport height and stays undistorted. Any change to the board dimensions or chrome footprint requires regenerating the `toHaveScreenshot` baselines.
+
 ## Build, Test, and Development Commands
 - `bun install`: install dependencies.
 - `bun run dev`: run local static server.
