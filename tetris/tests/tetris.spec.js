@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-canvas-a11y-2026-06-28.19');
+  expect(marker.win).toBe('tetris-sprint-2026-06-28.20');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -2405,5 +2405,110 @@ test.describe('sound and mute', () => {
     await advanceFrames(page, 1);
     s = await getState(page);
     expect(s.gameOver).toBe(true);
+  });
+});
+
+test.describe('Sprint mode', () => {
+  function fillSingleLineClear(board) {
+    for (let x = 0; x < 10; x += 1) board[19][x] = 1;
+    board[19][3] = 0;
+    board[19][4] = 0;
+    board[19][5] = 0;
+    board[19][6] = 0;
+    board[15][0] = 1; // residual block so the clear isn't also a Perfect Clear
+  }
+
+  test('mode hook persists the choice and starts a fresh run', async ({ page }) => {
+    await openGame(page);
+    await page.evaluate(() => window.__tetrisTest.setMode('sprint'));
+    expect(await page.evaluate(() => window.__tetrisTest.getMode())).toBe('sprint');
+    const state = await getState(page);
+    expect(state.mode).toBe('sprint');
+    expect(state.sprintTarget).toBe(40);
+    expect(state.lines).toBe(0);
+    expect(state.sprintComplete).toBe(false);
+  });
+
+  test('the sprint clock ticks through active play but stays idle in marathon', async ({ page }) => {
+    await openGame(page);
+    await advanceFrames(page, 10);
+    let s = await getState(page);
+    expect(s.sprintFrames).toBe(0); // marathon: no sprint clock
+    await setState(page, { ...s, mode: 'sprint', sprintFrames: 0, sprintComplete: false });
+    await advanceFrames(page, 30);
+    s = await getState(page);
+    expect(s.sprintFrames).toBe(30);
+  });
+
+  test('clearing the 40-line target completes the sprint and records a best time', async ({ page }) => {
+    await openGame(page);
+    await page.evaluate(() => { try { localStorage.removeItem('tetris-sprint-best'); } catch {} });
+    const state = await getState(page);
+    const board = state.board.map((row) => row.slice());
+    fillSingleLineClear(board);
+    await setState(page, {
+      ...state,
+      board,
+      mode: 'sprint',
+      sprintTarget: 40,
+      sprintFrames: 600,
+      sprintComplete: false,
+      lines: 39,
+      level: 4,
+      gameOver: false,
+      gravityFrames: 48,
+      gravityTick: 0,
+      current: { type: 'I', index: 1, x: 4, y: 17, rotation: 0 }
+    });
+    await page.keyboard.press('Space');
+    await advanceFrames(page, 18);
+    const after = await getState(page);
+    expect(after.lines).toBe(40);
+    expect(after.sprintComplete).toBe(true);
+    expect(after.gameOver).toBe(true);
+    expect(await page.evaluate(() => window.__tetrisTest.getSprintBest())).toBeGreaterThan(0);
+  });
+
+  test('marathon mode does not end when 40 lines are cleared', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    const board = state.board.map((row) => row.slice());
+    fillSingleLineClear(board);
+    await setState(page, {
+      ...state,
+      board,
+      mode: 'marathon',
+      lines: 39,
+      level: 4,
+      gameOver: false,
+      gravityFrames: 48,
+      gravityTick: 0,
+      current: { type: 'I', index: 1, x: 4, y: 17, rotation: 0 }
+    });
+    await page.keyboard.press('Space');
+    await advanceFrames(page, 18);
+    const after = await getState(page);
+    expect(after.lines).toBe(40);
+    expect(after.sprintComplete).toBe(false);
+    expect(after.gameOver).toBe(false);
+  });
+
+  test('the HUD status line shows a live sprint readout', async ({ page }) => {
+    await openGame(page);
+    const state = await getState(page);
+    await setState(page, {
+      ...state,
+      mode: 'sprint',
+      sprintFrames: 0,
+      lines: 0,
+      sprintComplete: false,
+      statusMessage: '',
+      statusMessageTimer: 0,
+      gameOver: false,
+      paused: false
+    });
+    await advanceFrames(page, 60);
+    await expect(page.locator('#status')).toContainText('Sprint');
+    await expect(page.locator('#status')).toContainText('lines left');
   });
 });
