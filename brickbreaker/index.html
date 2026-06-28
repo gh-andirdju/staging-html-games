@@ -13,7 +13,7 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="Brick Breaker">
     <meta property="og:description" content="A modern browser Breakout with power-ups, armored bricks, combos, lasers, and a one-time safety net.">
-    <meta name="brickbreaker-build" content="brickbreaker-maxarea-2026-06-28.23">
+    <meta name="brickbreaker-build" content="brickbreaker-maxarea2-2026-06-28.24">
     <title>Brickbreaker</title>
     <link rel="stylesheet" href="src/styles.css">
   </head>
@@ -56,20 +56,17 @@
 
       <section class="touch-controls" aria-label="Touch controls">
         <div class="thumb-zone movement-zone">
-          <span class="control-label">Paddle Lane</span>
           <div id="paddle-drag-lane" class="drag-lane" aria-label="Paddle drag lane">
             <span>Drag to steer</span>
           </div>
         </div>
         <div class="thumb-zone action-zone">
-          <span class="control-label">System</span>
           <div class="action-btns">
             <button id="pause" type="button" class="action-button" aria-pressed="false">Pause</button>
             <button id="restart" type="button" class="action-button">Restart</button>
             <button id="mute" type="button" class="action-button" aria-pressed="false" aria-label="Mute sound">🔊</button>
             <button id="help" type="button" class="action-button" aria-label="How to play">?</button>
           </div>
-          <p class="control-note">Lasers fire automatically when armed.</p>
         </div>
       </section>
     </main>
