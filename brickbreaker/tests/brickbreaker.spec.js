@@ -645,6 +645,29 @@ test('pressing P pauses and freezes ball movement and power-up timers', async ({
   expect(state.activeEffects.slow).toBe(300);
 });
 
+test('auto-pauses an in-progress game when the tab is hidden', async ({ page }) => {
+  await openGame(page);
+  let state = await getState(page);
+  expect(state.paused).toBe(false);
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  state = await getState(page);
+  expect(state.paused).toBe(true);
+
+  // Returning to the tab does NOT auto-resume — the player resumes deliberately.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  state = await getState(page);
+  expect(state.paused).toBe(true);
+});
+
 test('pressing P again resumes the simulation', async ({ page }) => {
   await openGame(page);
   await mutateState(page, 'movingBall');
