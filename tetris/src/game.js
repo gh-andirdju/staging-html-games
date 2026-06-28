@@ -1,7 +1,7 @@
 (() => {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-blurpause-2026-06-28.18';
+  const BUILD_ID = 'tetris-canvas-a11y-2026-06-28.19';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
@@ -1349,6 +1349,11 @@
     if (prevLinesShown !== null && state.lines > prevLinesShown) popStat(linesEl);
     prevLevelShown = state.level;
     prevLinesShown = state.lines;
+    // Keep the board's accessible name describing the live game state for screen readers.
+    const boardSummary = state.gameOver
+      ? `Tetris board. Game over. Level ${state.level}, ${state.lines} lines, score ${state.score}.`
+      : `Tetris board. Level ${state.level}, ${state.lines} lines, score ${state.score}${state.paused ? '. Paused' : ''}.`;
+    if (canvas.getAttribute('aria-label') !== boardSummary) canvas.setAttribute('aria-label', boardSummary);
     updateLevelMeter();
     const statusText = state.paused && !state.gameOver ? 'Paused' : state.statusMessage;
     const statusTone = state.paused && !state.gameOver ? 'normal' : state.statusTone;

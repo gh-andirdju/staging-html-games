@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-a11y-status-2026-06-28.9";
+  var BUILD_ID = "brickbreaker-canvas-a11y-2026-06-28.10";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -657,6 +657,13 @@
     pauseButton.setAttribute("aria-pressed", state.paused ? "true" : "false");
     muteButton.textContent = sfx.isMuted() ? "🔇" : "🔊";
     muteButton.setAttribute("aria-pressed", sfx.isMuted() ? "true" : "false");
+    // Keep the canvas's accessible name describing the live game state for screen readers.
+    var summary = state.status === "Game Over"
+      ? "Brick Breaker. Game over. Level " + state.level + ", score " + state.score + "."
+      : "Brick Breaker. Level " + state.level + ", " + state.lives + " lives, score " + state.score + (state.paused ? ". Paused" : "") + ".";
+    if (canvas.getAttribute("aria-label") !== summary) {
+      canvas.setAttribute("aria-label", summary);
+    }
   }
 
   function getStatusText() {

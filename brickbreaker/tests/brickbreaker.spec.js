@@ -645,6 +645,19 @@ test('pressing P pauses and freezes ball movement and power-up timers', async ({
   expect(state.activeEffects.slow).toBe(300);
 });
 
+test('the canvas exposes a live accessible description of game state', async ({ page }) => {
+  await openGame(page);
+  await setState(page, { score: 555, lives: 2, level: 4 });
+  const label = await page.evaluate(() => document.getElementById('game').getAttribute('aria-label'));
+  expect(label).toContain('Level 4');
+  expect(label).toContain('2 lives');
+  expect(label).toContain('score 555');
+
+  await setState(page, { status: 'Game Over', score: 555, level: 4 });
+  const overLabel = await page.evaluate(() => document.getElementById('game').getAttribute('aria-label'));
+  expect(overLabel.toLowerCase()).toContain('game over');
+});
+
 test('the status region is an aria-live polite region that announces state changes', async ({ page }) => {
   await openGame(page);
   const wrap = page.locator('.status-wrap');
