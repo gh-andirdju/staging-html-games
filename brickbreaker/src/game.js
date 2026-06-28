@@ -3,7 +3,7 @@
 
   // Invisible build marker — lets a deployed device be checked against committed
   // source via `window.__brickbreakerBuild` (or the <meta> tag in index.html).
-  var BUILD_ID = "brickbreaker-haptics-2026-06-28.5";
+  var BUILD_ID = "brickbreaker-haptics-toggle-2026-06-28.6";
   try { window.__brickbreakerBuild = BUILD_ID; } catch (e) {}
 
   var canvas = document.getElementById("game");
@@ -219,6 +219,18 @@
   }
 
   var hapticsEnabled = readHapticsEnabled();
+
+  function applyHapticsEnabled(value) {
+    hapticsEnabled = Boolean(value);
+    writeHapticsEnabled(hapticsEnabled);
+    var toggle = document.getElementById("haptics-toggle");
+    if (toggle) {
+      toggle.checked = hapticsEnabled;
+    }
+    if (!hapticsEnabled && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try { navigator.vibrate(0); } catch (e) {}
+    }
+  }
 
   function vibrate(pattern) {
     if (!hapticsEnabled) {
@@ -1386,6 +1398,14 @@
     }
   });
 
+  var hapticsToggleEl = document.getElementById("haptics-toggle");
+  if (hapticsToggleEl) {
+    hapticsToggleEl.checked = hapticsEnabled;
+    hapticsToggleEl.addEventListener("change", function () {
+      applyHapticsEnabled(hapticsToggleEl.checked);
+    });
+  }
+
   window.__brickbreakerTest = {
     isReady: false,
     buildId: BUILD_ID,
@@ -1450,11 +1470,7 @@
       return hapticsEnabled;
     },
     setHaptics: function (value) {
-      hapticsEnabled = Boolean(value);
-      writeHapticsEnabled(hapticsEnabled);
-      if (!hapticsEnabled && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-        try { navigator.vibrate(0); } catch (e) {}
-      }
+      applyHapticsEnabled(value);
     }
   };
 
