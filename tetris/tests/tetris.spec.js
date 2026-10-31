@@ -184,7 +184,7 @@ test('exposes a build marker on window and in the page head', async ({ page }) =
     hook: window.__tetrisTest.buildId,
     meta: document.querySelector('meta[name="tetris-build"]')?.getAttribute('content')
   }));
-  expect(marker.win).toBe('tetris-noscript-2026-06-28.26');
+  expect(marker.win).toBe('tetris-wasm-desktop-2026-10-31.1');
   expect(marker.hook).toBe(marker.win);
   expect(marker.meta).toBe(marker.win);
 });
@@ -1968,6 +1968,127 @@ test('pressing R while paused restarts the game unpaused', async ({ page }) => {
   expect(s.frame).toBe(1);
 });
 
+test.describe('desktop play', () => {
+  for (const viewport of [
+    { width: 1024, height: 768 },
+    { width: 1280, height: 720 },
+    { width: 1440, height: 900 },
+    { width: 1470, height: 850 },
+    { width: 1512, height: 865 },
+    { width: 1680, height: 1123 },
+    { width: 1920, height: 1080 }
+  ]) {
+    test(`keeps a large board and controls visible at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await openGame(page, { keepNaturalSize: true });
+      await prepareVisualLayout(page);
+      const layout = await page.evaluate(() => {
+        const readBox = (selector) => {
+          const rect = document.querySelector(selector).getBoundingClientRect();
+          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom };
+        };
+        return {
+          board: readBox('#game'),
+          left: readBox('.rail-left'),
+          right: readBox('.rail-right'),
+          controls: readBox('.legend'),
+          toolbar: readBox('.toolbar'),
+          scrollWidth: document.documentElement.scrollWidth,
+          scrollHeight: document.documentElement.scrollHeight,
+          boardSize: window.__tetrisTest.getBoardSize()
+        };
+      });
+      expect(layout.boardSize.cols).toBe(10);
+      expect(layout.boardSize.rows).toBe(20);
+      expect(layout.board.width).toBeGreaterThanOrEqual(250);
+      expect(layout.board.height).toBeGreaterThan(viewport.height * 0.8);
+      expect(layout.board.height / layout.board.width).toBeCloseTo(2, 1);
+      for (const box of [layout.board, layout.left, layout.right, layout.controls, layout.toolbar]) {
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.y).toBeGreaterThanOrEqual(0);
+        expect(box.right).toBeLessThanOrEqual(viewport.width + 1);
+        expect(box.bottom).toBeLessThanOrEqual(viewport.height + 1);
+      }
+      expect(layout.left.right).toBeLessThanOrEqual(layout.board.x);
+      expect(layout.board.right).toBeLessThanOrEqual(layout.right.x);
+      expect(layout.scrollWidth).toBeLessThanOrEqual(viewport.width + 1);
+      expect(layout.scrollHeight).toBeLessThanOrEqual(viewport.height + 1);
+    });
+  }
+
+  test('resizing a desktop window preserves the current run', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openGame(page, { keepNaturalSize: true });
+    await prepareVisualLayout(page);
+    const before = await getState(page);
+    const narrowWidth = await page.locator('#game').evaluate((canvas) => canvas.width);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(() => page.locator('#game').evaluate((canvas) => canvas.width)).toBeGreaterThan(narrowWidth);
+    const largeWidth = await page.locator('#game').evaluate((canvas) => canvas.width);
+    let after = await getState(page);
+    expect(after.board).toEqual(before.board);
+    expect(after.current).toEqual(before.current);
+    expect(after.score).toBe(before.score);
+    expect(after.lines).toBe(before.lines);
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await expect.poll(() => page.locator('#game').evaluate((canvas) => canvas.width)).toBeLessThan(largeWidth);
+    after = await getState(page);
+    expect(after.board).toEqual(before.board);
+    expect(after.current).toEqual(before.current);
+    expect(after.score).toBe(before.score);
+    expect(after.lines).toBe(before.lines);
+    expect(await page.evaluate(() => {
+      const { cols, rows } = window.__tetrisTest.getBoardSize();
+      return { cols, rows };
+    })).toEqual({ cols: 10, rows: 20 });
+  });
+
+  test('X rotates clockwise and Z reverses that rotation', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openGame(page);
+    await setState(page, { ...await getState(page), current: { type: 'T', index: 3, x: 4, y: 3, rotation: 0 } });
+    await page.keyboard.press('x');
+    expect((await getState(page)).current.rotation).toBe(1);
+    await page.keyboard.press('z');
+    expect((await getState(page)).current.rotation).toBe(0);
+    await page.keyboard.press('X');
+    expect((await getState(page)).current.rotation).toBe(1);
+  });
+
+  test('Space on the focused Pause button pauses and resumes without dropping a piece', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openGame(page);
+    await setState(page, { ...await getState(page), current: { type: 'T', index: 3, x: 4, y: 3, rotation: 0 }, score: 700 });
+    const before = await getState(page);
+    await page.locator('#pause').focus();
+    await page.keyboard.press('Space');
+    let after = await getState(page);
+    expect(after.paused).toBe(true);
+    expect(after.current).toEqual(before.current);
+    expect(after.board).toEqual(before.board);
+    expect(after.score).toBe(before.score);
+    await expect(page.locator('#pause')).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Space');
+    after = await getState(page);
+    expect(after.paused).toBe(false);
+    expect(after.current).toEqual(before.current);
+    expect(after.board).toEqual(before.board);
+    expect(after.score).toBe(before.score);
+    await expect(page.locator('#pause')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('matches the laptop layout baseline', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openGame(page, { keepNaturalSize: true });
+    await prepareVisualLayout(page);
+    await expect(page).toHaveScreenshot('tetris-laptop-layout.png', {
+      animations: 'disabled',
+      fullPage: false,
+      maxDiffPixels: 10
+    });
+  });
+});
+
 test('matches the desktop layout baseline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openGame(page, { keepNaturalSize: true });
@@ -2592,3 +2713,62 @@ test.describe('no-JavaScript fallback', () => {
     await expect(page.getByText(/needs JavaScript enabled/i)).toBeVisible();
   });
 });
+
+test('keyboard movement remains available after using a toolbar button', async ({ page }) => {
+  await openGame(page);
+  await page.locator('#mute').click();
+  const before = await getState(page);
+  await page.keyboard.press('ArrowLeft');
+  const after = await getState(page);
+  expect(after.current.x).toBe(before.current.x - 1);
+});
+
+test('matches the MacBook Chrome layout baseline', async ({ page }) => {
+  // MacBook-sized viewport, with room reserved for Chrome UI.
+  await page.setViewportSize({ width: 1470, height: 850 });
+  await openGame(page, { keepNaturalSize: true });
+  await prepareVisualLayout(page);
+  await expect(page).toHaveScreenshot('tetris-macbook-layout.png', {
+    animations: 'disabled', fullPage: false, maxDiffPixels: 10
+  });
+});
+
+test.describe('MacBook Retina rendering', () => {
+  test.use({ viewport: { width: 1470, height: 850 }, deviceScaleFactor: 2 });
+  test('paints a sharp double-resolution board without changing gameplay dimensions', async ({ page }) => {
+    await openGame(page, { keepNaturalSize: true });
+    await prepareVisualLayout(page);
+    const layout = await page.evaluate(() => {
+      const canvas = document.getElementById('game');
+      const size = window.__tetrisTest.getBoardSize();
+      const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      let coloredPixels = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (Math.max(pixels[i], pixels[i + 1], pixels[i + 2]) > 100) coloredPixels++;
+      }
+      return { ...size, backingWidth: canvas.width, backingHeight: canvas.height,
+        cssWidth: canvas.getBoundingClientRect().width, coloredPixels };
+    });
+    expect(layout.cols).toBe(10);
+    expect(layout.rows).toBe(20);
+    expect(layout.backingWidth).toBe(layout.cols * layout.cellSize * 2);
+    expect(layout.backingHeight).toBe(layout.rows * layout.cellSize * 2);
+    expect(layout.cssWidth).toBe(layout.cols * layout.cellSize + 2);
+    expect(layout.coloredPixels).toBeGreaterThan(1000);
+  });
+});
+
+for (const [name, changes] of [
+  ['paused', { paused: true }],
+  ['game-over', { paused: false, gameOver: true, current: null }]
+]) {
+  test(`matches the ${name} Wasm overlay baseline`, async ({ page }) => {
+    await page.setViewportSize({ width: 1470, height: 850 });
+    await openGame(page, { keepNaturalSize: true });
+    await prepareVisualLayout(page);
+    await setState(page, { ...await getState(page), ...changes });
+    await expect(page).toHaveScreenshot(`tetris-${name}-layout.png`, {
+      animations: 'disabled', fullPage: false, maxDiffPixels: 10
+    });
+  });
+}

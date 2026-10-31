@@ -1,26 +1,18 @@
-(() => {
+export function startGame(engine) {
   // Invisible build marker — lets a deployed device be checked against the
   // committed source via `window.__tetrisBuild` (or the <meta> tag in index.html).
-  const BUILD_ID = 'tetris-noscript-2026-06-28.26';
+  const BUILD_ID = 'tetris-wasm-desktop-2026-10-31.1';
   try { window.__tetrisBuild = BUILD_ID; } catch (_) {}
 
   let boardCols = 10;
   let boardRows = 20;
   let cellSize = 30;
   const BASE_GRAVITY_FRAMES = 48;
-  const MIN_GRAVITY_FRAMES = 6;
-  const GRAVITY_FRAMES_BY_LEVEL = [48, 44, 40, 34, 30, 27, 24, 21, 18, 16, 14, 12, 10, 8, 6];
   const LOCK_DELAY_FRAMES = 30;
   // A grounded piece resets its lock delay each time it is moved or rotated, but
   // only this many times — past the cap it locks regardless, so it can't be stalled
   // on the floor forever ("infinity" prevention).
   const MOVE_RESET_LIMIT = 15;
-  const CLEAR_SCORES = [0, 100, 300, 500, 800];
-  // T-spin line-clear values (index = lines cleared), scaled by level like CLEAR_SCORES.
-  const TSPIN_SCORES = [400, 800, 1200, 1600];
-  const TSPIN_MINI_SCORES = [100, 200, 400, 400];
-  // Perfect Clear (All Clear) bonus on top of the line score (index = lines cleared).
-  const PERFECT_CLEAR_SCORES = [0, 800, 1200, 1800, 2000];
   const DROP_REPEAT_FRAMES = 2;
   const HORIZONTAL_DAS_FRAMES = 16;
   const HORIZONTAL_ARR_FRAMES = 6;
@@ -34,52 +26,8 @@
   // time in one burst and drop the active piece across the whole board.
   const MAX_FRAME_DELTA_MS = 100;
 
-  // Hi-Fi tetromino palette (index 1..7 → I O T S Z J L).
-  const COLORS = ['#000000', '#34d2e8', '#f4c52e', '#b05de0', '#46cf6d', '#ef4a5e', '#3f7ef6', '#ff9f2e'];
-  // Canonical SRS orientations. Each piece lists its four rotation states in
-  // clockwise order (index 0 = spawn, 1 = R, 2 = 2, 3 = L) about the SRS rotation
-  // centre, so the wall-kick tables below land pieces exactly where a modern Tetris
-  // does and T-spins resolve correctly. Offsets are [dx, dy] with +y pointing down.
-  const PIECES = [
-    { type: 'I', index: 1, rotations: [[[-1, 0], [0, 0], [1, 0], [2, 0]], [[1, -1], [1, 0], [1, 1], [1, 2]], [[-1, 1], [0, 1], [1, 1], [2, 1]], [[0, -1], [0, 0], [0, 1], [0, 2]]] },
-    { type: 'O', index: 2, rotations: [[[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1], [1, 1]]] },
-    { type: 'T', index: 3, rotations: [[[0, -1], [-1, 0], [0, 0], [1, 0]], [[0, -1], [0, 0], [1, 0], [0, 1]], [[-1, 0], [0, 0], [1, 0], [0, 1]], [[0, -1], [-1, 0], [0, 0], [0, 1]]] },
-    { type: 'S', index: 4, rotations: [[[0, -1], [1, -1], [-1, 0], [0, 0]], [[0, -1], [0, 0], [1, 0], [1, 1]], [[0, 0], [1, 0], [-1, 1], [0, 1]], [[-1, -1], [-1, 0], [0, 0], [0, 1]]] },
-    { type: 'Z', index: 5, rotations: [[[-1, -1], [0, -1], [0, 0], [1, 0]], [[1, -1], [0, 0], [1, 0], [0, 1]], [[-1, 0], [0, 0], [0, 1], [1, 1]], [[0, -1], [-1, 0], [0, 0], [-1, 1]]] },
-    { type: 'J', index: 6, rotations: [[[-1, -1], [-1, 0], [0, 0], [1, 0]], [[0, -1], [1, -1], [0, 0], [0, 1]], [[-1, 0], [0, 0], [1, 0], [1, 1]], [[0, -1], [0, 0], [-1, 1], [0, 1]]] },
-    { type: 'L', index: 7, rotations: [[[1, -1], [-1, 0], [0, 0], [1, 0]], [[0, -1], [0, 0], [0, 1], [1, 1]], [[-1, 0], [0, 0], [1, 0], [-1, 1]], [[-1, -1], [0, -1], [0, 0], [0, 1]]] }
-  ];
-
-  // SRS wall-kick data in screen coordinates (+y down). For a rotation from state
-  // `a` to state `b`, each candidate [dx, dy] is tried in order; the first that
-  // fits is applied. JLSTZ share one table; I has its own; O never kicks.
-  const KICKS_JLSTZ = {
-    '0>1': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
-    '1>0': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
-    '1>2': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
-    '2>1': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
-    '2>3': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
-    '3>2': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
-    '3>0': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
-    '0>3': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]]
-  };
-  const KICKS_I = {
-    '0>1': [[0, 0], [-2, 0], [1, 0], [-2, 1], [1, -2]],
-    '1>0': [[0, 0], [2, 0], [-1, 0], [2, -1], [-1, 2]],
-    '1>2': [[0, 0], [-1, 0], [2, 0], [-1, -2], [2, 1]],
-    '2>1': [[0, 0], [1, 0], [-2, 0], [1, 2], [-2, -1]],
-    '2>3': [[0, 0], [2, 0], [-1, 0], [2, -1], [-1, 2]],
-    '3>2': [[0, 0], [-2, 0], [1, 0], [-2, 1], [1, -2]],
-    '3>0': [[0, 0], [1, 0], [-2, 0], [1, 2], [-2, -1]],
-    '0>3': [[0, 0], [-1, 0], [2, 0], [-1, -2], [2, 1]]
-  };
-
-  function wallKicks(type, fromRotation, toRotation) {
-    if (type === 'O') return [[0, 0]];
-    const key = `${fromRotation}>${toRotation}`;
-    const table = type === 'I' ? KICKS_I : KICKS_JLSTZ;
-    return table[key] || [[0, 0]];
-  }
+  // Piece geometry, SRS kicks, collision and scoring live in Rust/Wasm.
+  const PIECES = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'].map((type, i) => ({ type, index: i + 1 }));
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
@@ -121,6 +69,18 @@
   const meterTargetEl = document.getElementById('meter-target');
   const touchButtons = Array.from(document.querySelectorAll('[data-action]'));
 
+  function sizeBoardCanvas() {
+    const width = boardCols * cellSize;
+    const height = boardRows * cellSize;
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    canvas.style.width = `${width + 2}px`;
+    canvas.style.height = `${height + 2}px`;
+    canvas.dataset.logicalWidth = width;
+    canvas.dataset.logicalHeight = height;
+  }
+
   function computeDimensions() {
     const shellEl = canvas.closest('.game-shell');
     const areaEl = shellEl.querySelector('.board-area');
@@ -136,18 +96,18 @@
     const availH = areaRect.height - padY - 20;
     const availW = areaRect.width - padX - 2;
 
-    // Target 30px cells; shrink to honor whichever of height/width is tighter.
-    const TARGET_CELL = 30;
-    const heightCell = availH < 20 * TARGET_CELL ? Math.floor(availH / 20) : TARGET_CELL;
-    const widthCell = availW > 0 ? Math.floor(availW / 10) : TARGET_CELL;
-    const cs = Math.max(14, Math.min(TARGET_CELL, heightCell, widthCell));
+    const desktop = window.matchMedia('(min-width: 1024px)').matches;
+    const targetCell = desktop ? 56 : 30;
+    const heightCell = Math.floor(availH / 20);
+    const widthCell = availW > 0 ? Math.floor(availW / 10) : targetCell;
+    const cs = Math.max(14, Math.min(targetCell, heightCell, widthCell));
 
     boardCols = 10;
-    boardRows = Math.max(20, Math.min(40, Math.floor(availH / cs)));
+    // Desktop resizes affect rendering only, never the logical playfield.
+    boardRows = desktop ? 20 : Math.max(20, Math.min(40, Math.floor(availH / cs)));
     cellSize = cs;
 
-    canvas.width = boardCols * cs;
-    canvas.height = boardRows * cs;
+    sizeBoardCanvas();
   }
 
   function createBoard() {
@@ -531,18 +491,11 @@
   }
 
   function pieceCells(piece) {
-    const rotations = PIECES.find((candidate) => candidate.type === piece.type).rotations;
-    const offsets = rotations[piece.rotation % 4];
-    return offsets.map(([dx, dy]) => ({ x: piece.x + dx, y: piece.y + dy }));
+    return engine.cells(piece);
   }
 
   function isValidPosition(piece) {
-    const cells = pieceCells(piece);
-    for (const cell of cells) {
-      if (cell.x < 0 || cell.x >= boardCols || cell.y >= boardRows) return false;
-      if (cell.y >= 0 && state.board[cell.y][cell.x] !== 0) return false;
-    }
-    return true;
+    return engine.isValid(state.board, piece);
   }
 
   function spawnPiece() {
@@ -596,17 +549,11 @@
   }
 
   function mergePiece() {
-    for (const cell of pieceCells(state.current)) {
-      if (cell.y >= 0 && cell.y < boardRows && cell.x >= 0 && cell.x < boardCols) {
-        state.board[cell.y][cell.x] = state.current.index;
-      }
-    }
+    state.board = engine.merge(state.board, state.current);
   }
 
   function gravityFramesForLevel(level) {
-    const normalizedLevel = Math.max(1, level);
-    const index = Math.min(GRAVITY_FRAMES_BY_LEVEL.length - 1, normalizedLevel - 1);
-    return Math.max(MIN_GRAVITY_FRAMES, GRAVITY_FRAMES_BY_LEVEL[index]);
+    return engine.gravityFrames(level);
   }
 
   function updateLevelAndSpeed() {
@@ -712,38 +659,17 @@
   }
 
   function findFullRows() {
-    const rows = [];
-    for (let row = 0; row < boardRows; row += 1) {
-      if (state.board[row].every((value) => value !== 0)) rows.push(row);
-    }
-    return rows;
+    return engine.fullRows(state.board);
   }
 
   function collapseRows(rows) {
-    const rowSet = new Set(rows);
-    const kept = [];
-    for (let row = 0; row < boardRows; row += 1) {
-      if (!rowSet.has(row)) kept.push(state.board[row].slice());
-    }
-    while (kept.length < boardRows) kept.unshift(Array(boardCols).fill(0));
-    state.board = kept;
+    state.board = engine.collapseRows(state.board, rows);
   }
 
-  // True when clearing `rows` would leave the playfield completely empty (a Perfect
-  // Clear). Evaluated after the piece has merged, so the cleared rows are full.
   function clearWouldEmptyBoard(rows) {
-    const rowSet = new Set(rows);
-    for (let y = 0; y < boardRows; y += 1) {
-      if (rowSet.has(y)) continue;
-      for (let x = 0; x < boardCols; x += 1) {
-        if (state.board[y][x] !== 0) return false;
-      }
-    }
-    return true;
+    return engine.clearWouldEmptyBoard(state.board, rows);
   }
 
-  // intensity: 0 = ordinary clear, 1 = Tetris/T-spin, 2 = Perfect Clear — drives the
-  // flash brightness and screen-shake "juice" in drawBoard.
   function startClearAnimation(rows, intensity = 0) {
     state.clearAnimation = {
       rows: rows.slice(),
@@ -771,15 +697,7 @@
       const perfectClear = state.board.every((row) => row.every((value) => value === 0));
       state.combo += 1;
       state.lines += cleared;
-      const base = tSpin === 'mini'
-        ? (TSPIN_MINI_SCORES[cleared] || 0)
-        : tSpin
-          ? (TSPIN_SCORES[cleared] || 0)
-          : CLEAR_SCORES[cleared];
-      let gained = base * state.level;
-      if (backToBack) gained += Math.floor(base / 2) * state.level;
-      if (state.combo > 0) gained += 50 * state.combo * state.level;
-      if (perfectClear) gained += (PERFECT_CLEAR_SCORES[cleared] || 0) * state.level;
+      const gained = engine.clearScore(cleared, tSpin, state.level, state.combo, backToBack, perfectClear);
       state.score += gained;
       state.b2bActive = isDifficult;
       if (cleared === 4) bumpStat('tetrises');
@@ -837,28 +755,7 @@
   // filled is a T-spin; both front corners filled (or a last-resort kick) make it a
   // full T-spin, otherwise a mini.
   function detectTSpin() {
-    if (!state.current || state.current.type !== 'T' || !state.lastMoveRotation) return null;
-    const cx = state.current.x;
-    const cy = state.current.y;
-    const corner = (dx, dy) => {
-      const x = cx + dx;
-      const y = cy + dy;
-      if (x < 0 || x >= boardCols || y >= boardRows) return true; // walls/floor count
-      if (y < 0) return false; // above the ceiling is open
-      return state.board[y][x] !== 0;
-    };
-    const tl = corner(-1, -1);
-    const tr = corner(1, -1);
-    const bl = corner(-1, 1);
-    const br = corner(1, 1);
-    if ([tl, tr, bl, br].filter(Boolean).length < 3) return null;
-    // Front corners face the T's nub direction (rotation 0 up, 1 right, 2 down, 3 left).
-    const front = state.current.rotation === 0 ? [tl, tr]
-      : state.current.rotation === 1 ? [tr, br]
-        : state.current.rotation === 2 ? [bl, br]
-          : [tl, bl];
-    if ((front[0] && front[1]) || state.lastRotationKick >= 4) return 'full';
-    return 'mini';
+    return engine.detectTSpin(state.board, state.current, state.lastMoveRotation, state.lastRotationKick);
   }
 
   function lockPiece({ silent = false } = {}) {
@@ -877,8 +774,7 @@
       // A T-spin that clears no line still scores and announces, but a clear-free
       // lock always breaks the combo chain (back-to-back persists across it).
       if (tSpin) {
-        const base = tSpin === 'mini' ? TSPIN_MINI_SCORES[0] : TSPIN_SCORES[0];
-        state.score += base * state.level;
+        state.score += engine.clearScore(0, tSpin, state.level, 0, false, false);
         recordHighScore();
         setStatusMessage(tSpin === 'mini' ? 'T-Spin Mini!' : 'T-Spin!', 'milestone');
         sfx.playTSpin();
@@ -911,36 +807,30 @@
     return true;
   }
 
-  function applyRotation(toRotation, kickList) {
+  function applyRotation(toRotation) {
     if (state.gameOver || !state.current || state.clearAnimation) return false;
-    const base = { ...state.current, rotation: toRotation };
-    for (let i = 0; i < kickList.length; i += 1) {
-      const [dx, dy] = kickList[i];
-      const candidate = { ...base, x: base.x + dx, y: base.y + dy };
-      if (isValidPosition(candidate)) {
-        state.current = candidate;
-        state.lastMoveRotation = true;
-        state.lastRotationKick = i;
-        noteManipulation();
-        sfx.playRotate();
-        return true;
-      }
-    }
-    return false;
+    const result = engine.rotate(state.board, state.current, toRotation);
+    if (!result) return false;
+    state.current = result.piece;
+    state.lastMoveRotation = true;
+    state.lastRotationKick = result.kick;
+    noteManipulation();
+    sfx.playRotate();
+    return true;
   }
 
   function rotatePiece() {
     if (state.gameOver || !state.current || state.clearAnimation) return false;
     const from = state.current.rotation % 4;
     const to = (from + 1) % 4;
-    return applyRotation(to, wallKicks(state.current.type, from, to));
+    return applyRotation(to);
   }
 
   function rotatePieceCcw() {
     if (state.gameOver || !state.current || state.clearAnimation) return false;
     const from = state.current.rotation % 4;
     const to = (from + 3) % 4;
-    return applyRotation(to, wallKicks(state.current.type, from, to));
+    return applyRotation(to);
   }
 
   function applySoftDropPoint(steps) {
@@ -992,13 +882,8 @@
 
   function hardDrop() {
     if (state.gameOver || !state.current || state.clearAnimation) return;
-    let distance = 0;
-    while (true) {
-      const next = { ...state.current, y: state.current.y + 1 };
-      if (!isValidPosition(next)) break;
-      state.current = next;
-      distance += 1;
-    }
+    const distance = engine.dropDistance(state.board, state.current);
+    state.current = { ...state.current, y: state.current.y + distance };
     // Dropping through any distance is a downward move, so it can't be a T-spin; a
     // piece already wedged at the floor (distance 0) keeps its rotation credit.
     if (distance > 0) state.lastMoveRotation = false;
@@ -1120,18 +1005,6 @@
     render();
   }
 
-  function getGhostCells(piece) {
-    if (!piece) return [];
-    let ghost = { ...piece };
-    while (true) {
-      const next = { ...ghost, y: ghost.y + 1 };
-      if (!isValidPosition(next)) break;
-      ghost = next;
-    }
-    if (ghost.y === piece.y) return [];
-    return pieceCells(ghost);
-  }
-
   function hexToRgb(hex) {
     const n = hex.replace('#', '');
     return {
@@ -1139,11 +1012,6 @@
       g: parseInt(n.slice(2, 4), 16),
       b: parseInt(n.slice(4, 6), 16)
     };
-  }
-
-  function withAlpha(hex, alpha) {
-    const { r, g, b } = hexToRgb(hex);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
   function prefersReducedMotion() {
@@ -1159,171 +1027,14 @@
     return /^#[0-9a-f]{6}$/i.test(value) ? value : ACCENTS[0];
   }
 
-  function roundRectPath(context, x, y, w, h, radius) {
-    const r = Math.max(0, Math.min(radius, w / 2, h / 2));
-    context.beginPath();
-    context.moveTo(x + r, y);
-    context.arcTo(x + w, y, x + w, y + h, r);
-    context.arcTo(x + w, y + h, x, y + h, r);
-    context.arcTo(x, y + h, x, y, r);
-    context.arcTo(x, y, x + w, y, r);
-    context.closePath();
-  }
-
-  const CELL_GAP = 2;
-
-  // Cell pitch carries a small gap so blocks read as a segmented grid (per the handoff).
-  function cellGap() {
-    return cellSize >= 18 ? CELL_GAP : 1;
-  }
-
-  // Shared block painter: a beveled gem (handoff spec — four inset highlight/shade bars).
-  function paintGem(context, px, py, size, base, ghost = false) {
-    const radius = Math.max(2, Math.round(size * 0.18));
-
-    if (ghost) {
-      roundRectPath(context, px, py, size, size, radius);
-      context.fillStyle = withAlpha(base, 0.10);
-      context.fill();
-      context.lineWidth = 1.5;
-      context.strokeStyle = base;
-      context.stroke();
-      return;
-    }
-
-    roundRectPath(context, px, py, size, size, radius);
-    context.fillStyle = base;
-    context.fill();
-
-    // Bevel: top/left highlights + bottom/right shades, clipped to the rounded square.
-    context.save();
-    roundRectPath(context, px, py, size, size, radius);
-    context.clip();
-    const tH = Math.max(1, size * 0.10);
-    const bH = Math.max(1, size * 0.14);
-    const sW = Math.max(1, size * 0.10);
-    context.fillStyle = 'rgba(255, 255, 255, 0.38)';
-    context.fillRect(px, py, size, tH);
-    context.fillStyle = 'rgba(0, 0, 0, 0.28)';
-    context.fillRect(px, py + size - bH, size, bH);
-    context.fillStyle = 'rgba(255, 255, 255, 0.14)';
-    context.fillRect(px, py, sW, size);
-    context.fillStyle = 'rgba(0, 0, 0, 0.18)';
-    context.fillRect(px + size - sW, py, sW, size);
-    context.restore();
-  }
-
-  function drawCell(x, y, index) {
-    const g = cellGap();
-    paintGem(ctx, x * cellSize + g / 2, y * cellSize + g / 2, cellSize - g, COLORS[index]);
-  }
-
-  // The playfield backdrop (gradient + a faint well per cell) is static for a given
-  // board size, so it is painted once into an offscreen canvas and blitted each frame
-  // instead of re-stroking ~200 rounded rects every tick — a real saving on mobile.
-  let boardBgCache = null;
-
-  function buildBoardBackground() {
-    const off = document.createElement('canvas');
-    off.width = canvas.width;
-    off.height = canvas.height;
-    const octx = off.getContext('2d');
-    const bg = octx.createLinearGradient(0, 0, 0, off.height);
-    bg.addColorStop(0, '#090b10');
-    bg.addColorStop(1, '#0b0e14');
-    octx.fillStyle = bg;
-    octx.fillRect(0, 0, off.width, off.height);
-
-    // Faint per-cell wells so the empty playfield reads as a segmented grid.
-    const g = cellGap();
-    const s = cellSize - g;
-    const radius = Math.max(2, Math.round(s * 0.18));
-    octx.lineWidth = 1;
-    for (let y = 0; y < boardRows; y += 1) {
-      for (let x = 0; x < boardCols; x += 1) {
-        roundRectPath(octx, x * cellSize + g / 2, y * cellSize + g / 2, s, s, radius);
-        octx.fillStyle = 'rgba(255, 255, 255, 0.022)';
-        octx.fill();
-        octx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
-        octx.stroke();
-      }
-    }
-    boardBgCache = { canvas: off, w: canvas.width, h: canvas.height, cell: cellSize };
-    return off;
-  }
-
-  function drawBoardBackground() {
-    const cache = (boardBgCache
-      && boardBgCache.w === canvas.width
-      && boardBgCache.h === canvas.height
-      && boardBgCache.cell === cellSize)
-      ? boardBgCache.canvas
-      : buildBoardBackground();
-    ctx.drawImage(cache, 0, 0);
-  }
-
+  // Rust computes and paints the board through thin browser Canvas2D bindings.
   function drawBoard() {
-    const clearAnimation = state.clearAnimation;
-
-    // Screen-shake "juice" on impactful clears (Tetris/T-spin = 1, Perfect Clear = 2),
-    // decaying over the clear animation. Skipped for reduced-motion users.
-    const intensity = clearAnimation ? (clearAnimation.intensity || 0) : 0;
-    let shaking = false;
-    if (intensity >= 1 && !prefersReducedMotion()) {
-      const decay = 1 - clearAnimation.frame / clearAnimation.totalFrames;
-      const amp = (intensity >= 2 ? 6 : 3) * decay;
-      const dx = Math.round(Math.sin(clearAnimation.frame * 1.7) * amp);
-      const dy = Math.round(Math.cos(clearAnimation.frame * 2.3) * amp * 0.6);
-      if (dx !== 0 || dy !== 0) {
-        // Cover the strip the translate would expose with the board's base tone.
-        ctx.fillStyle = '#0b0e14';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
-        ctx.translate(dx, dy);
-        shaking = true;
-      }
-    }
-
-    drawBoardBackground();
-
-    if (ghostEnabled && state.current && !state.clearAnimation) {
-      const g = cellGap();
-      const ghostCells = getGhostCells(state.current);
-      for (const cell of ghostCells) {
-        if (cell.y >= 0) paintGem(ctx, cell.x * cellSize + g / 2, cell.y * cellSize + g / 2, cellSize - g, COLORS[state.current.index], true);
-      }
-    }
-
-    for (let y = 0; y < boardRows; y += 1) {
-      for (let x = 0; x < boardCols; x += 1) {
-        const value = state.board[y][x];
-        if (value !== 0) drawCell(x, y, value);
-      }
-    }
-    if (state.current) {
-      for (const cell of pieceCells(state.current)) {
-        if (cell.y >= 0) drawCell(cell.x, cell.y, state.current.index);
-      }
-    }
-
-    // Bright clearing flash that fades as the rows resolve; brighter for bigger clears,
-    // with a full-board accent wash on a Perfect Clear.
-    if (clearAnimation) {
-      const progress = clearAnimation.frame / clearAnimation.totalFrames;
-      const flash = (0.85 + intensity * 0.07) * (1 - progress);
-      ctx.save();
-      ctx.fillStyle = `rgba(255, 255, 255, ${flash})`;
-      for (const row of clearAnimation.rows) {
-        ctx.fillRect(0, row * cellSize, canvas.width, cellSize);
-      }
-      if (intensity >= 2) {
-        ctx.fillStyle = withAlpha(currentAccent(), 0.18 * (1 - progress));
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-      ctx.restore();
-    }
-
-    if (shaking) ctx.restore();
+    engine.drawBoard(canvas, state, {
+      cellSize,
+      ghostEnabled,
+      reducedMotion: prefersReducedMotion(),
+      accent: currentAccent()
+    });
 
     if (state.paused && !state.gameOver) {
       drawBoardOverlay('PAUSED', 'Press P to resume', '#eef1f6');
@@ -1357,69 +1068,11 @@
   }
 
   function drawBoardOverlay(title, subtitle, titleColor = '#eef1f6') {
-    ctx.fillStyle = 'rgba(7, 9, 13, 0.8)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const maxWidth = canvas.width - 16;
-
-    // Shrink a font string's px size until the text fits the board width (down to a
-    // readable floor), so long lines — score, stat tallies, the title — never clip
-    // on a narrow board.
-    function fitFont(text, weight, basePx, minPx) {
-      let px = basePx;
-      ctx.font = `${weight} ${px}px "Chakra Petch", system-ui, sans-serif`;
-      while (px > minPx && ctx.measureText(text).width > maxWidth) {
-        px -= 1;
-        ctx.font = `${weight} ${px}px "Chakra Petch", system-ui, sans-serif`;
-      }
-    }
-
-    ctx.save();
-    ctx.shadowColor = withAlpha(titleColor, 0.6);
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = titleColor;
-    const lines = Array.isArray(subtitle) ? subtitle : [subtitle];
-    fitFont(title, '700', 30, 16);
-    ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 22);
-    ctx.restore();
-    ctx.fillStyle = 'rgba(238, 241, 246, 0.7)';
-    lines.forEach((line, i) => {
-      fitFont(line, '500', 13, 8);
-      ctx.fillText(line, canvas.width / 2, canvas.height / 2 + 10 + i * 22);
-    });
+    engine.drawOverlay(canvas, title, subtitle, titleColor);
   }
 
-  function drawPiecePreview(canvasEl, context, type) {
-    if (!canvasEl || !context) return;
-    const w = canvasEl.width;
-    const h = canvasEl.height;
-    context.clearRect(0, 0, w, h);
-    if (!type) return;
-
-    const pieceDef = PIECES.find((p) => p.type === type);
-    if (!pieceDef) return;
-
-    const cells = pieceDef.rotations[0];
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const [dx, dy] of cells) {
-      if (dx < minX) minX = dx;
-      if (dx > maxX) maxX = dx;
-      if (dy < minY) minY = dy;
-      if (dy > maxY) maxY = dy;
-    }
-    const cols = maxX - minX + 1;
-    const rows = maxY - minY + 1;
-    const previewCell = Math.floor(Math.min((w - 4) / cols, (h - 4) / rows));
-    const pieceW = cols * previewCell;
-    const pieceH = rows * previewCell;
-    const offsetX = Math.floor((w - pieceW) / 2) - minX * previewCell;
-    const offsetY = Math.floor((h - pieceH) / 2) - minY * previewCell;
-
-    const color = COLORS[pieceDef.index];
-    for (const [dx, dy] of cells) {
-      paintGem(context, offsetX + dx * previewCell, offsetY + dy * previewCell, previewCell, color);
-    }
+  function drawPiecePreview(canvasEl, _context, type) {
+    if (canvasEl) engine.drawPreview(canvasEl, type);
   }
 
   function popStat(el) {
@@ -1621,6 +1274,12 @@
       }
       return;
     }
+    if (event.defaultPrevented) return;
+    if (event.target.closest?.('input, select, textarea, [contenteditable="true"]')) return;
+    // Keep native Space/Enter activation on focused controls; arrow shortcuts still
+    // work after clicking a toolbar button or returning from the help dialog.
+    if ((event.code === 'Space' || event.key === 'Enter') &&
+        event.target.closest?.('button, a, [role="button"]')) return;
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault();
     }
@@ -1641,7 +1300,7 @@
       setHorizontalHold('right', true);
     }
     else if (event.key === 'ArrowDown') held.softDrop = true;
-    else if (event.key === 'ArrowUp') rotatePiece();
+    else if (event.key === 'ArrowUp' || event.key === 'x' || event.key === 'X') rotatePiece();
     else if (event.key === 'z' || event.key === 'Z') rotatePieceCcw();
     else if (event.key === 'c' || event.key === 'C') holdPiece();
     else if (event.code === 'Space') {
@@ -1965,6 +1624,7 @@
       const prevRows = boardRows;
       computeDimensions();
       if (boardCols !== prevCols || boardRows !== prevRows) restartGame();
+      else render();
     }, 200);
   });
 
@@ -1977,6 +1637,8 @@
   window.__tetrisTest = {
     isReady: true,
     buildId: BUILD_ID,
+    engine: engine.kind,
+    renderer: engine.renderer,
     getState: copyStateForTests,
     readState: copyStateForTests,
     setState: setStateFromTests,
@@ -2002,8 +1664,7 @@
     setBoardSize: (cols, rows) => {
       boardCols = cols;
       boardRows = rows;
-      canvas.width = cols * cellSize;
-      canvas.height = rows * cellSize;
+      sizeBoardCanvas();
       if (state) render();
     },
     setMuted: (value) => {
@@ -2022,4 +1683,4 @@
     getHaptics: () => hapticsEnabled,
     setHaptics: (value) => applyHapticsEnabled(value)
   };
-})();
+}

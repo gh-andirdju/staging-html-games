@@ -360,35 +360,80 @@ body {
 /* ── Desktop / responsive (brand + side rails + keyboard play) ───── */
 
 @media (min-width: 1024px) {
-  .game-shell { padding: 30px 48px; gap: 22px; grid-template-rows: auto 1fr; }
-  .brand { display: flex; }
-  #score { font-size: 34px; }
+  .game-shell {
+    width: min(100%, 1280px);
+    height: 100dvh;
+    min-height: 0;
+    margin: 0 auto;
+    padding: 16px 28px;
+    gap: 12px;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .game-shell .brand { display: flex; }
+  .game-shell .hud-score {
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 8px;
+    row-gap: 0;
+    align-items: center;
+  }
+  .game-shell .hud-label { grid-column: 1; grid-row: 1; }
+  .game-shell #score { grid-column: 2; grid-row: 1; font-size: 32px; }
+  .game-shell .hud-sub { grid-column: 1 / -1; grid-row: 2; margin-top: 0; font-size: 11px; }
+  .game-shell .iconbtn .btn-label { display: inline; }
+  .game-shell .hint { display: none; }
 
-  .hint { display: none; }
-
-  .game-area {
-    grid-template-columns: 264px 1fr 264px;
-    grid-template-rows: 1fr;
+  .game-shell .game-area {
+    grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) minmax(160px, 220px);
+    grid-template-rows: minmax(0, 1fr);
     grid-template-areas: "left board right";
     align-items: start;
-    gap: 36px;
+    gap: 24px;
   }
-  /* Desktop: rails become flex columns so HOLD + meter group tightly. */
-  .rail-left, .rail-right { display: flex; flex-direction: column; gap: 16px; }
-  .rail-left { grid-area: left; }
-  .rail-right { grid-area: right; }
-  .board-area { grid-area: board; align-self: center; justify-content: center; }
-  .hold-chip { flex-direction: column; align-items: stretch; gap: 8px; }
-  .hold-preview { width: 100%; height: 120px; }
-  .meter { max-width: none; }
-  .next-row { flex-direction: column; align-items: stretch; gap: 8px; }
-  .next-chips { flex-direction: column; align-items: center; gap: 10px; }
-  .chip { width: 64px; height: 48px; }
-  .chip-lead { width: 64px; height: 56px; }
-  .next-desktop { display: flex; }
-  .legend { display: flex; flex-direction: column; gap: 8px; }
-  .chip-label { font-size: 11px; }
-  .board-area { justify-content: center; }
+  .game-shell .rail-left, .game-shell .rail-right {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+  }
+  .game-shell .rail-left { grid-area: left; }
+  .game-shell .rail-right { grid-area: right; }
+  .game-shell .board-area {
+    grid-area: board;
+    align-self: stretch;
+    justify-content: center;
+    min-width: 0;
+  }
+  .game-shell .hold-chip { flex-direction: column; align-items: stretch; gap: 10px; }
+  .game-shell .hold-preview { width: 100%; height: 104px; }
+  .game-shell .hold-preview canvas { width: 78px; height: 57px; }
+  .game-shell .meter { max-width: none; gap: 8px; }
+  .game-shell .meter-head { font-size: 10px; }
+  .game-shell .next-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .game-shell .next-chips { flex-direction: column; align-items: stretch; gap: 8px; }
+  .game-shell .chip { width: 100%; height: 42px; }
+  .game-shell .chip-lead { height: 54px; }
+  .game-shell .chip canvas { width: 45px; height: 36px; }
+  .game-shell .chip-lead canvas { width: 60px; height: 45px; }
+  .game-shell .next-desktop { display: flex; }
+  .game-shell .legend { display: flex; flex-direction: column; gap: 10px; }
+  .game-shell .legend-card { padding: 12px; gap: 8px; }
+  .game-shell .key-row { justify-content: space-between; gap: 8px; }
+  .game-shell .key-row kbd { min-width: 26px; height: 28px; padding: 0 7px; }
+  .game-shell .key-row kbd.wide { min-width: 53px; }
+  .game-shell .key-label { font-size: 12px; }
+  .game-shell .chip-label { font-size: 11px; }
+  .game-shell .status-wrap { max-width: 100%; min-height: 18px; }
+  .game-shell #status { font-size: 11px; }
+  body:not(.versus-body) #help-overlay .help-panel { max-height: calc(100dvh - 32px); overflow-y: auto; }
+}
+
+/* Compact laptop windows keep both the queue and keyboard guide in view. */
+@media (min-width: 1024px) and (max-height: 760px) {
+  .game-shell { padding-block: 16px; gap: 14px; }
+  .game-shell .next-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .game-shell .chip-lead { grid-column: 1 / -1; }
+  .game-shell .rail-left, .game-shell .rail-right { gap: 14px; }
 }
 
 /* ── Small mobile ────────────────────────────────────────────────── */
