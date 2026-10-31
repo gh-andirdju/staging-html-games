@@ -24,7 +24,7 @@ test('boots the Rust Wasm engine and serves a valid module', async ({ page, requ
 });
 
 test('a missing Wasm engine shows a retry action instead of starting a fallback', async ({ page }) => {
-  await page.route('**/tetris-engine.wasm', route => route.fulfill({ status: 503, body: 'Unavailable' }));
+  await page.route('**/tetris-engine.wasm*', route => route.fulfill({ status: 503, body: 'Unavailable' }));
   await page.goto('./');
   await expect(page.locator('#engine-loading')).toContainText('WebAssembly engine could not load');
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();

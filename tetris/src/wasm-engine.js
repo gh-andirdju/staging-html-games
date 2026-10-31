@@ -1,7 +1,10 @@
 // Browser bindings only: Rust owns rules and rendering instructions. This adapter
 // forwards native Canvas2D calls and supplies canvas/context/cache lifecycles.
 export async function loadTetrisEngine() {
-  const url = new URL('./tetris-engine.wasm', import.meta.url);
+  const moduleUrl = new URL(import.meta.url);
+  const url = new URL('./tetris-engine.wasm', moduleUrl);
+  const version = moduleUrl.searchParams.get('v');
+  if (version) url.searchParams.set('v', version);
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Tetris engine download failed (${response.status})`);
   let api;

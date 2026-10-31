@@ -46,3 +46,5 @@ Use deterministic state setup through test hooks (`getState`, `setState`, `advan
 
 ## Commit & Pull Request Guidelines
 Use concise imperative commits such as `Improve Tetris clear effect and input precision`. In PR notes, include test commands/results and visual evidence for input feel or animation changes.
+
+Solo Tetris bootstrap, styles, game module, bridge, and Wasm requests carry the same `?v=<tetris-build>` cache key. Bump the HTML and game build markers together when shipping changes. Keep dynamic module imports inside the bootstrap error handler so stale or failed module loads show the retry UI.
