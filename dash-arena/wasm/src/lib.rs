@@ -1047,15 +1047,16 @@ impl Game {
 }
 
 // This module is a single-threaded wasm32 engine, not a shared-memory worker.
-static mut GAME: *mut Game = std::ptr::null_mut();
+static mut GAME: Option<Game> = None;
 static mut HUD: [f32; 32] = [0.0; 32];
 static mut SNAPSHOT: Vec<u8> = Vec::new();
 pub fn game() -> &'static mut Game {
+    // Own the engine directly in stable static storage. There is no nullable
+    // heap pointer or transferred Box ownership to validate on each call.
+    // Exports run synchronously on one browser thread with no host imports.
     unsafe {
-        if GAME.is_null() {
-            GAME = Box::into_raw(Box::new(Game::new(1)));
-        }
-        &mut *GAME
+        let slot = &mut *std::ptr::addr_of_mut!(GAME);
+        slot.get_or_insert_with(|| Game::new(1))
     }
 }
 #[no_mangle]

@@ -40,7 +40,7 @@ module imports sit inside a visible loading error/retry boundary.
 
 The dependency-free Rust crate in wasm/ owns seeded fixed60fps gameplay,
 spatial-grid/swept collision detection, enemyAI, particle simulation, camera,
-projection, procedural3D geometry, and lighting. Its tracked110KB Wasm module
+projection, procedural3D geometry, and lighting. Its tracked Wasm module
 requires no host imports. The thin JavaScript binding uploads one packed mesh
 and issues one WebGL2 triangle draw per frame; JavaScript supplies DOM, input,
 audio and storage. No simulation or drawing fallback exists in JavaScript.
