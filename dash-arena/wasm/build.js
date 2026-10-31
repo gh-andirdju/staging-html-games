@@ -1,0 +1,10 @@
+import { fileURLToPath } from 'node:url';
+import { chmod } from 'node:fs/promises';
+const crate = fileURLToPath(new URL('./Cargo.toml', import.meta.url));
+const target = fileURLToPath(new URL('./target/', import.meta.url));
+const output = fileURLToPath(new URL('../src/dash-arena.wasm', import.meta.url));
+const result = Bun.spawnSync(['cargo', 'build', '--manifest-path', crate, '--locked', '--release', '--target', 'wasm32-unknown-unknown', '--target-dir', target], { stdout: 'inherit', stderr: 'inherit' });
+if (result.exitCode !== 0) process.exit(result.exitCode || 1);
+await Bun.write(output, Bun.file(`${target}/wasm32-unknown-unknown/release/dash_arena_engine.wasm`));
+await chmod(output, 0o644);
+console.log(`Built ${output} (${Bun.file(output).size} bytes)`);

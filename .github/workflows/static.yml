@@ -31,12 +31,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Build and test the Rust WebAssembly engine
+      - name: Build and test Rust WebAssembly games
         run: |
           rustup toolchain install 1.99.1 --profile minimal --target wasm32-unknown-unknown
           cargo +1.99.1 test --locked --manifest-path tetris/wasm/Cargo.toml
           cargo +1.99.1 build --locked --release --target wasm32-unknown-unknown --manifest-path tetris/wasm/Cargo.toml
           cp tetris/wasm/target/wasm32-unknown-unknown/release/tetris_engine.wasm tetris/src/tetris-engine.wasm
+          cargo +1.99.1 test --locked --manifest-path dash-arena/wasm/Cargo.toml
+          cargo +1.99.1 build --locked --release --target wasm32-unknown-unknown --manifest-path dash-arena/wasm/Cargo.toml
+          cp dash-arena/wasm/target/wasm32-unknown-unknown/release/dash_arena_engine.wasm dash-arena/src/dash-arena.wasm
       - name: Setup Pages
         uses: actions/configure-pages@v6
       - name: Prepare deployment files

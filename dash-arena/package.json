@@ -1,0 +1,16 @@
+{
+  "name": "dash-arena",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun server.js",
+    "build:wasm": "bun wasm/build.js",
+    "test:rust": "cargo test --locked --manifest-path wasm/Cargo.toml",
+    "test": "bunx playwright test",
+    "test:pages": "APP_BASE_PATH=/html-games/dash-arena/ bunx playwright test",
+    "test:headed": "bunx playwright test --headed",
+    "test:ui": "bunx playwright test --ui",
+    "playwright:install": "bunx playwright install chromium"
+  },
+  "devDependencies": { "@playwright/test": "1.56.1" }
+}

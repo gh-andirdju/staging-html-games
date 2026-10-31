@@ -5,6 +5,8 @@ const normalizedBasePath = rawBasePath === "/"
   : `/${rawBasePath.replace(/^\/+|\/+$/g, "")}/`;
 
 const mimeTypes = {
+  ".woff2": "font/woff2",
+  ".webmanifest": "application/manifest+json",
   ".wasm": "application/wasm",
   ".css": "text/css",
   ".html": "text/html",
