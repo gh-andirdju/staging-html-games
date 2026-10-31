@@ -6,7 +6,7 @@
     "dev": "bun server.js",
     "dev:pages": "BASE_PATH=/html-games/ bun server.js",
     "validate": "tar --exclude=.git --exclude=node_modules --dereference --hard-dereference -cf /dev/null . && echo 'Pages deploy validation passed: no broken symlinks'",
-    "test": "PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers ./node_modules/.bin/playwright test",
+    "test": "bunx playwright test",
     "test:brickbreaker": "cd brickbreaker && bun run test",
     "test:tetris": "cd tetris && bun run test",
     "test:2048": "cd 2048 && bun run test",
@@ -17,7 +17,8 @@
     "test:pong": "cd pong && bun run test",
     "test:pacman": "cd pacman && bun run test",
     "test:minesweeper": "cd minesweeper && bun run test",
-    "test:all": "bun run test && cd brickbreaker && bun run test && cd ../tetris && bun run test && cd ../2048 && bun run test && cd ../snake && bun run test && cd ../asteroids && bun run test && cd ../pinball && bun run test && cd ../space-invaders && bun run test && cd ../pong && bun run test && cd ../pacman && bun run test && cd ../minesweeper && bun run test"
+    "test:all": "bun run test && cd brickbreaker && bun run test && cd ../tetris && bun run test && cd ../2048 && bun run test && cd ../snake && bun run test && cd ../asteroids && bun run test && cd ../pinball && bun run test && cd ../space-invaders && bun run test && cd ../pong && bun run test && cd ../pacman && bun run test && cd ../minesweeper && bun run test && cd ../dash-arena && bun run test",
+    "test:dash-arena": "cd dash-arena && bun run test"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1"

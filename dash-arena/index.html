@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0a101b">
+    <meta name="description" content="Dash Arena — a fast isometric arena shooter. Three weapons, one boss, ninety seconds. Move fast. Hit harder.">
+    <meta name="dash-arena-build" content="dash-arena-2026-10-31.2">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Dash Arena">
+    <meta property="og:description" content="Three weapons. One boss. Ninety seconds. A fast isometric arena shooter in your browser.">
+    <title>Dash Arena</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="preload" href="src/fonts/chakra-petch-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="src/fonts/chakra-petch-600-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="src/styles.css?v=dash-arena-2026-10-31.2">
+  </head>
+  <body>
+    <main class="game-shell" aria-label="Dash Arena game">
+      <header class="topbar">
+        <a class="brand" href="../" aria-label="Back to all games">
+          <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 36 40"><path d="m18 1 17 10v19L18 40 1 30V11z" fill="currentColor" opacity=".13"/><path d="m9 14 9-5 9 5-9 5z" fill="currentColor"/><path d="m9 18 9 5 9-5v8l-9 5-9-5z" fill="currentColor"/></svg></span>
+          <span><strong>DASH<span class="brand-light"> ARENA</span></strong><small>MOVE FAST. HIT HARDER.</small></span>
+        </a>
+        <div class="run-hud" aria-label="Round statistics">
+          <div class="timer-stat"><span class="micro-label">Time left</span><strong id="time-left">1:30</strong></div>
+          <span class="stat-divider" aria-hidden="true"></span>
+          <div class="score-stat"><span class="micro-label">Score</span><strong id="score">0</strong></div>
+          <div class="combo-stat"><span class="micro-label">Combo</span><strong id="combo">×1</strong></div>
+        </div>
+        <div class="toolbar" aria-label="Game controls">
+          <button id="pause" class="icon-button" type="button" aria-label="Pause game" aria-pressed="false" title="Pause · P"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4v12M14 4v12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="toolbar-word">Pause</span></button>
+          <button id="restart" class="icon-button" type="button" aria-label="Restart round" title="Restart · R"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.2 10A6.2 6.2 0 1 1 14.5 5.7M16 2.7V6h-3.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button id="mute" class="icon-button" type="button" aria-label="Mute sound" aria-pressed="false" title="Sound · M"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8h3l4-4v12l-4-4H3z" fill="currentColor"/><path class="sound-wave" d="M13 6c3 2 3 6 0 8m2-10c5 3 5 9 0 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path class="sound-cross" d="m13 8 4 4m0-4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+          <button id="help" class="icon-button" type="button" aria-label="How to play" title="How to play · H"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 7a3 3 0 1 1 4 2.8c-.9.3-1.2.9-1.2 1.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="9.8" cy="15" r="1" fill="currentColor"/></svg></button>
+        </div>
+      </header>
+
+      <section class="arena-stage" id="arena-stage" aria-label="Combat arena">
+        <canvas id="arena" tabindex="0" role="img" aria-label="Dash Arena. Ready to enter the arena."></canvas>
+        <div class="sector-label" aria-hidden="true"><span class="status-dot"></span><span id="arena-status">SECTOR 01 / STANDBY</span></div>
+        <div class="vitals" aria-label="Player health">
+          <div class="vitals-heading"><span>Integrity</span><strong><span id="health-value">100</span><span class="health-total"> / 100</span></strong></div>
+          <div class="health-track"><div id="health-fill"></div></div>
+          <div class="dash-indicator"><span>Dash</span><div class="dash-track"><div id="dash-fill"></div></div><span id="dash-status">Ready</span></div>
+        </div>
+        <div id="boss-hud" class="boss-hud" aria-label="Boss health" hidden><div><span class="boss-icon" aria-hidden="true">◆</span> THE WARDEN <strong id="boss-health">100%</strong></div><div class="boss-track"><div id="boss-fill"></div></div></div>
+        <div class="arena-corner arena-corner-tl" aria-hidden="true"></div><div class="arena-corner arena-corner-tr" aria-hidden="true"></div><div class="arena-corner arena-corner-bl" aria-hidden="true"></div><div class="arena-corner arena-corner-br" aria-hidden="true"></div>
+
+        <div id="run-overlay" class="run-overlay">
+          <div id="ready-panel" class="run-panel">
+            <span class="panel-kicker"><span class="tiny-diamond" aria-hidden="true"></span> YOUR NEXT 90 SECONDS</span>
+            <h1>Move fast.<br><span>Hit harder.</span></h1>
+            <p class="panel-copy">Dash through danger. Break their cover.<br>Drop the boss before the clock runs out.</p>
+            <div class="run-tags"><span>3 WEAPONS</span><span>1 ARENA</span><span>NO WAITING</span></div>
+            <button id="start" class="primary-button" type="button">Enter arena <span aria-hidden="true">↗</span></button>
+            <p class="start-controls desktop-only"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span><span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> hold to aim + fire</span><span><kbd>Space</kbd> dash</span></p>
+            <span class="panel-footnote desktop-only">Press Enter to start</span>
+            <p class="start-controls touch-only">Left pad to move · Hold FIRE to auto-aim · DASH to evade</p>
+          </div>
+          <div id="pause-panel" class="run-panel pause-panel" hidden><span class="panel-kicker">TAKE A BREATH</span><h2>Paused.</h2><p class="panel-copy">Your round is right where you left it.</p><button id="resume" class="primary-button" type="button">Back into it <span aria-hidden="true">→</span></button><span class="panel-footnote desktop-only">or press Enter / P / Esc</span></div>
+          <div id="result-panel" class="run-panel result-panel" hidden>
+            <span class="panel-kicker" id="result-kicker">ROUND COMPLETE</span><h2 id="result-title">Arena cleared.</h2>
+            <div class="final-score"><span class="micro-label">Final score</span><strong id="final-score">0</strong><span id="new-record" hidden>NEW PERSONAL BEST</span></div>
+            <div class="result-stats"><div><strong id="final-kills">0</strong><span>Eliminations</span></div><div><strong id="final-combo">0</strong><span>Best chain</span></div><div><strong id="final-best">0</strong><span>Personal best</span></div></div>
+            <button id="play-again" class="primary-button" type="button">Play again <span aria-hidden="true">↗</span></button><span class="panel-footnote desktop-only">or press Enter / R to go again</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="loadout-bar">
+        <div class="round-detail"><span class="micro-label">Eliminations</span><strong id="kills">0</strong><span class="detail-dot">·</span><span class="micro-label">Best</span><strong id="best">0</strong></div>
+        <div class="weapon-selector" role="group" aria-label="Choose weapon">
+          <button type="button" class="weapon active" data-weapon="0" aria-pressed="true"><span class="weapon-key">1</span><svg viewBox="0 0 42 24" aria-hidden="true"><path d="M5 8h25v8H16l-2 6H8l3-6H5zM30 10h8v4h-8" fill="currentColor"/></svg><span><strong>Blaster</strong><small>FAST + PRECISE</small></span></button>
+          <button type="button" class="weapon" data-weapon="1" aria-pressed="false"><span class="weapon-key">2</span><svg viewBox="0 0 42 24" aria-hidden="true"><path d="M4 9h34v6H18l-3 7H9l3-7H4zM28 6h9v2h-9" fill="currentColor"/></svg><span><strong>Shotgun</strong><small>CLOSE + LOUD</small></span></button>
+          <button type="button" class="weapon" data-weapon="2" aria-pressed="false"><span class="weapon-key">3</span><svg viewBox="0 0 42 24" aria-hidden="true"><path d="M7 7h24v10H19l-2 5h-6l2-5H7zM31 9h7v6h-7M3 9h3v6H3" fill="currentColor"/></svg><span><strong>Launcher</strong><small>BLAST + BREAK</small></span></button>
+        </div>
+        <div class="mission-note"><span class="mission-symbol" aria-hidden="true">⌁</span><span id="mission-note">Boss incoming at 1:00</span></div>
+      </div>
+
+      <div class="touch-controls" aria-label="Touch game controls">
+        <div class="move-zone"><div id="move-pad" class="move-pad" role="group" aria-label="Movement joystick"><span class="pad-axis pad-axis-x" aria-hidden="true"></span><span class="pad-axis pad-axis-y" aria-hidden="true"></span><span class="stick-knob" aria-hidden="true"></span><span class="pad-label" aria-hidden="true">MOVE</span></div></div>
+        <div class="touch-tip">Keep moving.<br><strong>Keep firing.</strong></div>
+        <div class="action-zone"><button id="touch-dash" class="dash-button" type="button" aria-label="Dash">↗<span>DASH</span></button><button id="touch-fire" class="fire-button" type="button" aria-label="Hold to fire with auto aim"><span class="fire-reticle" aria-hidden="true">⌖</span>FIRE</button></div>
+      </div>
+      <footer class="control-legend desktop-only"><span><kbd>WASD</kbd> move</span><span class="shooting-legend"><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> hold to aim + fire</span><span><kbd>Space</kbd> dash through bullets</span><span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> switch weapon</span><span><kbd>P</kbd> pause</span><span><kbd>H</kbd> help</span><span class="legend-tip">Explosive barrels are your friends. Briefly.</span></footer>
+    </main>
+
+    <div id="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden><div class="help-panel"><span class="panel-kicker">QUICK FIELD GUIDE</span><h2 id="help-title">Own the arena.</h2><p>Survive the rush, build your score, then defeat <strong>the Warden</strong> when it arrives after 60 seconds. You have 90 seconds in total.</p><div class="help-grid"><div><strong>Keep moving</strong><p>WASD moves relative to your screen. Hold an arrow key to aim and fire in that direction. Hold two adjacent arrows to fire diagonally.</p></div><div><strong>Dash through danger</strong><p>Space gives you a short invulnerable dash. Watch the dash bar for your next escape.</p></div><div><strong>Pick your punch</strong><p>1: rapid blaster. 2: close-range shotgun. 3: explosive launcher. Every weapon has unlimited ammunition.</p></div><div><strong>Use the environment</strong><p>Break cover, set off barrels, and chain eliminations quickly for bigger score multipliers.</p></div></div><p class="help-touch">On touchscreens, use the movement pad and hold FIRE to aim at the nearest threat. Touch controls stay below the arena.</p><p class="help-shortcuts">Enter starts, replays or resumes · P / Esc pauses · R restarts · M toggles sound · H opens help</p><button id="help-close" class="primary-button" type="button">Back to arena <span aria-hidden="true">→</span></button></div></div>
+    <div id="engine-loading" class="engine-loading" role="status"><span class="loading-symbol" aria-hidden="true">↗</span><strong>Opening the arena…</strong><span>Get ready to move.</span></div>
+    <div id="announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+    <noscript><div class="engine-loading"><strong>Dash Arena needs JavaScript enabled.</strong><span>Enable it, then reload to play.</span></div></noscript>
+    <script type="module" src="src/bootstrap.js?v=dash-arena-2026-10-31.2"></script>
+  </body>
+</html>

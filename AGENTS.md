@@ -13,6 +13,7 @@ Current games:
 
 | Game | Folder |
 |------|--------|
+| Dash Arena | `dash-arena/` |
 | Brick Breaker | `brickbreaker/` |
 | Tetris | `tetris/` |
 | 2048 | `2048/` |

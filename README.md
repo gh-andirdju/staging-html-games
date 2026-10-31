@@ -9,6 +9,7 @@ Static HTML games collection.
 
 | Game | Folder |
 |------|--------|
+| Dash Arena — Rust/Wasm isometric arena shooter | [`dash-arena/`](./dash-arena/) |
 | Brick Breaker | [`brickbreaker/`](./brickbreaker/) |
 | Tetris | [`tetris/`](./tetris/) |
 | Snake | [`snake/`](./snake/) |
