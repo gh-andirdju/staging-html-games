@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:wasm": "bun wasm/build.js",
+    "test:rust": "cargo test --locked --manifest-path wasm/Cargo.toml",
     "dev": "bun server.js",
     "dev:pages": "BASE_PATH=/html-games/tetris/ bun server.js",
     "test": "bunx playwright test",

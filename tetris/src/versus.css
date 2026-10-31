@@ -153,3 +153,8 @@
 @media (prefers-reduced-motion: reduce) {
   .meter-top, .meter-bot, .vs-banner { transition: none; }
 }
+
+/* Keep versus preview dimensions independent of the solo desktop layout. */
+@media (min-width: 1024px) {
+  .versus-shell .chip:not(.hold-box) { height: 48px; }
+}

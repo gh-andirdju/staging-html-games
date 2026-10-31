@@ -2,3 +2,6 @@
 **/test-results/
 .DS_Store
 .claude/
+
+# Rust build intermediates (the browser Wasm binary is tracked).
+**/wasm/target/

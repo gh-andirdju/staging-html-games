@@ -31,6 +31,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Build and test the Rust WebAssembly engine
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --target wasm32-unknown-unknown
+          cargo +1.99.1 test --locked --manifest-path tetris/wasm/Cargo.toml
+          cargo +1.99.1 build --locked --release --target wasm32-unknown-unknown --manifest-path tetris/wasm/Cargo.toml
+          cp tetris/wasm/target/wasm32-unknown-unknown/release/tetris_engine.wasm tetris/src/tetris-engine.wasm
       - name: Setup Pages
         uses: actions/configure-pages@v6
       - name: Prepare deployment files
@@ -40,6 +46,8 @@ jobs:
             --exclude='.github/' \
             --exclude='_site/' \
             --exclude='node_modules/' \
+            --exclude='target/' \
+            --exclude='wasm/' \
             --exclude='tests/' \
             --exclude='playwright.config.js' \
             --exclude='server.js' \
