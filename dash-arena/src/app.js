@@ -102,7 +102,7 @@ export function startApp(engine, buildId) {
   let contextLost = false;
   const keys = new Set();
   const controls = { moveX: 0, moveY: 0, aimX: 0.4, aimY: 0.15,
-    keyboardAim: true, aimDirX: 0, aimDirY: 0,
+    continuousAim: true, turnAim: 0, fineAim: false,
     fire: false, dash: false, weapon: 0, autoAim: false };
   const metrics = { ready: false, renderCount: 0, vertexCount: 0, frameCount: 0,
     lastStepMs: 0, lastRenderMs: 0, frameTimes: [], width: 0, height: 0 };
@@ -121,8 +121,9 @@ export function startApp(engine, buildId) {
     touchMoveX = touchMoveY = 0;
     movePointer = firePointer = null;
     keyboardTouchFire = false;
-    controls.keyboardAim = true;
-    controls.aimDirX = controls.aimDirY = 0;
+    controls.continuousAim = true;
+    controls.turnAim = 0;
+    controls.fineAim = false;
     movePad.style.setProperty('--stick-x', '0px');
     movePad.style.setProperty('--stick-y', '0px');
     fireButton.classList.remove('pressed');
@@ -135,13 +136,13 @@ export function startApp(engine, buildId) {
     controls.moveY = y || touchMoveY;
   }
   function syncFiring() {
-    const arrowsHeld = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].some(code => keys.has(code));
+    const upHeld = keys.has('ArrowUp');
     const touchHeld = firePointer !== null || keyboardTouchFire;
-    controls.keyboardAim = true;
-    controls.aimDirX = Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft'));
-    controls.aimDirY = Number(keys.has('ArrowDown')) - Number(keys.has('ArrowUp'));
-    controls.fire = arrowsHeld || touchHeld;
-    controls.autoAim = touchHeld && !arrowsHeld;
+    controls.continuousAim = true;
+    controls.turnAim = Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft'));
+    controls.fineAim = keys.has('ShiftLeft') || keys.has('ShiftRight');
+    controls.fire = upHeld || touchHeld;
+    controls.autoAim = touchHeld && !upHeld && controls.turnAim === 0;
     fireButton.classList.toggle('pressed', touchHeld);
   }
   function syncMute() {
@@ -393,7 +394,7 @@ export function startApp(engine, buildId) {
     if (currentPhase() !== 1) return;
     if (['Digit1','Digit2','Digit3','Numpad1','Numpad2','Numpad3'].includes(code)) { setWeapon(Number(code.at(-1)) - 1); return; }
     if (code === 'Space' && !event.repeat) { requestDash(); return; }
-    if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(code)) {
+    if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'].includes(code)) {
       keys.add(code);
       syncMovement();
       syncFiring();

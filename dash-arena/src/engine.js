@@ -15,7 +15,7 @@ export async function loadEngine(version) {
   if (api.engine_version() !== 1) throw new Error('Unsupported arena engine');
   const decoder = new TextDecoder();
   const resources = new WeakMap();
-  const defaults = () => ({ moveX: 0, moveY: 0, aimX: 0, aimY: 0, fire: false, dash: false, weapon: 0, autoAim: false, keyboardAim: true, aimDirX: 0, aimDirY: 0 });
+  const defaults = () => ({ moveX: 0, moveY: 0, aimX: 0, aimY: 0, fire: false, dash: false, weapon: 0, autoAim: false, keyboardAim: true, aimDirX: 0, aimDirY: 0, continuousAim: true, turnAim: 0, fineAim: false });
   let controls = defaults();
   let lastAspect = 1;
 
@@ -94,12 +94,18 @@ export async function loadEngine(version) {
     input(next = {}, aspect = lastAspect) {
       controls = { ...controls, ...next };
       lastAspect = Math.max(0.1, Number(aspect) || 1);
-      const input = controls.keyboardAim ? api.input_keyboard : api.input;
-      input(controls.moveX, controls.moveY,
-        controls.keyboardAim ? controls.aimDirX : controls.aimX,
-        controls.keyboardAim ? controls.aimDirY : controls.aimY,
-        Number(Boolean(controls.fire)), Number(Boolean(controls.dash)), controls.weapon,
-        Number(Boolean(controls.autoAim)), lastAspect);
+      if (controls.continuousAim !== false) {
+        api.input_turn(controls.moveX, controls.moveY, controls.turnAim,
+          Number(Boolean(controls.fineAim)), Number(Boolean(controls.fire)),
+          Number(Boolean(controls.dash)), controls.weapon, Number(Boolean(controls.autoAim)), lastAspect);
+      } else {
+        const input = controls.keyboardAim ? api.input_keyboard : api.input;
+        input(controls.moveX, controls.moveY,
+          controls.keyboardAim ? controls.aimDirX : controls.aimX,
+          controls.keyboardAim ? controls.aimDirY : controls.aimY,
+          Number(Boolean(controls.fire)), Number(Boolean(controls.dash)), controls.weapon,
+          Number(Boolean(controls.autoAim)), lastAspect);
+      }
       controls.dash = false;
     },
     step(frames = 1) { api.step(Math.max(0, Math.floor(frames))); },

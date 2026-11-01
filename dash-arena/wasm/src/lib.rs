@@ -85,6 +85,9 @@ pub struct Particle {
 #[derive(Clone, Default)]
 struct Control {
     keyboard_aim: bool,
+    continuous_aim: bool,
+    turn: f32,
+    fine_aim: bool,
     mx: f32,
     my: f32,
     nx: f32,
@@ -371,6 +374,9 @@ impl Game {
         aspect: f32,
     ) {
         self.control.keyboard_aim = false;
+        self.control.continuous_aim = false;
+        self.control.turn = 0.0;
+        self.control.fine_aim = false;
         self.control.mx = finite(mx).clamp(-1.0, 1.0);
         self.control.my = finite(my).clamp(-1.0, 1.0);
         self.control.nx = finite(nx).clamp(-2.0, 2.0);
@@ -395,6 +401,23 @@ impl Game {
     ) {
         self.set_control(mx, my, ax, ay, fire, dash, weapon, autoaim, aspect);
         self.control.keyboard_aim = true;
+    }
+    fn set_turn_control(
+        &mut self,
+        mx: f32,
+        my: f32,
+        turn: f32,
+        fine: bool,
+        fire: bool,
+        dash: bool,
+        weapon: u32,
+        autoaim: bool,
+        aspect: f32,
+    ) {
+        self.set_control(mx, my, 0.0, 0.0, fire, dash, weapon, autoaim, aspect);
+        self.control.continuous_aim = true;
+        self.control.turn = finite(turn).clamp(-1.0, 1.0);
+        self.control.fine_aim = fine;
     }
     fn burst(&mut self, x: f32, z: f32, count: usize, kind: u32, power: f32) {
         let free = MAX_PARTICLES.saturating_sub(self.particles.len());
@@ -518,7 +541,20 @@ impl Game {
                 })
                 .map(|e| normal(e.x - self.player.x, e.z - self.player.z));
         }
-        if aim.is_none() && self.control.keyboard_aim {
+        if aim.is_none() && self.control.continuous_aim {
+            if self.control.turn != 0.0 {
+                // Rotate the projected heading so turning feels uniform on screen,
+                // then resolve the full continuous angle back onto the arena plane.
+                let screen_x = (self.player.aim_x - self.player.aim_z) * 0.8660254;
+                let screen_y = (self.player.aim_x + self.player.aim_z) * 0.5;
+                let rate: f32 = if self.control.fine_aim { 45.0 } else { 150.0 };
+                let angle = (screen_y.atan2(screen_x) + self.control.turn * rate.to_radians() * DT)
+                    .rem_euclid(std::f32::consts::TAU);
+                let ax = angle.cos();
+                let ay = angle.sin();
+                aim = Some(normal(ax / 0.8660254 + ay / 0.5, ay / 0.5 - ax / 0.8660254));
+            }
+        } else if aim.is_none() && self.control.keyboard_aim {
             // Arrow keys describe a screen direction, independent of player and
             // camera position. Invert the isometric ground projection in Rust.
             let ax = self.control.nx;
@@ -1134,6 +1170,30 @@ pub extern "C" fn input_keyboard(
     );
 }
 #[no_mangle]
+pub extern "C" fn input_turn(
+    mx: f32,
+    my: f32,
+    turn: f32,
+    fine: u32,
+    fire: u32,
+    dash: u32,
+    weapon: u32,
+    autoaim: u32,
+    aspect: f32,
+) {
+    game().set_turn_control(
+        mx,
+        my,
+        turn,
+        fine != 0,
+        fire != 0,
+        dash != 0,
+        weapon,
+        autoaim != 0,
+        aspect,
+    );
+}
+#[no_mangle]
 pub extern "C" fn hud_ptr() -> *const f32 {
     let g = game();
     let p = &g.player;
@@ -1541,5 +1601,104 @@ mod tests {
         g.step(1);
         assert!(g.player.aim_x < 0.0 && g.player.aim_z < 0.0);
         assert_eq!(g.shots, 1);
+    }
+    fn screen_heading(g: &Game) -> f32 {
+        let sx = (g.player.aim_x - g.player.aim_z) * 0.8660254;
+        let sy = (g.player.aim_x + g.player.aim_z) * 0.5;
+        sy.atan2(sx)
+    }
+    fn angle_distance(a: f32, b: f32) -> f32 {
+        ((a - b + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI)
+            .abs()
+    }
+    #[test]
+    fn continuous_turn_reaches_arbitrary_angle_after_seven_frames() {
+        let mut g = active();
+        g.set_turn_control(0.0, 0.0, 1.0, false, false, false, 0, false, 1.8);
+        g.step(7);
+        assert!(angle_distance(screen_heading(&g), 17.5_f32.to_radians()) < 0.0001);
+        let nearest_eighth = (screen_heading(&g) / (std::f32::consts::PI / 4.0)).round()
+            * (std::f32::consts::PI / 4.0);
+        assert!(angle_distance(screen_heading(&g), nearest_eighth) > 0.2);
+        assert!(
+            (g.player.aim_x * g.player.aim_x + g.player.aim_z * g.player.aim_z - 1.0).abs()
+                < 0.0001
+        );
+    }
+    #[test]
+    fn continuous_turn_has_more_than_eight_distinct_directions() {
+        let mut g = active();
+        g.set_turn_control(0.0, 0.0, 1.0, false, false, false, 0, false, 1.8);
+        let mut headings = Vec::new();
+        for _ in 0..24 {
+            g.step(1);
+            let heading = screen_heading(&g);
+            assert!(headings
+                .iter()
+                .all(|previous| angle_distance(heading, *previous) > 0.03));
+            headings.push(heading);
+        }
+        assert_eq!(headings.len(), 24);
+    }
+    #[test]
+    fn fine_turning_uses_forty_five_degrees_per_second() {
+        let mut normal = active();
+        let mut fine = active();
+        normal.set_turn_control(0.0, 0.0, 1.0, false, false, false, 0, false, 1.8);
+        fine.set_turn_control(0.0, 0.0, 1.0, true, false, false, 0, false, 1.8);
+        normal.step(12);
+        fine.step(12);
+        assert!(angle_distance(screen_heading(&normal), 30.0_f32.to_radians()) < 0.0001);
+        assert!(angle_distance(screen_heading(&fine), 9.0_f32.to_radians()) < 0.0001);
+        assert!((screen_heading(&normal) / screen_heading(&fine) - 150.0 / 45.0).abs() < 0.001);
+    }
+    #[test]
+    fn continuous_turn_wraps_full_circle_and_reverses_direction() {
+        let mut g = active();
+        g.set_turn_control(0.0, 0.0, 1.0, false, false, false, 0, false, 1.8);
+        g.step(144);
+        assert!(angle_distance(screen_heading(&g), 0.0) < 0.0001);
+        g.set_turn_control(0.0, 0.0, -1.0, false, false, false, 0, false, 1.8);
+        g.step(7);
+        assert!(angle_distance(screen_heading(&g), (-17.5_f32).to_radians()) < 0.0001);
+    }
+    #[test]
+    fn released_continuous_turn_retains_heading_during_independent_move_and_fire() {
+        let mut g = active();
+        g.set_turn_control(0.0, 0.0, 1.0, false, false, false, 0, false, 1.8);
+        g.step(7);
+        let facing = (g.player.aim_x, g.player.aim_z);
+        g.set_turn_control(1.0, 0.0, 0.0, false, true, false, 0, false, 0.5);
+        g.step(10);
+        assert_eq!((g.player.aim_x, g.player.aim_z), facing);
+        assert!(g.player.x > 0.7 && g.player.z < -0.7);
+        assert!(g.shots >= 2);
+        for bullet in &g.bullets {
+            let direction = normal(bullet.dx, bullet.dz);
+            assert!(direction.0 * facing.0 + direction.1 * facing.1 > 0.999);
+        }
+    }
+    #[test]
+    fn touch_autoaim_has_priority_over_continuous_turn() {
+        let mut g = active();
+        g.spawn_enemy(0, -4.0, -4.0, 34.0, 0);
+        g.set_turn_control(0.0, 0.0, 1.0, false, true, false, 0, true, 1.8);
+        g.step(1);
+        assert!(g.player.aim_x < 0.0 && g.player.aim_z < 0.0);
+        assert_eq!(g.shots, 1);
+    }
+    #[test]
+    fn legacy_aim_modes_clear_continuous_turn_flags() {
+        let mut g = active();
+        g.set_turn_control(0.0, 0.0, 1.0, false, false, false, 0, false, 1.8);
+        g.step(7);
+        g.set_keyboard_control(0.0, 0.0, -1.0, 0.0, false, false, 0, false, 1.8);
+        g.step(1);
+        assert!(angle_distance(screen_heading(&g), std::f32::consts::PI) < 0.0001);
+        assert!(!g.control.continuous_aim && g.control.keyboard_aim);
+        g.set_turn_control(0.0, 0.0, 0.0, false, false, false, 0, false, 1.8);
+        assert!(g.control.continuous_aim && !g.control.keyboard_aim);
+        g.set_control(0.0, 0.0, 1.0, 0.0, false, false, 0, false, 1.8);
+        assert!(!g.control.continuous_aim && !g.control.keyboard_aim);
     }
 }

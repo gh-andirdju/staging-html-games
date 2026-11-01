@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const buildId = 'dash-arena-2026-10-31.2';
+const buildId = 'dash-arena-2026-11-01.1';
 const runtimeAssets = ['styles.css', 'bootstrap.js', 'app.js', 'engine.js', 'dash-arena.wasm'];
 const visualOptions = { animations: 'disabled', fullPage: false, maxDiffPixels: 10, timeout: 15000 };
 
@@ -46,7 +46,7 @@ async function emptyCombat(page) {
   await call(page, 'clearBullets');
   await call(page, 'clearProps');
   await call(page, 'setPlayer', 0, 0, 100);
-  await call(page, 'setInput', { moveX: 0, moveY: 0, fire: false, dash: false });
+  await call(page, 'setInput', { moveX: 0, moveY: 0, fire: false, dash: false, turnAim: 0, fineAim: false });
 }
 
 async function prepareVisualLayout(page) {
@@ -57,6 +57,17 @@ async function prepareVisualLayout(page) {
 function distance(a, b) {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
+
+function screenHeading(player) {
+  return Math.atan2(0.5 * (player.aimX + player.aimZ), 0.8660254 * (player.aimX - player.aimZ));
+}
+
+function headingDelta(after, before) {
+  const difference = screenHeading(after) - screenHeading(before);
+  return Math.atan2(Math.sin(difference), Math.cos(difference));
+}
+
+const radians = degrees => degrees * Math.PI / 180;
 
 async function killEnemy(page, x = 4, z = 0) {
   await call(page, 'spawnEnemy', 0, x, z, 1);
@@ -158,76 +169,125 @@ test('WASD moves in screen-relative directions and releasing a key stops movemen
   expect(distance((await state(page)).player, east)).toBeLessThan(0.01);
 });
 
-test('arrow keys aim and fire in cardinal screen directions without moving the player', async ({ page }) => {
-  await startArena(page);
-  for (const [key, expectedX, expectedY] of [
-    ['ArrowRight', 1, 0], ['ArrowUp', 0, -1], ['ArrowLeft', -1, 0], ['ArrowDown', 0, 1]
-  ]) {
-    await call(page, 'start', 1);
-    await emptyCombat(page);
-    const before = (await state(page)).player;
-    await page.keyboard.down(key);
-    await advanceFrames(page, 8);
-    const firing = await state(page);
-    expect(firing.shots).toBeGreaterThan(0);
-    expect(distance(firing.player, before)).toBeLessThan(0.001);
-    const screenX = 0.8660254 * (firing.player.aimX - firing.player.aimZ);
-    const screenY = 0.5 * (firing.player.aimX + firing.player.aimZ);
-    if (expectedX) expect(Math.sign(screenX)).toBe(expectedX);
-    else expect(Math.abs(screenX)).toBeLessThan(0.001);
-    if (expectedY) expect(Math.sign(screenY)).toBe(expectedY);
-    else expect(Math.abs(screenY)).toBeLessThan(0.001);
-    await page.keyboard.up(key);
-    const shots = (await state(page)).shots;
-    await advanceFrames(page, 16);
-    expect((await state(page)).shots).toBe(shots);
-    expect((await call(page, 'getMetrics')).input.fire).toBe(false);
-  }
-});
-
-test('paired arrow keys aim diagonally and releasing one preserves the remaining direction', async ({ page }) => {
+test('Left and Right rotate freely through non-45-degree headings without firing', async ({ page }) => {
   await startArena(page);
   await emptyCombat(page);
-  await page.keyboard.down('ArrowUp');
+  const before = (await state(page)).player;
   await page.keyboard.down('ArrowRight');
-  await advanceFrames(page, 8);
-  const diagonal = await state(page);
-  const screenX = 0.8660254 * (diagonal.player.aimX - diagonal.player.aimZ);
-  const screenY = 0.5 * (diagonal.player.aimX + diagonal.player.aimZ);
-  expect(screenX).toBeGreaterThan(0);
-  expect(screenY).toBeLessThan(0);
-  expect(screenX).toBeCloseTo(-screenY, 4);
-  expect(Math.hypot(diagonal.player.aimX, diagonal.player.aimZ)).toBeCloseTo(1, 4);
-  await page.keyboard.up('ArrowUp');
-  await advanceFrames(page, 8);
-  const right = await state(page);
-  expect(right.shots).toBeGreaterThan(diagonal.shots);
-  expect(right.player.aimX - right.player.aimZ).toBeGreaterThan(0);
-  expect(right.player.aimX + right.player.aimZ).toBeCloseTo(0, 4);
+  await advanceFrames(page, 7);
   await page.keyboard.up('ArrowRight');
-  const shots = (await state(page)).shots;
-  await advanceFrames(page, 16);
-  expect((await state(page)).shots).toBe(shots);
+  const right = await state(page);
+  expect(headingDelta(right.player, before)).toBeCloseTo(radians(17.5), 4);
+  expect(right.shots).toBe(0);
+  expect(distance(right.player, before)).toBeLessThan(0.001);
+  await page.keyboard.down('ArrowLeft');
+  await advanceFrames(page, 14);
+  await page.keyboard.up('ArrowLeft');
+  const left = await state(page);
+  expect(headingDelta(left.player, before)).toBeCloseTo(radians(-17.5), 4);
+  expect(left.shots).toBe(0);
 });
 
-test('WASD movement and arrow-key shooting work independently at the same time', async ({ page }) => {
+test('holding Up fires along the current free heading without snapping toward an enemy', async ({ page }) => {
+  await startArena(page);
+  await emptyCombat(page);
+  await page.keyboard.down('ArrowRight');
+  await advanceFrames(page, 7);
+  await page.keyboard.up('ArrowRight');
+  const aiming = await state(page);
+  await call(page, 'spawnEnemy', 0, -aiming.player.aimX * 8, -aiming.player.aimZ * 8, 1000);
+  await page.keyboard.down('ArrowUp');
+  await advanceFrames(page, 12);
+  await page.keyboard.up('ArrowUp');
+  const firing = await state(page);
+  expect(firing.shots).toBeGreaterThan(aiming.shots);
+  expect(headingDelta(firing.player, aiming.player)).toBeCloseTo(0, 5);
+  const bullet = firing.bullets.find(item => item.owner === 0);
+  expect(bullet).toBeDefined();
+  const bulletSpeed = Math.hypot(bullet.dx, bullet.dz);
+  const alignment = (bullet.dx * firing.player.aimX + bullet.dz * firing.player.aimZ) / bulletSpeed;
+  expect(alignment).toBeGreaterThan(0.99);
+});
+
+test('WASD movement, turning and held fire work independently together', async ({ page }) => {
   await startArena(page);
   await emptyCombat(page);
   const before = (await state(page)).player;
   await page.keyboard.down('w');
+  await page.keyboard.down('ArrowUp');
   await page.keyboard.down('ArrowRight');
-  await advanceFrames(page, 12);
+  await advanceFrames(page, 7);
   const moving = await state(page);
   expect(moving.player.x + moving.player.z).toBeLessThan(before.x + before.z);
-  expect(moving.player.aimX - moving.player.aimZ).toBeGreaterThan(0);
-  expect(moving.player.aimX + moving.player.aimZ).toBeCloseTo(0, 4);
+  expect(headingDelta(moving.player, before)).toBeCloseTo(radians(17.5), 4);
   expect(moving.shots).toBeGreaterThan(0);
   await page.keyboard.up('w');
+  await page.keyboard.up('ArrowRight');
   await advanceFrames(page, 12);
   const standing = await state(page);
   expect(distance(standing.player, moving.player)).toBeLessThan(0.001);
+  expect(headingDelta(standing.player, moving.player)).toBeCloseTo(0, 5);
   expect(standing.shots).toBeGreaterThan(moving.shots);
+  await page.keyboard.up('ArrowUp');
+});
+
+test('Shift provides fine aim at thirty percent of normal rotation speed', async ({ page }) => {
+  await startArena(page);
+  await emptyCombat(page);
+  const normalBefore = (await state(page)).player;
+  await page.keyboard.down('ArrowRight');
+  await advanceFrames(page, 7);
   await page.keyboard.up('ArrowRight');
+  const normal = headingDelta((await state(page)).player, normalBefore);
+  await call(page, 'start', 1);
+  await emptyCombat(page);
+  const fineBefore = (await state(page)).player;
+  await page.keyboard.down('Shift');
+  await page.keyboard.down('ArrowRight');
+  await advanceFrames(page, 7);
+  await page.keyboard.up('ArrowRight');
+  await page.keyboard.up('Shift');
+  const fine = headingDelta((await state(page)).player, fineBefore);
+  expect(normal).toBeCloseTo(radians(17.5), 4);
+  expect(fine).toBeCloseTo(radians(5.25), 4);
+  expect(fine / normal).toBeCloseTo(0.3, 4);
+  expect((await state(page)).shots).toBe(0);
+});
+
+test('releasing turn stops rotation while Up keeps firing, and releasing Up stops shots', async ({ page }) => {
+  await startArena(page);
+  await emptyCombat(page);
+  await page.keyboard.down('ArrowLeft');
+  await page.keyboard.down('ArrowUp');
+  await advanceFrames(page, 8);
+  const turning = await state(page);
+  await page.keyboard.up('ArrowLeft');
+  await advanceFrames(page, 12);
+  const holding = await state(page);
+  expect(headingDelta(holding.player, turning.player)).toBeCloseTo(0, 5);
+  expect(holding.shots).toBeGreaterThan(turning.shots);
+  await page.keyboard.up('ArrowUp');
+  const shots = (await state(page)).shots;
+  await advanceFrames(page, 16);
+  expect((await state(page)).shots).toBe(shots);
+  const input = (await call(page, 'getMetrics')).input;
+  expect(input.turnAim).toBe(0);
+  expect(input.fire).toBe(false);
+});
+
+test('aim wraps continuously through 360 degrees and keeps rotating beyond a full turn', async ({ page }) => {
+  await startArena(page);
+  await emptyCombat(page);
+  const before = (await state(page)).player;
+  await page.keyboard.down('ArrowRight');
+  await advanceFrames(page, 144);
+  const wrapped = await state(page);
+  expect(headingDelta(wrapped.player, before)).toBeCloseTo(0, 4);
+  expect(Math.hypot(wrapped.player.aimX, wrapped.player.aimZ)).toBeCloseTo(1, 4);
+  expect(wrapped.shots).toBe(0);
+  await advanceFrames(page, 7);
+  await page.keyboard.up('ArrowRight');
+  expect(headingDelta((await state(page)).player, before)).toBeCloseTo(radians(17.5), 4);
 });
 
 test('number shortcuts and keyboard-activated weapon buttons select distinct projectile patterns', async ({ page }) => {
@@ -238,9 +298,9 @@ test('number shortcuts and keyboard-activated weapon buttons select distinct pro
     await emptyCombat(page);
     await page.keyboard.press(String(weapon + 1));
     expect((await state(page)).weapon).toBe(weapon);
-    await page.keyboard.down('ArrowRight');
+    await page.keyboard.down('ArrowUp');
     await advanceFrames(page, 1);
-    await page.keyboard.up('ArrowRight');
+    await page.keyboard.up('ArrowUp');
     const shots = (await state(page)).bullets.filter(bullet => bullet.owner === 0);
     expect(shots.length).toBeGreaterThan(0);
     expect(shots.every(bullet => bullet.kind === weapon)).toBe(true);
@@ -396,6 +456,7 @@ test('losing window focus pauses play and releases held movement and fire', asyn
   await startArena(page);
   await page.keyboard.down('d');
   await page.keyboard.down('ArrowRight');
+  await page.keyboard.down('ArrowUp');
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   const paused = await state(page);
   expect(paused.phase).toBe(2);
@@ -404,7 +465,9 @@ test('losing window focus pauses play and releases held movement and fire', asyn
   const controls = await call(page, 'getMetrics');
   expect(controls.input.fire).toBe(false);
   expect(controls.input.moveX).toBe(0);
+  expect(controls.input.turnAim).toBe(0);
   await page.keyboard.up('ArrowRight');
+  await page.keyboard.up('ArrowUp');
   await page.keyboard.up('d');
 });
 
@@ -592,10 +655,12 @@ test('a complete desktop round can start, move, shoot, dash, pause and replay us
   expect((await state(page)).phase).toBe(1);
   await emptyCombat(page);
   await page.keyboard.down('w');
+  await page.keyboard.down('ArrowUp');
   await page.keyboard.down('ArrowRight');
   await advanceFrames(page, 10);
   await page.keyboard.up('w');
   await page.keyboard.up('ArrowRight');
+  await page.keyboard.up('ArrowUp');
   const played = await state(page);
   expect(played.shots).toBeGreaterThan(0);
   expect(played.player.x + played.player.z).toBeLessThan(0);
