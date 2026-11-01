@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#0a101b">
     <meta name="description" content="Dash Arena — a fast isometric arena shooter. Three weapons, one boss, ninety seconds. Move fast. Hit harder.">
-    <meta name="dash-arena-build" content="dash-arena-2026-10-31.2">
+    <meta name="dash-arena-build" content="dash-arena-2026-11-01.1">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Dash Arena">
     <meta property="og:description" content="Three weapons. One boss. Ninety seconds. A fast isometric arena shooter in your browser.">
@@ -13,7 +13,7 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="preload" href="src/fonts/chakra-petch-700-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="src/fonts/chakra-petch-600-latin.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="src/styles.css?v=dash-arena-2026-10-31.2">
+    <link rel="stylesheet" href="src/styles.css?v=dash-arena-2026-11-01.1">
   </head>
   <body>
     <main class="game-shell" aria-label="Dash Arena game">
@@ -54,7 +54,7 @@
             <p class="panel-copy">Dash through danger. Break their cover.<br>Drop the boss before the clock runs out.</p>
             <div class="run-tags"><span>3 WEAPONS</span><span>1 ARENA</span><span>NO WAITING</span></div>
             <button id="start" class="primary-button" type="button">Enter arena <span aria-hidden="true">↗</span></button>
-            <p class="start-controls desktop-only"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span><span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> hold to aim + fire</span><span><kbd>Space</kbd> dash</span></p>
+            <p class="start-controls desktop-only"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span><span><kbd>←</kbd><kbd>→</kbd> rotate aim</span><span><kbd>↑</kbd> hold to fire</span><span><kbd>Shift</kbd> fine aim</span><span><kbd>Space</kbd> dash</span></p>
             <span class="panel-footnote desktop-only">Press Enter to start</span>
             <p class="start-controls touch-only">Left pad to move · Hold FIRE to auto-aim · DASH to evade</p>
           </div>
@@ -83,13 +83,13 @@
         <div class="touch-tip">Keep moving.<br><strong>Keep firing.</strong></div>
         <div class="action-zone"><button id="touch-dash" class="dash-button" type="button" aria-label="Dash">↗<span>DASH</span></button><button id="touch-fire" class="fire-button" type="button" aria-label="Hold to fire with auto aim"><span class="fire-reticle" aria-hidden="true">⌖</span>FIRE</button></div>
       </div>
-      <footer class="control-legend desktop-only"><span><kbd>WASD</kbd> move</span><span class="shooting-legend"><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> hold to aim + fire</span><span><kbd>Space</kbd> dash through bullets</span><span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> switch weapon</span><span><kbd>P</kbd> pause</span><span><kbd>H</kbd> help</span><span class="legend-tip">Explosive barrels are your friends. Briefly.</span></footer>
+      <footer class="control-legend desktop-only"><span><kbd>WASD</kbd> move</span><span><kbd>←</kbd><kbd>→</kbd> rotate aim</span><span class="shooting-legend"><kbd>↑</kbd> hold to fire</span><span><kbd>Shift</kbd> fine aim</span><span><kbd>Space</kbd> dash through bullets</span><span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> switch weapon</span><span><kbd>P</kbd> pause</span><span><kbd>H</kbd> help</span><span class="legend-tip">Explosive barrels are your friends. Briefly.</span></footer>
     </main>
 
-    <div id="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden><div class="help-panel"><span class="panel-kicker">QUICK FIELD GUIDE</span><h2 id="help-title">Own the arena.</h2><p>Survive the rush, build your score, then defeat <strong>the Warden</strong> when it arrives after 60 seconds. You have 90 seconds in total.</p><div class="help-grid"><div><strong>Keep moving</strong><p>WASD moves relative to your screen. Hold an arrow key to aim and fire in that direction. Hold two adjacent arrows to fire diagonally.</p></div><div><strong>Dash through danger</strong><p>Space gives you a short invulnerable dash. Watch the dash bar for your next escape.</p></div><div><strong>Pick your punch</strong><p>1: rapid blaster. 2: close-range shotgun. 3: explosive launcher. Every weapon has unlimited ammunition.</p></div><div><strong>Use the environment</strong><p>Break cover, set off barrels, and chain eliminations quickly for bigger score multipliers.</p></div></div><p class="help-touch">On touchscreens, use the movement pad and hold FIRE to aim at the nearest threat. Touch controls stay below the arena.</p><p class="help-shortcuts">Enter starts, replays or resumes · P / Esc pauses · R restarts · M toggles sound · H opens help</p><button id="help-close" class="primary-button" type="button">Back to arena <span aria-hidden="true">→</span></button></div></div>
+    <div id="help-overlay" class="help-overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden><div class="help-panel"><span class="panel-kicker">QUICK FIELD GUIDE</span><h2 id="help-title">Own the arena.</h2><p>Survive the rush, build your score, then defeat <strong>the Warden</strong> when it arrives after 60 seconds. You have 90 seconds in total.</p><div class="help-grid"><div><strong>Move and aim independently</strong><p>WASD moves relative to your screen. Hold ← or → to rotate your weapon through a full circle. Hold ↑ to fire in that direction. Hold Shift for slower, precise aiming.</p></div><div><strong>Dash through danger</strong><p>Space gives you a short invulnerable dash. Watch the dash bar for your next escape.</p></div><div><strong>Pick your punch</strong><p>1: rapid blaster. 2: close-range shotgun. 3: explosive launcher. Every weapon has unlimited ammunition.</p></div><div><strong>Use the environment</strong><p>Break cover, set off barrels, and chain eliminations quickly for bigger score multipliers.</p></div></div><p class="help-touch">On touchscreens, use the movement pad and hold FIRE to aim at the nearest threat. Touch controls stay below the arena.</p><p class="help-shortcuts">Enter starts, replays or resumes · P / Esc pauses · R restarts · M toggles sound · H opens help</p><button id="help-close" class="primary-button" type="button">Back to arena <span aria-hidden="true">→</span></button></div></div>
     <div id="engine-loading" class="engine-loading" role="status"><span class="loading-symbol" aria-hidden="true">↗</span><strong>Opening the arena…</strong><span>Get ready to move.</span></div>
     <div id="announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
     <noscript><div class="engine-loading"><strong>Dash Arena needs JavaScript enabled.</strong><span>Enable it, then reload to play.</span></div></noscript>
-    <script type="module" src="src/bootstrap.js?v=dash-arena-2026-10-31.2"></script>
+    <script type="module" src="src/bootstrap.js?v=dash-arena-2026-11-01.1"></script>
   </body>
 </html>

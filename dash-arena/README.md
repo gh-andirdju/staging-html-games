@@ -8,7 +8,9 @@ movement and weapon choice matter.
 ## Play
 
 - WASD: screen-relative movement
-- Hold arrow keys: aim and fire; combine two arrows for diagonal shots
+- Left / Right arrows: rotate aim smoothly through 360 degrees
+- Hold Up arrow: fire in the current facing direction
+- Hold Shift while turning: fine aiming
 - Space: invulnerable dash, with a short recharge
 - 1 / 2 / 3: blaster / shotgun / explosive launcher
 - Enter: start or play again; P / Escape: pause; R: restart; M: sound; H: help

@@ -24,7 +24,7 @@ Movement input mx/my screen coords positiveRIGHT/DOWN; convert x=(mx+my)*.707106
 ## Wasm exports (simulation)
 
 `engine_version()->u32`=1; `reset(seed:u32)`ready; `start(seed:u32)`playing; `set_paused(value:u32)`; `step(frames:u32)`.
-`input(mx:f32,my:f32,aim_nx:f32,aim_ny:f32,fire:u32,dash:u32,weapon:u32,autoaim:u32,aspect:f32)` is legacy NDC input for low-level tests. Desktop uses `input_keyboard(mx:f32,my:f32,ax:f32,ay:f32,fire:u32,dash:u32,weapon:u32,autoaim:u32,aspect:f32)`: ax/ay is arrow-key direction positive right/down, converted to world direction in Rust; zero retains facing. dash is one-shot request, weapon0..2.
+`input(mx:f32,my:f32,aim_nx:f32,aim_ny:f32,fire:u32,dash:u32,weapon:u32,autoaim:u32,aspect:f32)` is legacy NDC input for low-level tests. Legacy eight-direction input uses `input_keyboard(mx:f32,my:f32,ax:f32,ay:f32,fire:u32,dash:u32,weapon:u32,autoaim:u32,aspect:f32)`: ax/ay is arrow-key direction positive right/down, converted to world direction in Rust; zero retains facing. dash is one-shot request, weapon0..2.
 `hud_ptr()->*const f32` updates and returns32f32:
 [phase,tick,timeLeftSeconds,score,kills,combo,maxCombo,playerX,playerZ,hp,dashCd,dashFrames,weapon,enemyCount,bulletCount,particleCount,bossHp,bossMaxHp,bossPresent,bossDead,shots,explosions,propsDestroyed,damageTaken,dashes,aimX,aimZ,camX,camZ,0,0,0].
 `snapshot_ptr()->*const u8`, `snapshot_len()->usize`: snapshot_ptr refreshes stored JSON, snapshot_len returns byte length. JSON named Game fields camelCase: phase,tick,timeLeft,score,kills,combo,maxCombo,weapon,bossSpawned,bossDead,shots,explosions,propsDestroyed,damageTaken,dashes,camX,camZ,player:{x,z,hp,aimX,aimZ,dashFrames,dashCd,hurtFrames}, enemies:[{id,kind,x,z,hp,maxHp}],bullets:[{x,z,dx,dz,kind,owner,damage,life}],props:[{x,z,w,d,h,hp,maxHp,kind}],particleCount.
@@ -36,9 +36,13 @@ Testing exports: `test_set_tick(tick)`, `test_set_player(x,z,hp)`, `test_clear_e
 
 ## Browser engine facade (main owns src/engine.js)
 
-`loadEngine(version)` async => {kind:'rust-wasm',renderer:'rust-webgl2',reset(seed),start(seed),pause(bool),input({moveX,moveY,keyboardAim:true,aimDirX,aimDirY,fire,dash,weapon,autoAim},aspect),step(frames),hud()->object,getState()->JSON,render(gl,aspect)->vertexCount,test:{setTick,setPlayer,clearEnemies,clearBullets,clearProps,spawnEnemy,spawnBullet,setWeapon,prepareVisualLayout,stress}}.
+`loadEngine(version)` async => {kind:'rust-wasm',renderer:'rust-webgl2',reset(seed),start(seed),pause(bool),input({moveX,moveY,continuousAim:true,turnAim,fineAim,fire,dash,weapon,autoAim},aspect),step(frames),hud()->object,getState()->JSON,render(gl,aspect)->vertexCount,test:{setTick,setPlayer,clearEnemies,clearBullets,clearProps,spawnEnemy,spawnBullet,setWeapon,prepareVisualLayout,stress}}.
 JS HUD object names same snapshot, includes enemyCount,bulletCount,particleCount,bossHp,bossMaxHp,bossPresent. Engine GL render caches resources, uploads7f32vertices and draws gl.TRIANGLES; app sets actual backing pixel size and viewport. App handles pause-on-blur, fixed-step accumulator, browser pointer/keyboard, UI, audio and versioned loader.
 
 ## Browser test hook (UI agent owns)
 
 window.__dashArenaTest={isReady:true,buildId,engine:'rust-wasm',renderer:'rust-webgl2',getState(),start(seed=1),reset(seed=1),setAutoStep(bool),advanceFrames(frames),setInput({...}),setWeapon(index),prepareVisualLayout(),getMetrics(),...engine.test forwarding helpers}. All mutations render + refresh HUD immediately. advanceFrames runs synchronous step then render. prepareVisualLayout stops autostep, test_scene(), render + await document.fonts.ready. No wallclock gameplay dependencies.
+
+## Continuous keyboard aiming
+
+Desktop input uses `input_turn(mx,my,turn,fine,fire,dash,weapon,autoaim,aspect)`: turn=-1/0/1 rotates the current screen heading counterclockwise/hold/clockwise at 150 degrees per second, or 45 with fine=1. Up controls fire separately; WASD movement is independent. Rust converts the screen heading back to a unit world direction. Zero turn retains facing; mobile autoaim retains priority. Existing `input_keyboard` is retained only as a legacy eight-direction entrypoint. Browser facade controls add `{continuousAim:true,turnAim:0,fineAim:false}`.
